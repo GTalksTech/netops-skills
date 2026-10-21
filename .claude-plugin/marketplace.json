@@ -1,0 +1,9 @@
+{
+  "name": "netops-skills",
+  "description": "AI skills for network engineers, from the G Talks Tech YouTube channel",
+  "owner": {
+    "name": "Garrett Masters",
+    "email": "garrett@gtalkstech.com"
+  },
+  "plugins": []
+}

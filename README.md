@@ -2,7 +2,7 @@
 
 AI skills for network engineers. Install once with Claude Code, then run real workflows against your network.
 
-Built and maintained by [Garrett Masters](https://gtalkstech.com) of **G Talks Tech · The AI-Augmented Engineer**. Every skill here ships with a video on the [YouTube channel](https://www.youtube.com/@GTalksTechOfficial) that builds and runs it against a real lab.
+Built and maintained by [Garrett Masters](https://gtalkstech.com) of **G Talks Tech · The AI-Augmented Engineer**.
 
 ## Install
 

@@ -6,21 +6,23 @@ Built and maintained by [Garrett Masters](https://gtalkstech.com) of **G Talks T
 
 ## Install
 
-Add the marketplace once:
+Add the marketplace once, then install the plugin:
 
 ```
 /plugin marketplace add GTalksTech/netops-skills
+/plugin install network-ops@netops-skills
 ```
 
-Then install any skill by name:
+## What's inside
 
-```
-/plugin install <skill-name>@netops-skills
-```
+**network-ops**, one plugin with every skill. New skills arrive as plugin updates.
 
-## Skills
+| Skill | What it does |
+|---|---|
+| network-snapshot | Read-only snapshot of every device (configs and key state), saved to git, with Claude explaining what changed since last time. Cisco IOS/IOS-XE and FortiGate tested; six more vendors included and marked untested. |
+| network-health-check | Is the network healthy right now. Coming soon. |
 
-The first two skills, a campus health check and a network state collector, are on the way. Each one gets its own folder under `plugins/` with a README covering the lab it was built on and what it needs.
+Setup, vendors and read-only account steps: [plugins/network-ops/README.md](plugins/network-ops/README.md).
 
 ## Related
 

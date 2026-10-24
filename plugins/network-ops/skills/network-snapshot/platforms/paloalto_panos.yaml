@@ -1,0 +1,25 @@
+# Palo Alto Networks PAN-OS (firewall CLI)
+status: untested          # written from Palo Alto docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: paloalto_panos
+invalid_markers: ["Invalid syntax", "Unknown command", "Server error"]
+uptime:
+  cmd: show system info
+  regex: 'uptime:\s*(.+)'
+commands:
+  - cmd: show config running
+  - cmd: show system info
+  - cmd: show interface all
+  - cmd: show routing route
+  - cmd: show routing protocol ospf neighbor
+  - cmd: show routing protocol bgp summary
+  - cmd: show high-availability state
+strip:
+  - '^uptime:'
+  - '^time:'
+  - 'app-release-date:'
+  - 'threat-release-date:'
+  - 'wildfire-release-date:'
+  - 'av-release-date:'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'

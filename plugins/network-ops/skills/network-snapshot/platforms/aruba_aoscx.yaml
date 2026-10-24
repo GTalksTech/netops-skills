@@ -1,0 +1,30 @@
+# HPE Aruba AOS-CX
+status: untested          # written from HPE Aruba docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: aruba_aoscx
+invalid_markers: ["Invalid input", "% Command incomplete", "Permission denied", "% Unknown command", "% Ambiguous command"]
+uptime:
+  cmd: show system
+  regex: 'Up Time\s*:\s*(.+)'
+commands:
+  - cmd: show running-config
+  - cmd: show version
+  - cmd: show system
+  - cmd: show interface brief
+  - cmd: show vlan
+  - cmd: show lacp aggregates
+  - cmd: show vsx brief
+  - cmd: show spanning-tree summary
+  - cmd: show lldp neighbor-info detail
+  - cmd: show ip route all-vrfs
+  - cmd: show ip ospf neighbors all-vrfs
+  - cmd: show bgp all summary
+strip:
+  - '^Current configuration:'
+  - 'Up Time'
+  - 'CPU Util'
+  - 'Memory Usage'
+  - '^\s*Neighbor Chassis-ID TTL'
+  - 'TTL\s*:'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'

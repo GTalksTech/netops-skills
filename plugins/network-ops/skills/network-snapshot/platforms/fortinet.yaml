@@ -1,0 +1,49 @@
+# Fortinet FortiGate (FortiOS)
+status: tested            # tested on lab v2 fw-01 (FortiGate-VM 8.0.1), 2026-10-23
+netmiko_device_type: fortinet
+invalid_markers: ["Unknown action", "Command fail", "command parse error", "Permission denied"]
+uptime:
+  cmd: get system performance status
+  regex: 'Uptime:\s*(.+)'
+commands:
+  - cmd: show                                   # the whole non-default configuration
+    timeout: 180
+  - cmd: get system status
+  - cmd: get hardware status
+  - cmd: get system interface physical
+  - cmd: get system ha status
+  - cmd: get system dns
+  - cmd: get system ntp
+  - cmd: get router info routing-table all
+  - cmd: get router info6 routing-table
+  - cmd: get router info ospf interface
+  - cmd: get router info ospf neighbor
+  - cmd: get router info bgp summary
+  - cmd: get router info bgp neighbors
+  - cmd: get firewall proute
+  - cmd: get system fortiguard-service status
+health_commands:                                # run only with --health; never committed or diffed
+  - cmd: get system performance status
+  - cmd: get hardware cpu
+  - cmd: get hardware memory
+  - cmd: get system session-info statistics
+  - cmd: get system session-info full-stat
+  - cmd: get system performance firewall statistics
+  - cmd: get vpn ipsec tunnel summary
+  - cmd: get vpn ipsec tunnel details
+  - cmd: get system admin status
+  - cmd: get system arp
+strip:
+  - '^System time:'
+  - '^#conf_file_ver='
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'          # route age, OSPF dead time
+    replace: '--:--:--'
+  - pattern: '\b\d+d\d+h\d+m\b'                 # long route ages
+    replace: '--'
+  - pattern: 'Hello received \d+ sent \d+, DD received \d+ sent \d+'   # OSPF packet counters
+    replace: 'Hello/DD counters'
+  - pattern: 'LS-Req received \d+ sent \d+, LS-Upd received \d+ sent \d+'
+    replace: 'LS counters'
+  - pattern: 'LS-Ack received \d+ sent \d+, Discarded \d+'
+    replace: 'LS-Ack counters'

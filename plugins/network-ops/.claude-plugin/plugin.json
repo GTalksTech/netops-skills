@@ -1,0 +1,12 @@
+{
+  "name": "network-ops",
+  "version": "0.1.0",
+  "description": "AI skills for network engineers from G Talks Tech: read-only, multi-vendor network snapshots saved to git, with health checks built on top.",
+  "author": {
+    "name": "Garrett Masters (G Talks Tech)",
+    "url": "https://gtalkstech.com"
+  },
+  "homepage": "https://github.com/GTalksTech/netops-skills",
+  "license": "MIT",
+  "keywords": ["network", "cisco", "fortinet", "snapshot", "health-check", "netmiko"]
+}

@@ -1,0 +1,34 @@
+# Cisco NX-OS (Nexus)
+status: untested          # written from Cisco docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: cisco_nxos
+invalid_markers: ["% Invalid command", "% Incomplete command", "% Permission denied", "% Invalid parameter"]
+uptime:
+  cmd: show system uptime
+  regex: 'System uptime:\s*(.+)'
+commands:
+  - cmd: show running-config
+  - cmd: show version
+  - cmd: show inventory
+  - cmd: show interface brief
+  - cmd: show vlan brief
+  - cmd: show port-channel summary
+  - cmd: show vpc brief
+  - cmd: show spanning-tree summary
+  - cmd: show cdp neighbors detail
+  - cmd: show ip route vrf all
+  - cmd: show ip ospf neighbors vrf all
+  - cmd: show bgp all summary
+strip:
+  - '^!Time:'
+  - '^!Running configuration last done at'
+  - 'uptime is'
+  - '^\s*Holdtime\s*:'
+  - '^Kernel uptime is'
+  - '^Last reset'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'
+  - pattern: '\b\d+[ywd]\d+[dhw]\b'
+    replace: '--'
+sort_blocks:
+  show cdp neighbors detail: '^Device ID:'

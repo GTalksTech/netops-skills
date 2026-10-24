@@ -1,0 +1,27 @@
+# Cisco ASA
+status: untested          # written from Cisco docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: cisco_asa
+invalid_markers: ["ERROR: % Invalid input", "% Invalid input", "ERROR: Command authorization failed"]
+uptime:
+  cmd: show version
+  regex: ' up (.+)'
+commands:
+  - cmd: show running-config
+  - cmd: show version
+  - cmd: show inventory
+  - cmd: show interface ip brief
+  - cmd: show nameif
+  - cmd: show route
+  - cmd: show failover state
+  - cmd: show ospf neighbor
+  - cmd: show bgp summary
+strip:
+  - '^: Written by'
+  - '^: Saved'
+  - '^Cryptochecksum:'
+  - ' up \d+'
+  - '^Configuration last modified by'
+  - '^Failover cluster up '
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'

@@ -1,0 +1,21 @@
+# Example inventory: G Talks Tech lab v2 (CML). Copy to inventory.yaml and edit for your network.
+# One entry per device. "site" groups devices for --site; "device_type" picks the vendor profile
+# in platforms/ (file name without .yaml). "credential" (optional) names the stored password when
+# devices share a username but not a password. Passwords are NOT stored here: run
+#   python scripts/snapshot.py --set-credential <username>
+defaults:
+  username: claude-ro          # a read-only account (see README for each vendor)
+  device_type: cisco_ios
+devices:
+  - {name: hq-edge-rtr-01,  host: 192.168.1.231, site: hq}
+  - {name: fw-01,           host: 192.168.1.242, site: hq, device_type: fortinet, username: claude-ro-cli}
+  - {name: hq-core-sw-01,   host: 192.168.1.232, site: hq}
+  - {name: hq-dist-sw-01,   host: 192.168.1.233, site: hq}
+  - {name: hq-dist-sw-02,   host: 192.168.1.234, site: hq}
+  - {name: hq-acc-sw-01,    host: 192.168.1.235, site: hq}
+  - {name: hq-acc-sw-02,    host: 192.168.1.236, site: hq}
+  - {name: hq-acc-sw-03,    host: 192.168.1.237, site: hq}
+  - {name: hq-acc-sw-04,    host: 192.168.1.238, site: hq}
+  - {name: branch1-rtr-01,  host: 192.168.1.239, site: branch1}
+  - {name: branch1-sw-01,   host: 192.168.1.240, site: branch1}
+  - {name: isp-rtr-01,      host: 192.168.1.241, site: isp}

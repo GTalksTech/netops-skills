@@ -5,5 +5,11 @@
     "name": "Garrett Masters",
     "email": "garrett@gtalkstech.com"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "network-ops",
+      "source": "./plugins/network-ops",
+      "description": "AI skills for network engineers: read-only, multi-vendor network snapshots saved to git, with health checks built on top."
+    }
+  ]
 }

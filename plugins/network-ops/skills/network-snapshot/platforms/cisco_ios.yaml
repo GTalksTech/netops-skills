@@ -1,0 +1,100 @@
+# Cisco IOS / IOS-XE (routers and switches)
+status: tested            # tested on lab v2 (IOL 17.16), 2026-10-23
+netmiko_device_type: cisco_ios
+invalid_markers: ["% Invalid input", "% Incomplete command", "% Ambiguous command", "% Authorization failed"]
+uptime:
+  cmd: show version
+  regex: 'uptime is (.+)'
+  reload_reason: '^Last reload reason:\s*(.+)$'
+commands:
+  # "view full" returns the whole config even on a read-only (privilege 5) account,
+  # where plain "show running-config" comes back empty. Works at privilege 15 too.
+  - cmd: show running-config view full
+  - cmd: show startup-config            # compared with running to spot unsaved changes
+  - cmd: show version
+  - cmd: show inventory
+  - cmd: show boot
+  - cmd: show license summary          # IOS-XE 16.9+ hardware
+  - cmd: show switch detail            # stack members (stackable switches)
+  - cmd: show module                   # chassis line cards
+  - cmd: show redundancy               # dual supervisor / route processor
+  - cmd: show ip interface brief
+  - cmd: show interfaces description
+  - cmd: show interfaces status
+  - cmd: show interfaces switchport
+  - cmd: show interfaces trunk
+  - cmd: show vlan brief
+  - cmd: show vtp status
+  - cmd: show etherchannel summary
+  - cmd: show spanning-tree summary
+  - cmd: show spanning-tree root
+  - cmd: show standby brief
+  - cmd: show vrrp brief
+  - cmd: show cdp neighbors detail
+  - cmd: show lldp neighbors detail
+  - cmd: show vrf
+  - cmd: show ip protocols
+  - cmd: show ip route
+  - cmd: show ip ospf interface brief
+  - cmd: show ip ospf neighbor
+  - cmd: show ip eigrp neighbors
+  - cmd: show ip bgp summary
+  - cmd: show ip access-lists
+  - cmd: show ip ssh
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show processes cpu sorted 5min
+  - cmd: show processes cpu history
+  - cmd: show memory statistics
+  - cmd: show platform resources       # Catalyst 9000 / IOS-XE hardware
+  - cmd: show platform software status control-processor brief   # IOS-XE routers
+  - cmd: show environment all          # hardware: temperature, fans, power
+  - cmd: show power inline             # PoE switches
+  - cmd: show interfaces transceiver detail   # optic light levels
+  - cmd: show interfaces
+  - cmd: show interfaces counters errors
+  - cmd: show interfaces status err-disabled
+  - cmd: show spanning-tree detail
+  - cmd: show spanning-tree inconsistentports
+  - cmd: show spanning-tree blockedports
+  - cmd: show standby
+  - cmd: show ip ospf statistics
+  - cmd: show ip bgp neighbors
+  - cmd: show crypto session
+  - cmd: show ip sla statistics
+  - cmd: show ntp status
+  - cmd: show ntp associations
+  - cmd: show logging
+  - cmd: show clock
+strip:                    # whole lines that change on their own
+  - '^Building configuration'
+  - '^Current configuration : \d+ bytes'
+  - '^! Last configuration change at'
+  - '^! NVRAM config last updated'
+  - 'uptime is'
+  - '^\s*Holdtime\s*:'
+  - '^BGP table version is'
+  - 'network entries using \d+ bytes'
+  - 'path entries using \d+ bytes'
+  - 'BGP using \d+ total bytes'
+  - 'BGP activity '
+  - 'attribute entries using'
+  - 'BGP AS-PATH entries using'
+  - 'BGP Route-Map cache entries using'
+  - 'BGP filter-list cache entries using'
+  - 'BGP extended community entries using'
+  - 'multipath network entries and'
+  - 'networks peaked at'
+  - '^Using \d+ out of \d+ bytes'
+mask:                     # parts of lines that change on their own
+  - pattern: '\((\d+) match(es)?\)'                  # ACL hit counters
+    replace: '(hits)'
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'                    # timers: dead time, route age, up/down
+    replace: '--:--:--'
+  - pattern: '\b\d+[ywd]\d+[dhw]\b'                        # long ages: 1d02h, 2w3d
+    replace: '--'
+  # BGP summary neighbor line: keep neighbor, version, AS and state/prefixes; drop message counters
+  - pattern: '^(\d+\.\d+\.\d+\.\d+\s+\d\s+\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+'
+    replace: '\1  (counters)'
+sort_blocks:              # sort neighbor entries so a reboot doesn't reorder the file
+  show cdp neighbors detail: '^Device ID:'
+  show lldp neighbors detail: '^Local Intf:'

@@ -1,0 +1,38 @@
+# Juniper Junos (MX, EX, QFX, SRX)
+status: untested          # written from Juniper docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: juniper_junos
+invalid_markers: ["syntax error", "unknown command", "permission denied", "error: "]
+uptime:
+  cmd: show system uptime
+  regex: 'System booted:.*\((.+?) ago\)'
+commands:
+  - cmd: show configuration | display set
+  - cmd: show version
+  - cmd: show chassis hardware
+  - cmd: show interfaces terse
+  - cmd: show vlans
+  - cmd: show lldp neighbors
+  - cmd: show route summary
+  - cmd: show route
+  - cmd: show ospf neighbor
+  - cmd: show bgp summary
+  - cmd: show chassis cluster status
+strip:
+  - '^## Last commit:'
+  - '^## Last changed:'
+  - 'System booted:'
+  - 'Protocols started:'
+  - 'Last configured:'
+  - '^Current time:'
+  - '^\s*\d+:\d+[AP]M\s+up '
+mask:                     # order matters: long ages before plain timers
+  - pattern: '\b\d+w\d+d \d+:\d+:\d+\b'
+    replace: '--'
+  - pattern: '\b\d+d \d+:\d+:\d+\b'
+    replace: '--'
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'
+  - pattern: '^(\d+\.\d+\.\d+\.\d+\s+\S+\s+\S+\s+\S+\s+\d+)\s+\d+\s*$'   # OSPF dead timer
+    replace: '\1  (dead)'
+  - pattern: '^(\d+\.\d+\.\d+\.\d+\s+\d+)\s+\d+\s+\d+'                     # BGP packet counters
+    replace: '\1  (counters)'

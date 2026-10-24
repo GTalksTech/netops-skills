@@ -1,0 +1,37 @@
+# Arista EOS
+status: untested          # written from Arista docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: arista_eos
+invalid_markers: ["% Invalid input", "% Incomplete command", "% Authorization denied", "% Ambiguous command", "% Unavailable command"]
+uptime:
+  cmd: show version
+  regex: 'Uptime:\s*(.+)'
+commands:
+  - cmd: show running-config
+  - cmd: show version
+  - cmd: show inventory
+  - cmd: show ip interface brief
+  - cmd: show interfaces status
+  - cmd: show vlan brief
+  - cmd: show port-channel summary
+  - cmd: show mlag
+  - cmd: show spanning-tree summary
+  - cmd: show lldp neighbors detail
+  - cmd: show ip route vrf all
+  - cmd: show ip ospf neighbor vrf all
+  - cmd: show ip bgp summary vrf all
+strip:
+  - '^! Command: show running-config'
+  - '^! device:'
+  - '^! Startup-config last modified at'
+  - '^Uptime:'
+  - 'Free memory:'
+  - '^\s*Age \(s\):'
+  - 'Time To Live:'
+  - 'Last changed:'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'
+  - pattern: '\b\d+[ywd]\d+[dhw]\b'
+    replace: '--'
+sort_blocks:
+  show lldp neighbors detail: '^Interface'

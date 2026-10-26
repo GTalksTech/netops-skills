@@ -3,6 +3,7 @@
 Instructions for any coding agent working in this folder (Claude Code, Codex, and
 others that read AGENTS.md). Keep this file short: under 200 lines. Rules for one
 kind of job live next to that job, not here.
+Before writing in `changes/` or `reviews/`, read that folder's AGENTS.md.
 
 Every rule has a date and the mistake behind it. When an agent gets something
 wrong twice, add a rule the same day, in the same shape. When a rule stops
@@ -30,8 +31,8 @@ and branch review.
 ## Rules
 
 - 2026-10-13 | Read-only by default.
-  Use the read-only account and show commands. Changes follow the change rule
-  (it loads when you work in `changes/`) and wait for my approval.
+  Use the read-only account and show commands. Changes follow `changes/AGENTS.md`
+  and wait for my approval.
   Mistake it prevents: an agent "fixing" a device it was asked to look at.
 
 - 2026-10-13 | Plan first for any job with several steps that changes something.

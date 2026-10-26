@@ -4,8 +4,8 @@ The instructions files from the G Talks Tech lab-v2 build, exactly as used on ca
 Start Claude Code in this folder and your sessions follow the same rules mine do.
 
 - `AGENTS.md`: the short main file. Every rule has a date and the mistake it prevents.
-- `.claude/rules/network-changes.md`: loads only when Claude works in `changes/`.
-- `.claude/rules/reviews.md`: loads only when Claude works in `reviews/`.
+- `changes/AGENTS.md`: the change-plan rules, added when Claude works in `changes/`.
+- `reviews/AGENTS.md`: the report rules, added when Claude works in `reviews/`.
 
 ## Use it
 

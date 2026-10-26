@@ -1,12 +1,6 @@
----
-paths:
-  - "changes/**"
----
-
 # Network changes
 
-Loads only when working on a change plan in `changes/`. Every change is one file,
-`changes/YYYY-MM-DD-<short-name>.md`, in four parts:
+Every change is one file, `changes/YYYY-MM-DD-<short-name>.md`, in four parts:
 
 1. Pre-check: run the network health check and save the result.
 2. Change: the exact commands, device by device, in the order they get pushed.

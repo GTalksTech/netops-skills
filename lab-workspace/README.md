@@ -5,7 +5,7 @@ Start Claude Code in this folder and your sessions follow the same rules mine do
 
 - `AGENTS.md`: the short main file. Every rule has a date and the mistake it prevents.
 - `.claude/rules/network-changes.md`: loads only when Claude works in `changes/`.
-- `reviews/AGENTS.md`: loads only when Claude works in `reviews/`.
+- `.claude/rules/reviews.md`: loads only when Claude works in `reviews/`.
 
 ## Use it
 

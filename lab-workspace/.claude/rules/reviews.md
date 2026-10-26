@@ -1,6 +1,11 @@
-# reviews/
+---
+paths:
+  - "reviews/**"
+---
 
-Health-check reports, one file per run: `reviews/YYYY-MM-DD-HHMM-health.md`.
+# Reviews
+
+Loads only when working on a report in `reviews/`. Health-check reports, one file per run: `reviews/YYYY-MM-DD-HHMM-health.md`.
 
 - Findings first, worst first: what is wrong, which device, the evidence (command or
   snapshot file), and the fix. Then what was checked and found healthy, one line each.

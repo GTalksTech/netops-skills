@@ -9,7 +9,7 @@
     {
       "name": "network-ops",
       "source": "./plugins/network-ops",
-      "description": "AI skills for network engineers: read-only, multi-vendor network snapshots saved to git, with health checks built on top."
+      "description": "AI skills for network engineers from G Talks Tech: read-only, multi-vendor network snapshots saved to git, health checks built on top, and a controlled one-device-at-a-time push for approved changes."
     }
   ]
 }

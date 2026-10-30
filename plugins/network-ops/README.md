@@ -6,7 +6,7 @@ you get every skill, including the ones that ship with future videos.
 | Skill | What it does |
 |---|---|
 | network-snapshot | Read-only snapshot of every device, saved to git, with what changed since last time |
-| network-push | Puts an approved change on the network: previews each device's commands, pushes one device at a time with a separate change account, stops on errors, logs what it sent |
+| network-push | Puts an approved change on the network: shows every switch command in the approval prompt, pushes one device at a time (descriptions can batch) with a separate change account, stops on errors, logs what it sent |
 | network-health-check | Is the network healthy right now (coming soon) |
 
 ## network-snapshot

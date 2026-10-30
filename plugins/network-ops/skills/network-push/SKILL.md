@@ -1,45 +1,53 @@
 ---
 name: network-push
-description: Use when an approved change plan is ready to go onto network devices: pushing config to a switch, router or firewall, applying a change file, or saving config after a post-check. Previews each device's commands, pushes one device at a time with the change account, stops on errors and logs what was sent.
+description: Use when an approved change plan is ready to go onto network devices: pushing config to a switch, router or firewall, applying a change, or saving config after a post-check. Puts every switch command in the approval prompt itself, pushes one device at a time with the change account (descriptions can batch), stops on errors and records what was sent.
 ---
 
 # Network push
 
-The only way config goes onto a device. One script, `scripts/push.py`, three actions:
+The only way config goes onto a device. One script, `scripts/push.py`. The commands always go
+IN the command, as a here-doc, never as a file path. That way the approval prompt shows every
+switch command right where the user says yes, so nobody approves a command line they can't read.
 
-- `preview DEVICE FILE`: prints the device and the exact commands. Sends nothing.
-- `push DEVICE FILE`: sends that one file to that one device with the change account
-  (default `admin`, password from the OS credential store). Stops on the first device
-  error and logs everything it sent to `push-log.md` next to the file.
-- `save DEVICE [DEVICE ...]`: saves the running config. Only after the post-check passes.
-- `batch DEVICE=FILE [DEVICE=FILE ...]`: several devices under ONE approval, pushed in the
-  order given, stopping at the first failure. The script allows only interface description
-  lines in a batch and refuses the whole batch otherwise. Add `--preview` to see it first.
+```
+python <this skill>/scripts/push.py push hq-dist-sw-02 --log changes/2026-10-30-vlan40 <<'EOF'
+vlan 40
+ name CAMERAS
+interface range Ethernet0/2, Ethernet1/0 - 3
+ switchport trunk allowed vlan add 40
+EOF
+```
 
-It uses the network-snapshot skill's inventory, vendor profiles and credential store. Run it
-the same way you run `snapshot.py` (same Python). Pushes work on tested profiles only
-(`cisco_ios` today); anything else is refused.
+- `push DEVICE --log DIR`: one device, the change account (default `admin`, password from the
+  OS credential store). Stops on the first device error.
+- `batch --log DIR`: several devices under ONE approval, in order, stopping at the first
+  failure. Each device starts with an `@DEVICE` line. The script refuses the whole batch unless
+  every line is an interface description.
+- `save DEVICE [DEVICE ...] --log DIR`: saves the running config. Only after the post-check passes.
+- `preview DEVICE`: same input, sends nothing. Optional; the approval prompt already shows it all.
+
+`--log` is the change folder. The script writes each device's commands (`DEVICE.txt`) and the
+device's output (`push-log.md`) there, so the change keeps a record of exactly what was sent.
+
+It uses the network-snapshot skill's inventory, vendor profiles and credential store. Run it the
+same way you run `snapshot.py` (same Python). Pushes work on tested profiles only (`cisco_ios`
+today); anything else is refused.
 
 ## Rules
 
-- Only push from an approved change plan. If there is no plan, or the user hasn't approved
-  it, stop and say so.
-- Low-risk, cosmetic changes (interface descriptions only) go in one `batch`, so the user
-  approves them once. Everything else is one device per `push` command, in the order the plan
-  sets, so every impactful push is its own approval. Never loop devices in one command or
-  write your own push script.
-- Keep descriptions and other changes in separate files, so the descriptions can batch.
-- Before every push or batch, run `preview` (or `batch ... --preview`) and show the commands in
-  your message. The user approves right under them.
-- Write each device's commands to its own file in the change folder (for example
-  `changes/2026-10-30-vlan40/hq-dist-sw-01.txt`). The files and `push-log.md` are the record
-  of what was sent.
-- If a push fails, stop. Lines sent before the error are on the device. Re-read the device
-  (a snapshot of that device) before you suggest anything, and offer the plan's rollback.
+- Only push from an approved change plan. If there is no plan, or the user hasn't approved it,
+  stop and say so.
+- Interface descriptions go in one `batch`. Everything else is one `push` per device, in the
+  order the plan sets, so every impactful push is its own approval. Never loop devices in one
+  command, use a file instead of the here-doc, or write your own push script.
+- Before each push, say in one line which device it is and what it does. Never say a device is
+  configured until its push has come back OK.
+- If a push fails, stop. Lines sent before the error are on the device. Re-read the device (a
+  snapshot of that device) before you suggest anything, and offer the plan's rollback.
 - The script refuses destructive lines and a trunk `allowed vlan <list>` without `add`. Never
-  work around a refusal; fix the command file.
-- Save only when the post-check passes, with one `save` listing every device touched. A
-  rollback ends with a save too.
+  work around a refusal; fix the commands.
+- Save only when the post-check passes, with one `save` listing every device touched. A rollback
+  ends with a save too.
 
 ## Setup
 

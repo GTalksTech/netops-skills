@@ -1,5 +1,6 @@
 # Tests for push.py. A fake netmiko connection stands in for the device, so nothing here
-# touches a network. Each test writes a small inventory and a command file to a temp folder.
+# touches a network. Commands arrive on stdin, the way a here-doc delivers them.
+import io
 import sys
 from pathlib import Path
 
@@ -14,6 +15,7 @@ INVENTORY = """defaults:
   device_type: cisco_ios
 devices:
   - {name: sw1, host: 192.0.2.1, site: hq}
+  - {name: sw2, host: 192.0.2.3, site: hq}
   - {name: fw1, host: 192.0.2.2, site: hq, device_type: fortinet}
 """
 
@@ -51,147 +53,138 @@ def env(tmp_path, monkeypatch):
     return tmp_path
 
 
-def run(env, monkeypatch, *argv):
-    monkeypatch.setattr(sys, "argv", ["push.py", *argv, "--repo", str(env)])
+def run(env, monkeypatch, stdin, *argv, log=True):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(stdin))
+    extra = ["--log", str(env / "change")] if log else []
+    monkeypatch.setattr(sys, "argv", ["push.py", *argv, "--repo", str(env), *extra])
     return push.main()
 
 
-def cfg(env, text, name="sw1.txt"):
-    p = env / "change" / name
-    p.parent.mkdir(exist_ok=True)
-    p.write_text(text, encoding="utf-8")
-    return str(p)
-
-
-def test_preview_sends_nothing(env, monkeypatch, capsys):
-    f = cfg(env, "configure terminal\nvlan 40\n name CAMERAS\nend\n")
-    assert run(env, monkeypatch, "preview", "sw1", f) == 0
-    out = capsys.readouterr().out
-    assert "PREVIEW sw1" in out and "as admin" in out and "  vlan 40" in out and "configure terminal" not in out
-    assert FakeConn.sent == []
-
-
-def test_push_one_device_and_logs(env, monkeypatch, capsys):
-    f = cfg(env, "vlan 40\n name CAMERAS\n")
-    assert run(env, monkeypatch, "push", "sw1", f) == 0
+def test_push_from_stdin_records_everything(env, monkeypatch, capsys):
+    assert run(env, monkeypatch, "configure terminal\nvlan 40\n name CAMERAS\nend\n", "push", "sw1") == 0
     assert FakeConn.sent == [["vlan 40", " name CAMERAS"]]
     assert FakeConn.kwargs["username"] == "admin"  # change account, not the read-only default
     assert FakeConn.saves == 0  # push never saves; save comes after the post-check
-    log = (env / "change" / "push-log.md").read_text(encoding="utf-8")
-    assert "push sw1 as admin: OK" in log and "name CAMERAS" in log
+    out = capsys.readouterr().out
+    assert "SENDING sw1" in out and "  vlan 40" in out
+    assert "name CAMERAS" in (env / "change" / "sw1.txt").read_text(encoding="utf-8")
+    assert "push sw1 as admin: OK" in (env / "change" / "push-log.md").read_text(encoding="utf-8")
+
+
+def test_file_argument_is_refused(env, monkeypatch):
+    with pytest.raises(SystemExit):
+        run(env, monkeypatch, "vlan 40\n", "push", "sw1", "commands.txt")
+    assert FakeConn.sent == []
+
+
+def test_no_stdin_is_refused(env, monkeypatch):
+    class Tty(io.StringIO):
+        def isatty(self):
+            return True
+    monkeypatch.setattr(sys, "stdin", Tty(""))
+    monkeypatch.setattr(sys, "argv", ["push.py", "push", "sw1", "--repo", str(env), "--log", str(env)])
+    with pytest.raises(SystemExit):
+        push.main()
+
+
+def test_log_dir_required(env, monkeypatch):
+    with pytest.raises(SystemExit):
+        run(env, monkeypatch, "vlan 40\n", "push", "sw1", log=False)
+
+
+def test_preview_sends_nothing_and_needs_no_log(env, monkeypatch, capsys):
+    assert run(env, monkeypatch, "vlan 40\n", "preview", "sw1", log=False) == 0
+    assert "PREVIEW (nothing sent) sw1" in capsys.readouterr().out
+    assert FakeConn.sent == []
 
 
 def test_device_error_fails_and_says_so(env, monkeypatch, capsys):
     FakeConn.output = "sw1(config)#vlan 4099\n% Invalid input detected at '^' marker.\n"
-    f = cfg(env, "vlan 4099\n")
-    assert run(env, monkeypatch, "push", "sw1", f) == 1
+    assert run(env, monkeypatch, "vlan 4099\n", "push", "sw1") == 1
     out = capsys.readouterr().out
     assert "FAILED on sw1" in out and "still on the device" in out
-    assert "FAILED" in (env / "change" / "push-log.md").read_text(encoding="utf-8")
 
 
-def test_netmiko_exception_is_a_failure(env, monkeypatch, capsys):
+def test_netmiko_exception_is_a_failure(env, monkeypatch):
     FakeConn.raise_error = RuntimeError("Invalid input detected")
-    f = cfg(env, "vlan 40\n")
-    assert run(env, monkeypatch, "push", "sw1", f) == 1
+    assert run(env, monkeypatch, "vlan 40\n", "push", "sw1") == 1
 
 
 def test_bare_allowed_vlan_refused(env, monkeypatch, capsys):
-    f = cfg(env, "interface Ethernet0/1\n switchport trunk allowed vlan 40\n")
-    assert run(env, monkeypatch, "push", "sw1", f) == 2
-    assert "REFUSED" in capsys.readouterr().out
+    assert run(env, monkeypatch, "interface Ethernet0/1\n switchport trunk allowed vlan 40\n", "push", "sw1") == 2
+    assert "REFUSED, nothing sent" in capsys.readouterr().out
     assert FakeConn.sent == []
 
 
 @pytest.mark.parametrize("line", ["switchport trunk allowed vlan add 40", "switchport trunk allowed vlan remove 40",
                                   "switchport trunk allowed vlan except 99", "switchport trunk allowed vlan none"])
 def test_allowed_vlan_keywords_pass(env, monkeypatch, line):
-    f = cfg(env, f"interface Ethernet0/1\n {line}\n")
-    assert run(env, monkeypatch, "push", "sw1", f) == 0
+    assert run(env, monkeypatch, f"interface Ethernet0/1\n {line}\n", "push", "sw1") == 0
 
 
-@pytest.mark.parametrize("line", ["reload", "write erase", "erase startup-config", "delete flash:x.bin",
-                                  "format flash:"])
+@pytest.mark.parametrize("line", ["reload", "write erase", "erase startup-config", "delete flash:x.bin", "format flash:"])
 def test_destructive_refused(env, monkeypatch, line):
-    f = cfg(env, f"{line}\n")
-    assert run(env, monkeypatch, "push", "sw1", f) == 2
+    assert run(env, monkeypatch, f"{line}\n", "push", "sw1") == 2
     assert FakeConn.sent == []
 
 
-def test_untested_vendor_refused_for_push_but_previews(env, monkeypatch, capsys):
-    f = cfg(env, "config system interface\n", "fw1.txt")
-    assert run(env, monkeypatch, "preview", "fw1", f) == 0
-    with pytest.raises(SystemExit):
-        run(env, monkeypatch, "push", "fw1", f)
+def test_untested_vendor_refused_for_push_but_previews(env, monkeypatch):
+    assert run(env, monkeypatch, "config system interface\n", "preview", "fw1", log=False) == 0
+    assert run(env, monkeypatch, "config system interface\n", "push", "fw1") == 2
     assert FakeConn.sent == []
 
 
-def test_one_device_per_run(env, monkeypatch):
-    f = cfg(env, "vlan 40\n")
+def test_one_device_per_push(env, monkeypatch):
     with pytest.raises(SystemExit):
-        run(env, monkeypatch, "push", "sw1", "sw2", f)
+        run(env, monkeypatch, "vlan 40\n", "push", "sw1", "sw2")
 
 
 def test_unknown_device(env, monkeypatch):
-    f = cfg(env, "vlan 40\n")
     with pytest.raises(SystemExit):
-        run(env, monkeypatch, "push", "nope", f)
+        run(env, monkeypatch, "vlan 40\n", "push", "nope")
 
 
 def test_save_many(env, monkeypatch, capsys):
-    assert run(env, monkeypatch, "save", "sw1", "sw1", "--log", str(env)) == 0
+    assert run(env, monkeypatch, "", "save", "sw1", "sw2") == 0
     assert FakeConn.saves == 2
-    assert "SAVED sw1" in capsys.readouterr().out
+    assert "SAVED sw2" in capsys.readouterr().out
 
 
-def test_comments_and_blanks_skipped(env, monkeypatch):
-    f = cfg(env, "# VLAN 40 on sw1\n\nconf t\nvlan 40\nend\n")
-    assert run(env, monkeypatch, "push", "sw1", f) == 0
-    assert FakeConn.sent == [["vlan 40"]]
-
-
-INVENTORY_B = INVENTORY + "  - {name: sw2, host: 192.0.2.3, site: hq}\n"
-
-
-def batch_env(env):
-    (env / "inventory.yaml").write_text(INVENTORY_B, encoding="utf-8")
-    a = cfg(env, "interface Loopback0\n description Loopback0 | router-id 10.0.0.1\n", "sw1.txt")
-    b = cfg(env, "interface Vlan10\n no description\n", "sw2.txt")
-    return a, b
+BATCH = """@sw1
+interface Loopback0
+ description Loopback0 | router-id 10.0.0.1
+@sw2
+interface Vlan10
+ no description
+"""
 
 
 def test_batch_pushes_in_order_one_approval(env, monkeypatch, capsys):
-    a, b = batch_env(env)
-    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}") == 0
+    assert run(env, monkeypatch, BATCH, "batch") == 0
     assert [s[1] for s in FakeConn.sent] == [" description Loopback0 | router-id 10.0.0.1", " no description"]
-    out = capsys.readouterr().out
-    assert "BATCH 2 device(s)" in out and "BATCH OK: sw1, sw2" in out
-
-
-def test_batch_preview_sends_nothing(env, monkeypatch, capsys):
-    a, b = batch_env(env)
-    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}", "--preview") == 0
-    assert FakeConn.sent == []
-    assert "PREVIEW sw1" in capsys.readouterr().out
+    assert "BATCH OK: sw1, sw2" in capsys.readouterr().out
+    assert (env / "change" / "sw2.txt").exists()
 
 
 def test_batch_refuses_non_description_lines_before_sending(env, monkeypatch, capsys):
-    a, _ = batch_env(env)
-    b = cfg(env, "vlan 40\n name CAMERAS\n", "sw2.txt")
-    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}") == 2
+    assert run(env, monkeypatch, BATCH + "@sw1\nvlan 40\n", "batch") == 2
     out = capsys.readouterr().out
     assert "REFUSED, nothing sent" in out and "only interface descriptions can be batched" in out
-    assert FakeConn.sent == []  # sw1 was fine, but nothing goes out when any device fails the check
+    assert FakeConn.sent == []
 
 
 def test_batch_stops_at_first_failure(env, monkeypatch, capsys):
-    a, b = batch_env(env)
     FakeConn.output = "% Invalid input detected at '^' marker.\n"
-    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}") == 1
+    assert run(env, monkeypatch, BATCH, "batch") == 1
     assert len(FakeConn.sent) == 1  # sw2 never attempted
     assert "Not sent: ['sw2']" in capsys.readouterr().out
 
 
-def test_batch_needs_pairs(env, monkeypatch):
+def test_batch_must_start_with_device(env, monkeypatch):
     with pytest.raises(SystemExit):
-        run(env, monkeypatch, "batch", "sw1")
+        run(env, monkeypatch, "interface Loopback0\n description x\n", "batch")
+
+
+def test_batch_takes_no_device_args(env, monkeypatch):
+    with pytest.raises(SystemExit):
+        run(env, monkeypatch, BATCH, "batch", "sw1")

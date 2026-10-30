@@ -8,13 +8,16 @@
 # Usage:        python push.py preview DEVICE FILE
 #               python push.py push DEVICE FILE [--log DIR]
 #               python push.py save DEVICE [DEVICE ...] [--log DIR]
+#               python push.py batch DEVICE=FILE [DEVICE=FILE ...] [--preview]
 #               python push.py --set-credential admin
 # Dependencies: Python 3.9+, netmiko, keyring, pyyaml (same as network-snapshot).
 # Author:       G Talks Tech
 # GitHub:       github.com/GTalksTech/netops-skills (plugins/network-ops)
 # Notes:        Shares the network-snapshot skill's inventory, vendor profiles and
 #               credential store. One device per run, so every push is its own
-#               approval. Pushes are allowed only on tested profiles (cisco_ios).
+#               approval. The one exception is `batch`: several devices under one
+#               approval, refused unless every line is an interface description.
+#               Pushes are allowed only on tested profiles (cisco_ios).
 #               Refuses obviously destructive lines (reload, erase, format, delete)
 #               and a trunk "allowed vlan <list>" without add/remove, which replaces
 #               the list and drops every other VLAN on the trunk.
@@ -37,6 +40,7 @@ WRAPPERS = {"configure terminal", "conf t", "end"}
 ERROR_RE = re.compile(r"^\s*% ?(Invalid|Incomplete|Ambiguous|Authorization failed|Error)", re.M)
 DESTRUCTIVE = re.compile(r"^\s*(reload|write erase|erase|format|delete|crypto key zeroize)\b", re.I)
 BARE_ALLOWED = re.compile(r"^\s*switchport trunk allowed vlan (?!add\b|remove\b|except\b|none\b)", re.I)
+BATCHABLE = re.compile(r"^\s*(interface \S.*|description .*|no description)\s*$", re.I)  # cosmetic only
 
 
 def load_device(repo, inventory, name, user):
@@ -156,11 +160,56 @@ def do_save(dev, log_dir):
     return 0 if ok else 1
 
 
+def not_batchable(lines):
+    """Lines a batch may not carry: anything but interface + description lines."""
+    return [line for line in lines if not BATCHABLE.match(line)]
+
+
+def do_batch(args):
+    """Several devices, one approval: descriptions only, pushed in the listed order, stop at the first failure."""
+    jobs = []
+    for pair in args.targets:
+        if "=" not in pair:
+            sys.exit(f"batch takes DEVICE=FILE pairs, got {pair!r}")
+        name, cfg_file = pair.split("=", 1)
+        dev = load_device(args.repo, args.inventory, name, args.user)
+        dev.setdefault("device_type", "cisco_ios")
+        jobs.append((dev, cfg_file, read_lines(cfg_file)))
+    problems = []
+    for dev, _, lines in jobs:
+        problems += [f"{dev['name']}: {line!r}: {why}" for line, why in refused(lines)]
+        problems += [f"{dev['name']}: {line!r}: only interface descriptions can be batched; push this device on its own"
+                     for line in not_batchable(lines)]
+        if dev["device_type"] not in PUSHABLE:
+            problems.append(f"{dev['name']}: pushes are tested only on {sorted(PUSHABLE)}")
+    if problems:
+        print("REFUSED, nothing sent:\n  " + "\n  ".join(problems))
+        return 2
+    total = sum(len(lines) for _, _, lines in jobs)
+    print(f"BATCH {len(jobs)} device(s), {total} line(s), in this order:")
+    for dev, _, lines in jobs:
+        preview(dev, lines)
+    if args.preview:
+        return 0
+    done = []
+    for dev, cfg_file, lines in jobs:
+        print(f"\n--- {dev['name']} ---")
+        if do_push(dev, lines, args.log or str(Path(cfg_file).resolve().parent)):
+            left = [d["name"] for d, _, _ in jobs[len(done) + 1:]]
+            print(f"\nBATCH STOPPED at {dev['name']}. Done: {done or 'none'}. Not sent: {left or 'none'}.")
+            return 1
+        done.append(dev["name"])
+    print(f"\nBATCH OK: {', '.join(done)}. Not saved yet (save after the post-check).")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Preview, push or save config on one network device.")
     ap.add_argument("--set-credential", metavar="NAME", help="store the change account's password in the OS store")
-    ap.add_argument("action", nargs="?", choices=["preview", "push", "save"])
-    ap.add_argument("targets", nargs="*", help="preview/push: DEVICE FILE.  save: DEVICE [DEVICE ...]")
+    ap.add_argument("action", nargs="?", choices=["preview", "push", "save", "batch"])
+    ap.add_argument("targets", nargs="*",
+                    help="preview/push: DEVICE FILE.  save: DEVICE [DEVICE ...].  batch: DEVICE=FILE [DEVICE=FILE ...]")
+    ap.add_argument("--preview", action="store_true", help="batch only: show every device's commands, send nothing")
     ap.add_argument("--repo", default="~/network-snapshots", help="snapshot repo holding inventory.yaml")
     ap.add_argument("--inventory", help="inventory file (default: inventory.yaml in --repo)")
     ap.add_argument("--user", default="admin", help="change account (default: admin)")
@@ -173,6 +222,11 @@ def main():
         return 0
     if not args.action:
         ap.error("give an action: preview, push or save")
+
+    if args.action == "batch":
+        if not args.targets:
+            ap.error("batch needs at least one DEVICE=FILE")
+        return do_batch(args)
 
     if args.action == "save":
         if not args.targets:

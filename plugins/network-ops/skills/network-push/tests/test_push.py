@@ -148,3 +148,50 @@ def test_comments_and_blanks_skipped(env, monkeypatch):
     f = cfg(env, "# VLAN 40 on sw1\n\nconf t\nvlan 40\nend\n")
     assert run(env, monkeypatch, "push", "sw1", f) == 0
     assert FakeConn.sent == [["vlan 40"]]
+
+
+INVENTORY_B = INVENTORY + "  - {name: sw2, host: 192.0.2.3, site: hq}\n"
+
+
+def batch_env(env):
+    (env / "inventory.yaml").write_text(INVENTORY_B, encoding="utf-8")
+    a = cfg(env, "interface Loopback0\n description Loopback0 | router-id 10.0.0.1\n", "sw1.txt")
+    b = cfg(env, "interface Vlan10\n no description\n", "sw2.txt")
+    return a, b
+
+
+def test_batch_pushes_in_order_one_approval(env, monkeypatch, capsys):
+    a, b = batch_env(env)
+    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}") == 0
+    assert [s[1] for s in FakeConn.sent] == [" description Loopback0 | router-id 10.0.0.1", " no description"]
+    out = capsys.readouterr().out
+    assert "BATCH 2 device(s)" in out and "BATCH OK: sw1, sw2" in out
+
+
+def test_batch_preview_sends_nothing(env, monkeypatch, capsys):
+    a, b = batch_env(env)
+    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}", "--preview") == 0
+    assert FakeConn.sent == []
+    assert "PREVIEW sw1" in capsys.readouterr().out
+
+
+def test_batch_refuses_non_description_lines_before_sending(env, monkeypatch, capsys):
+    a, _ = batch_env(env)
+    b = cfg(env, "vlan 40\n name CAMERAS\n", "sw2.txt")
+    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}") == 2
+    out = capsys.readouterr().out
+    assert "REFUSED, nothing sent" in out and "only interface descriptions can be batched" in out
+    assert FakeConn.sent == []  # sw1 was fine, but nothing goes out when any device fails the check
+
+
+def test_batch_stops_at_first_failure(env, monkeypatch, capsys):
+    a, b = batch_env(env)
+    FakeConn.output = "% Invalid input detected at '^' marker.\n"
+    assert run(env, monkeypatch, "batch", f"sw1={a}", f"sw2={b}") == 1
+    assert len(FakeConn.sent) == 1  # sw2 never attempted
+    assert "Not sent: ['sw2']" in capsys.readouterr().out
+
+
+def test_batch_needs_pairs(env, monkeypatch):
+    with pytest.raises(SystemExit):
+        run(env, monkeypatch, "batch", "sw1")

@@ -12,6 +12,9 @@ The only way config goes onto a device. One script, `scripts/push.py`, three act
   (default `admin`, password from the OS credential store). Stops on the first device
   error and logs everything it sent to `push-log.md` next to the file.
 - `save DEVICE [DEVICE ...]`: saves the running config. Only after the post-check passes.
+- `batch DEVICE=FILE [DEVICE=FILE ...]`: several devices under ONE approval, pushed in the
+  order given, stopping at the first failure. The script allows only interface description
+  lines in a batch and refuses the whole batch otherwise. Add `--preview` to see it first.
 
 It uses the network-snapshot skill's inventory, vendor profiles and credential store. Run it
 the same way you run `snapshot.py` (same Python). Pushes work on tested profiles only
@@ -21,10 +24,13 @@ the same way you run `snapshot.py` (same Python). Pushes work on tested profiles
 
 - Only push from an approved change plan. If there is no plan, or the user hasn't approved
   it, stop and say so.
-- One device per `push` command, so every push is its own approval. Never loop devices in one
-  command or write your own push script.
-- Before every push, run `preview` for that device and file, and show the commands in your
-  message. The user approves the push right under them.
+- Low-risk, cosmetic changes (interface descriptions only) go in one `batch`, so the user
+  approves them once. Everything else is one device per `push` command, in the order the plan
+  sets, so every impactful push is its own approval. Never loop devices in one command or
+  write your own push script.
+- Keep descriptions and other changes in separate files, so the descriptions can batch.
+- Before every push or batch, run `preview` (or `batch ... --preview`) and show the commands in
+  your message. The user approves right under them.
 - Write each device's commands to its own file in the change folder (for example
   `changes/2026-10-30-vlan40/hq-dist-sw-01.txt`). The files and `push-log.md` are the record
   of what was sent.

@@ -5,6 +5,8 @@ Start Claude Code in this folder and your sessions follow the same rules mine do
 
 - `AGENTS.md`: the short main file. Every rule has a date and the mistake it prevents.
 - `changes/AGENTS.md`: the change-plan rules, added when Claude works in `changes/`.
+- `changes/runbooks/`: one runbook per standard change (`add-vlan.md` so far). Claude checks
+  here before planning a change. Add your team's own procedures as new files.
 - `reviews/AGENTS.md`: the report rules, added when Claude works in `reviews/`.
 
 ## Use it

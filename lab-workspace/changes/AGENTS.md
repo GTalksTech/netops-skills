@@ -7,21 +7,20 @@ Every change is one file, `changes/YYYY-MM-DD-<short-name>.md`, in four parts:
 3. Post-check: the same health check, compared with the pre-check.
 4. Rollback: complete enough to run on its own, without reading part 2.
 
-Write the plan and stop. Nothing gets pushed until I say "go." Pushes use the admin
-account; everything else stays read-only.
+Write the plan and stop. End your reply with the plan file's path and: "Review the plan.
+When you approve it, say 'approved' and I'll push it." Nothing gets
+pushed until I say approved. Pushes use the admin account; everything else stays read-only.
+Push only with the network-push skill, never a script of your own. It puts every switch
+command in the approval prompt itself, stops on an error, and records what it sent in the
+change folder. Interface descriptions go in one batch approval; every other change is one
+device per approval, in the order the plan sets. Save config only after the post-check
+passes; a rollback saves too.
+Interface descriptions say what the config makes true (role, peer, circuit, HSRP group),
+never state that can change on its own (HSRP active or standby, up or down).
 
-## Adding a VLAN to the HQ campus
+## Runbooks
 
-- Create the VLAN on the six HQ switches that switch traffic: both distribution and
-  all four access. VTP is transparent, so nothing propagates on its own. The core has
-  only routed ports: no VLAN there.
-- Trunks: `switchport trunk allowed vlan add <id>`, on every trunk end, including the
-  link between the two distribution switches. Never `allowed vlan <id>` without
-  `add`: that replaces the list and drops every other VLAN on the trunk.
-- Gateway: an SVI on both distribution switches with HSRP version 2. hq-dist-sw-01 is
-  active (priority 110), hq-dist-sw-02 standby (90), both with `preempt delay minimum
-  60`. No `track`: the lab switch image has no object tracking. dist-01 is already the spanning-tree root for new
-  VLANs, so the gateway and the root stay on the same switch.
-- Routing: add the new subnet to OSPF area 0 on both distribution switches, or it is
-  never advertised.
-- fw-01 needs nothing: its internal-10 object (10.0.0.0/8) already covers new subnets.
+Standard changes have a runbook in `changes/runbooks/`, one file per change type.
+Before planning a change, check that folder. If a runbook matches, follow it and say
+in the plan which runbook you used. If none matches, plan from the network snapshot
+and say that no runbook covered it.

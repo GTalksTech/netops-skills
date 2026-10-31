@@ -7,7 +7,7 @@ you get every skill, including the ones that ship with future videos.
 |---|---|
 | network-snapshot | Read-only snapshot of every device, saved to git, with what changed since last time |
 | network-push | Puts an approved change on the network: shows every switch command in the approval prompt, pushes one device at a time (descriptions can batch) with a separate change account, stops on errors, logs what it sent |
-| network-health-check | Is the network healthy right now (coming soon) |
+| network-health-check | Is the network healthy right now: whole network, one site or one device. Read-only; findings worst first with evidence and fix, then what checked out healthy |
 
 ## network-snapshot
 
@@ -22,6 +22,27 @@ shows up, it really changed.
 
 Video: VIDEO_URL_PLACEHOLDER (Claude Code for network engineers). Built and tested on the
 G Talks Tech lab v2 (Cisco IOS-XE campus, branch and ISP routers, plus a FortiGate).
+
+## network-health-check
+
+Answers one question: is the network healthy right now? Ask "health check the network", "is
+hq healthy?" or "is hq-dist-sw-02 ok?". It runs the snapshot engine with `--health` (same
+read-only account, same setup), then checks: every device reachable, recent reboots, interfaces
+that should be up but are down, interface errors, uplinks and the internet link near capacity,
+port-channel members, OSPF neighbors, BGP sessions, HSRP active/standby and whether the active
+switch is the spanning-tree root, inconsistent spanning-tree ports (blocked ports on redundant
+uplinks are normal and never flagged), NTP, CPU, memory and errors in the logs.
+
+The report lists findings first, worst first, each with the device, the evidence (command and
+file) and the fix, then one line per check that came back healthy, then anything it could not
+check and why. It goes in your workspace's `reviews/` folder, one file per run, and each run is
+compared with the one before.
+
+Vendor coverage: Cisco IOS/IOS-XE gets every check. FortiGate gets all but interface errors and
+load, NTP sync and logs (those need `diagnose`/`execute`, which a read-only account can't run).
+The other vendors have no health commands yet, so they get the checks the snapshot itself
+answers (reachability, reboots, interfaces, port-channels, OSPF, BGP) and the rest are listed as
+not checked.
 
 ## Install
 

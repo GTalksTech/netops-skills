@@ -1,12 +1,13 @@
 ---
 name: network-health-check
-description: Answer "is the network healthy right now?" for the whole network, one site or one device, read-only. Runs the network-snapshot engine with --health, then checks reachability, reboots, down interfaces, errors, link load, port-channels, OSPF, BGP, HSRP vs spanning-tree root, inconsistent STP ports, NTP, CPU, memory and logs, and writes a report: findings worst first with evidence and fix, then what checked out healthy. Use when the user asks for a health check, "is the network ok", "anything wrong at hq", or "is <device> healthy".
+description: Read-only, multi-vendor network health check for the whole network, one site or one device. Checks hardware, redundancy, routing, links, errors, spanning tree, CPU, logs and time, and writes a report with findings worst first and their evidence. Use for "health check", "is the network ok", "anything wrong at hq", or "is <device> healthy".
 ---
 
 # Network health check
 
 One question: is the network healthy right now? You collect with the network-snapshot engine,
-read what it saved, run every check in `checks.md` (in this folder), and write a report.
+read what it saved, run every check in `checks.md` (in this folder) using the files that
+`vendors.md` names for each device's vendor, and write a report.
 
 ## Rules
 
@@ -31,14 +32,18 @@ python <network-snapshot skill>/scripts/snapshot.py --health [--repo PATH] [--si
 No target means every device. Use the same Python that runs snapshots. The run also takes a
 normal snapshot and commits it; that is expected. The JSON report (also in
 `<repo>/.snapshot/last-report.json`) gives `failures`, `reboots`, `up_less_than_24h`,
-`unsupported_commands`, `commit`, and `health` (per device: the folder of raw health output).
+`unsupported_commands`, `command_errors`, `commit`, and `health`. Per device, `health` gives
+`dir` (raw output of this run), `rejected` (health commands the device refused) and `previous`
+(the last run's raw output and when it was taken, or null on a first run). Read the previous
+output for every counter check: growth between the two runs is what matters.
 
 For each device read two places:
 - Health output (raw, live): `<repo>/.snapshot/health/<site>/<device>/*.txt`
 - Snapshot files (just committed): `<repo>/<site>/<device>/*.txt`, including the running config.
 
-Vendors with no `health_commands` in their profile (everything except `cisco_ios` and
-`fortinet` today) get only the checks the snapshot files can answer.
+Every vendor profile has health commands. Profiles marked `untested` were written from vendor
+docs: read their output with care, and if it does not match what the check expects, put the check
+under Not checked with what you saw, never a guessed value.
 
 ## Scoped runs (one site or one device)
 
@@ -69,6 +74,7 @@ When the run's `commit` is null nothing changed: cite the current HEAD
 # Health check: <scope>, <YYYY-MM-DD HH:MM>
 
 Snapshot commit <hash> · <N> devices checked · <verdict: Healthy | N findings, worst: <one line>>
+Compared with the previous run at <time> (<minutes> min) | First run: counters are totals only
 
 ## Findings
 ### 1. [Critical] <device>: <what is wrong>  (new | unchanged)
@@ -81,7 +87,9 @@ Snapshot commit <hash> · <N> devices checked · <verdict: Healthy | N findings,
 - ...one line per check that passed
 
 ## Not checked
-- <check> on <device>: <why> (<what would make it checkable>)
+- <check> on <devices, grouped by vendor>: <why> (<what would make it checkable>)
+  e.g. "Hardware and optics on 11 virtual devices: not applicable (virtual)", or
+  "Environment on 8 IOS devices: rejected (not supported, or not permitted for claude-ro)".
 
 ## Known exceptions
 - <item> (<where it is documented>)
@@ -93,6 +101,15 @@ Snapshot commit <hash> · <N> devices checked · <verdict: Healthy | N findings,
 Severity order: Critical, High, Medium, Low. Within a level, the device closest to the core or
 the internet first. Several symptoms of one cause (an uplink down, its OSPF neighbor gone, its
 port-channel member down) are one finding with all the evidence, under the worst severity.
+
+## Noise control
+
+The report is read by someone who has to act on it. Every finding must be something they would
+want to be woken for at its severity. Never a finding: blocked ports on redundant links, history in
+counters that did not grow, user access ports going up and down, a device's own normal states
+(2WAY/DROTHER, Idle (Admin), Simplex), anything listed as a known exception. Put each of those in
+one Healthy or Known exceptions line at most. Healthy lines carry the numbers that prove it
+(neighbors FULL, counters unchanged since <time>), so a reader can trust a short report.
 
 ## Tell the user
 

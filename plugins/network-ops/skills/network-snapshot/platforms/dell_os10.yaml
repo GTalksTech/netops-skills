@@ -1,0 +1,39 @@
+# Dell EMC SmartFabric OS10 (PowerSwitch)
+status: untested          # written from Dell docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: dell_os10
+invalid_markers: ["% Error: Unrecognized command", "% Error: Incomplete command", "% Error: Permission denied", "% Error: Invalid"]
+uptime:
+  cmd: show version
+  regex: 'Up Time:\s*(.+)'
+commands:
+  - cmd: show running-configuration
+  - cmd: show version
+  - cmd: show inventory
+  - cmd: show interface status
+  - cmd: show ip interface brief
+  - cmd: show vlan
+  - cmd: show port-channel summary
+  - cmd: show vlt all
+  - cmd: show spanning-tree brief
+  - cmd: show lldp neighbors
+  - cmd: show ip route
+  - cmd: show ip ospf neighbor
+  - cmd: show ip bgp summary
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show alarms
+  - cmd: show environment
+  - cmd: show system
+  - cmd: show processes node-id 1
+  - cmd: show interface
+  - cmd: show interface transceiver detail
+  - cmd: show vlt all mismatch
+  - cmd: show spanning-tree details
+  - cmd: show vrrp brief
+  - cmd: show ntp status
+  - cmd: show logging log-file
+  - cmd: show clock
+strip:
+  - 'Up Time:'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'

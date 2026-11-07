@@ -1,0 +1,39 @@
+# HPE Aruba ArubaOS-Switch (formerly ProVision / ProCurve: 2530, 2930, 3810, 5400R)
+status: untested          # written from HPE Aruba docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: hp_procurve
+invalid_markers: ["Invalid input:", "Ambiguous input", "Incomplete input"]
+uptime:
+  cmd: show system
+  regex: 'Up Time\s*:\s*(.+?)\s{2,}'
+commands:
+  - cmd: show running-config
+  - cmd: show version
+  - cmd: show system
+  - cmd: show interfaces brief
+  - cmd: show vlans
+  - cmd: show trunks
+  - cmd: show lacp
+  - cmd: show spanning-tree
+  - cmd: show lldp info remote-device
+  - cmd: show ip route
+  - cmd: show ip ospf neighbor
+  - cmd: show vsf
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show system fans
+  - cmd: show system power-supply
+  - cmd: show system temperature
+  - cmd: show cpu
+  - cmd: show interfaces
+  - cmd: show interfaces transceiver detail
+  - cmd: show port-access summary
+  - cmd: show loop-protect
+  - cmd: show spanning-tree detail
+  - cmd: show power-over-ethernet brief
+  - cmd: show sntp
+  - cmd: show logging -r -m -p
+  - cmd: show time
+strip:
+  - 'Up Time'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'

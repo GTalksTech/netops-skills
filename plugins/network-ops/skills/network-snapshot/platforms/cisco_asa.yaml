@@ -15,6 +15,21 @@ commands:
   - cmd: show failover state
   - cmd: show ospf neighbor
   - cmd: show bgp summary
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show environment
+  - cmd: show failover
+  - cmd: show failover history
+  - cmd: show cpu usage
+  - cmd: show memory
+  - cmd: show blocks
+  - cmd: show resource usage
+  - cmd: show conn count
+  - cmd: show interface
+  - cmd: show crashinfo
+  - cmd: show ntp status
+  - cmd: show ntp associations
+  - cmd: show logging
+  - cmd: show clock
 strip:
   - '^: Written by'
   - '^: Saved'

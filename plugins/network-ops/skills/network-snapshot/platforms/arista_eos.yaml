@@ -19,6 +19,28 @@ commands:
   - cmd: show ip route vrf all
   - cmd: show ip ospf neighbor vrf all
   - cmd: show ip bgp summary vrf all
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show version detail
+  - cmd: show reload cause
+  - cmd: show system environment all
+  - cmd: show interfaces transceiver
+  - cmd: show interfaces counters errors
+  - cmd: show interfaces counters discards
+  - cmd: show interfaces counters rates
+  - cmd: show interfaces
+  - cmd: show interfaces status errdisabled
+  - cmd: show spanning-tree detail
+  - cmd: show spanning-tree inconsistentports
+  - cmd: show mlag detail
+  - cmd: show mlag config-sanity
+  - cmd: show vrrp brief
+  - cmd: show ip ospf neighbor detail vrf all
+  - cmd: show ip bgp neighbors vrf all
+  - cmd: show processes top once
+  - cmd: show ntp status
+  - cmd: show ntp associations
+  - cmd: show logging
+  - cmd: show clock
 strip:
   - '^! Command: show running-config'
   - '^! device:'

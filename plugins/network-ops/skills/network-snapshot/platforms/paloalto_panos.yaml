@@ -13,6 +13,18 @@ commands:
   - cmd: show routing protocol ospf neighbor
   - cmd: show routing protocol bgp summary
   - cmd: show high-availability state
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show system resources
+  - cmd: show system environmentals
+  - cmd: show system disk-space
+  - cmd: show high-availability all
+  - cmd: show session info
+  - cmd: show counter global filter severity drop
+  - cmd: show interface all
+  - cmd: show ntp
+  - cmd: show system state filter cfg.platform.*
+  - cmd: show log system direction equal backward
+  - cmd: show clock
 strip:
   - '^uptime:'
   - '^time:'

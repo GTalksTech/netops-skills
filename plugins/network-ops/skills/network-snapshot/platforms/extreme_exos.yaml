@@ -1,0 +1,41 @@
+# Extreme Networks EXOS (Switch Engine)
+status: untested          # written from Extreme docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: extreme_exos
+invalid_markers: ["Invalid input detected", "Incomplete command", "Ambiguous command", "permission denied"]
+uptime:
+  cmd: show switch
+  regex: 'System UpTime:\s*(.+)'
+commands:
+  - cmd: show configuration
+  - cmd: show switch
+  - cmd: show version
+  - cmd: show ports no-refresh
+  - cmd: show vlan
+  - cmd: show sharing
+  - cmd: show stpd
+  - cmd: show lldp neighbors
+  - cmd: show iproute
+  - cmd: show ospf neighbor
+  - cmd: show bgp neighbor
+  - cmd: show vrrp
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show fans
+  - cmd: show power
+  - cmd: show temperature
+  - cmd: show cpu-monitoring
+  - cmd: show memory
+  - cmd: show ports rxerrors no-refresh
+  - cmd: show ports txerrors no-refresh
+  - cmd: show ports utilization no-refresh
+  - cmd: show ports transceiver information detail
+  - cmd: show stpd detail
+  - cmd: show stacking
+  - cmd: show mlag peer
+  - cmd: show ntp sys-info
+  - cmd: show log
+strip:
+  - 'System UpTime:'
+  - '^Current Time:'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'

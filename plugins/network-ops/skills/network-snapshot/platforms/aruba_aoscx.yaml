@@ -18,6 +18,22 @@ commands:
   - cmd: show ip route all-vrfs
   - cmd: show ip ospf neighbors all-vrfs
   - cmd: show bgp all summary
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show environment fan
+  - cmd: show environment power-supply
+  - cmd: show environment temperature
+  - cmd: show system resource-utilization
+  - cmd: show boot-history
+  - cmd: show interface transceiver detail
+  - cmd: show interface
+  - cmd: show interface error-statistics
+  - cmd: show spanning-tree detail
+  - cmd: show vsx status
+  - cmd: show vrrp brief
+  - cmd: show ntp status
+  - cmd: show ntp associations
+  - cmd: show events -r -c 200
+  - cmd: show clock
 strip:
   - '^Current configuration:'
   - 'Up Time'

@@ -23,6 +23,7 @@ import datetime as dt
 import getpass
 import json
 import re
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -104,8 +105,21 @@ def collect(dev, prof, password, health=False):
     from netmiko import ConnectHandler
     params = {"device_type": prof["netmiko_device_type"], "host": dev["host"], "username": dev["username"],
               "password": password, "timeout": 30, "fast_cli": False, **prof.get("connect", {})}
-    result = {"files": {}, "health": {}, "unsupported": [], "uptime": None, "reload_reason": None}
+    result = {"files": {}, "health": {}, "unsupported": [], "unsupported_health": [], "command_errors": [],
+              "uptime": None, "reload_reason": None}
     conn = ConnectHandler(**params)
+
+    def send(cmd, timeout):
+        # one slow or broken command never costs the rest of the device: record it and move on
+        try:
+            return conn.send_command(cmd, read_timeout=timeout)
+        except Exception as e:
+            result["command_errors"].append(
+                {"cmd": cmd, "error": (str(e).strip().splitlines() or [type(e).__name__])[0]})
+            if not conn.is_alive():
+                raise
+            return None
+
     try:
         up_raw = conn.send_command(prof["uptime"]["cmd"], read_timeout=60)
         result["uptime"] = uptime_seconds(up_raw, prof["uptime"]["regex"])
@@ -113,18 +127,23 @@ def collect(dev, prof, password, health=False):
             m = re.search(prof["uptime"]["reload_reason"], up_raw, re.I | re.M)
             result["reload_reason"] = m.group(1).strip() if m else None
         for c in prof["commands"]:
-            out = conn.send_command(c["cmd"], read_timeout=c.get("timeout", 90))
+            out = send(c["cmd"], c.get("timeout", 90))
+            if out is None:
+                continue
             if is_unsupported(out, prof):
                 result["unsupported"].append(c["cmd"])
                 continue
             result["files"][slug(c["cmd"])] = normalize(out, prof, c["cmd"])
         for c in prof["health_commands"] if health else []:
             # health output is kept as the device printed it: the moving numbers are the point
-            out = conn.send_command(c["cmd"], read_timeout=c.get("timeout", 90))
-            if is_unsupported(out, prof):
-                result["unsupported"].append(c["cmd"])
+            out = send(c["cmd"], c.get("timeout", 90))
+            if out is None:
                 continue
-            result["health"][slug(c["cmd"])] = out.replace("\r", "").strip("\n") + "\n"
+            if is_unsupported(out, prof):
+                # rejected: not supported on this platform, or not permitted for this account
+                result["unsupported_health"].append(c["cmd"])
+                continue
+            result["health"][slug(c["cmd"])] = (out.replace("\r", "").strip("\n") or "(no output)") + "\n"
     finally:
         conn.disconnect()
     return result
@@ -163,6 +182,7 @@ def run(args):
     up_file = state_dir / "uptime.json"
     last_up = json.loads(up_file.read_text()) if up_file.exists() else {}
 
+    taken_iso = dt.datetime.now().isoformat(timespec="seconds")
     profiles, passwords, failures, results = {}, {}, [], {}
     for d in devices:
         try:
@@ -192,7 +212,7 @@ def run(args):
             else:
                 results[d["name"]] = (d, res)
 
-    reboots, recent, unsupported, health = [], [], {}, {}
+    reboots, recent, unsupported, health, cmd_errors = [], [], {}, {}, {}
     for name, (d, res) in results.items():
         folder = repo / d.get("site", "unassigned") / name
         folder.mkdir(parents=True, exist_ok=True)
@@ -200,6 +220,8 @@ def run(args):
             (folder / fname).write_text(text, encoding="utf-8", newline="\n")
         if res["unsupported"]:
             unsupported[name] = res["unsupported"]
+        if res["command_errors"]:
+            cmd_errors[name] = res["command_errors"]
         prev, now = last_up.get(name), res["uptime"]
         if prev is not None and now is not None and now < prev:
             reboots.append({"device": name, "uptime_before_s": prev, "uptime_now_s": now})
@@ -208,11 +230,24 @@ def run(args):
             if now < 86400:  # catches a reboot even with no earlier snapshot to compare against
                 recent.append({"device": name, "uptime_s": now, "reload_reason": res["reload_reason"]})
         if args.health:
-            hdir = state_dir / "health" / d.get("site", "unassigned") / name
+            rel = Path(d.get("site", "unassigned")) / name
+            hdir, pdir = state_dir / "health" / rel, state_dir / "health-prev" / rel
+            # keep the previous run's raw output so counters can be compared: growing, not just non-zero
+            if hdir.exists():
+                if pdir.exists():
+                    shutil.rmtree(pdir)
+                pdir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(hdir), str(pdir))
             hdir.mkdir(parents=True, exist_ok=True)
             for fname, text in res["health"].items():
                 (hdir / fname).write_text(text, encoding="utf-8", newline="\n")
-            health[name] = {"dir": str(hdir), "files": sorted(res["health"]), "uptime_s": now}
+            (hdir / "_taken.txt").write_text(taken_iso + "\n", encoding="utf-8")
+            ptaken = pdir / "_taken.txt"
+            health[name] = {"dir": str(hdir), "files": sorted(res["health"]), "uptime_s": now,
+                            "rejected": res["unsupported_health"],
+                            "previous": {"dir": str(pdir),
+                                         "taken": ptaken.read_text().strip() if ptaken.exists() else None}
+                            if pdir.exists() else None}
     up_file.write_text(json.dumps(last_up, indent=1), encoding="utf-8")
 
     stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -238,6 +273,7 @@ def run(args):
         "up_less_than_24h": recent,
         "changed": by_device, "unchanged": sorted(n for n in results if n not in by_device),
         "unsupported_commands": unsupported,
+        "command_errors": cmd_errors,
     }
     if args.health:
         report["health"] = health

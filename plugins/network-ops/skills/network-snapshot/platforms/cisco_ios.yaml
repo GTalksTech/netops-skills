@@ -58,7 +58,11 @@ health_commands:                       # run only with --health; never committed
   - cmd: show spanning-tree blockedports
   - cmd: show standby
   - cmd: show ip ospf statistics
+  - cmd: show ip ospf neighbor detail   # adjacency uptime: flaps
+  - cmd: show ip eigrp neighbors detail
   - cmd: show ip bgp neighbors
+  - cmd: show ip route summary
+  - cmd: show debugging                 # debugs left running load the CPU
   - cmd: show crypto session
   - cmd: show ip sla statistics
   - cmd: show ntp status

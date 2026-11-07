@@ -17,6 +17,26 @@ commands:
   - cmd: show ospf neighbor
   - cmd: show bgp summary
   - cmd: show chassis cluster status
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show chassis alarms
+  - cmd: show system alarms
+  - cmd: show chassis environment
+  - cmd: show chassis routing-engine
+  - cmd: show chassis fpc
+  - cmd: show system core-dumps
+  - cmd: show system storage
+  - cmd: show interfaces extensive
+  - cmd: show interfaces diagnostics optics
+  - cmd: show spanning-tree bridge
+  - cmd: show ospf neighbor extensive
+  - cmd: show bgp neighbor
+  - cmd: show vrrp summary
+  - cmd: show virtual-chassis
+  - cmd: show system commit
+  - cmd: show ntp status
+  - cmd: show ntp associations
+  - cmd: show log messages | last 300
+  - cmd: show system uptime
 strip:
   - '^## Last commit:'
   - '^## Last changed:'

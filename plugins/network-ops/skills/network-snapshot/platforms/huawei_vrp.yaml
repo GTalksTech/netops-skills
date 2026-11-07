@@ -1,0 +1,47 @@
+# Huawei VRP (CloudEngine, S series, NE/AR routers)
+status: untested          # written from Huawei docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: huawei
+invalid_markers: ["Error: Unrecognized command", "Error: Incomplete command", "Error: Wrong parameter", "Error: Too many parameters", "Error: No permission"]
+uptime:
+  cmd: display version
+  regex: 'uptime is (.+)'
+commands:
+  - cmd: display current-configuration
+  - cmd: display saved-configuration
+  - cmd: display version
+  - cmd: display device
+  - cmd: display ip interface brief
+  - cmd: display interface brief
+  - cmd: display vlan
+  - cmd: display eth-trunk
+  - cmd: display stp brief
+  - cmd: display lldp neighbor brief
+  - cmd: display ip routing-table
+  - cmd: display ospf peer brief
+  - cmd: display bgp peer
+  - cmd: display vrrp brief
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: display alarm active
+  - cmd: display health
+  - cmd: display power
+  - cmd: display fan
+  - cmd: display temperature all
+  - cmd: display cpu-usage
+  - cmd: display memory-usage
+  - cmd: display reboot-info
+  - cmd: display transceiver verbose
+  - cmd: display interface
+  - cmd: display stp topology-change
+  - cmd: display ospf peer
+  - cmd: display bgp peer verbose
+  - cmd: display stack
+  - cmd: display ntp-service status
+  - cmd: display logbuffer
+  - cmd: display clock
+strip:
+  - 'uptime is'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'
+  - pattern: '\b\d+d\d+h\b'
+    replace: '--'

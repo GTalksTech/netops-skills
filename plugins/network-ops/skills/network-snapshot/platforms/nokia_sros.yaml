@@ -1,0 +1,37 @@
+# Nokia SR OS (7750 SR, 7250 IXR), classic CLI show commands (also accepted from MD-CLI)
+status: untested          # written from Nokia docs; not yet run on a device. Fixes welcome.
+netmiko_device_type: nokia_sros
+invalid_markers: ["Error: Bad command", "MINOR: CLI Command not allowed", "MINOR: CLI Invalid", "Error: Invalid", "MINOR: CLI Unknown"]
+uptime:
+  cmd: show system information
+  regex: 'System Up Time\s*:\s*(.+?)\('
+commands:
+  # config: "admin display-config" starts with admin, so the read-only rule refuses it; add a show-based export if your release has one
+  - cmd: show system information
+  - cmd: show chassis
+  - cmd: show card state
+  - cmd: show port
+  - cmd: show lag
+  - cmd: show router interface
+  - cmd: show router route-table summary
+  - cmd: show router ospf neighbor
+  - cmd: show router isis adjacency
+  - cmd: show router bgp summary
+health_commands:                       # run only with --health; never committed or diffed
+  - cmd: show system alarms
+  - cmd: show chassis environment
+  - cmd: show chassis power-supply
+  - cmd: show system cpu
+  - cmd: show system memory-pools
+  - cmd: show card detail
+  - cmd: show port detail
+  - cmd: show router ospf neighbor detail
+  - cmd: show router bgp neighbor
+  - cmd: show system ntp
+  - cmd: show log log-id 99
+  - cmd: show time
+strip:
+  - 'System Up Time'
+mask:
+  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'
+    replace: '--:--:--'

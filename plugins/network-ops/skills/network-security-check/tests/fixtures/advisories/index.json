@@ -19,7 +19,11 @@
    "CVE-2024-55591",
    "CVE-2024-9474",
    "CVE-2025-20333",
-   "CVE-2025-20362"
+   "CVE-2025-20362",
+   "CVE-2025-20162",
+   "CVE-2025-20221",
+   "CVE-2025-20352",
+   "CVE-2025-20196"
   ],
   "cisco_ios": [
    "CVE-2017-6742",
@@ -38,7 +42,11 @@
    "CVE-2024-55591",
    "CVE-2024-9474",
    "CVE-2025-20333",
-   "CVE-2025-20362"
+   "CVE-2025-20362",
+   "CVE-2025-20162",
+   "CVE-2025-20221",
+   "CVE-2025-20352",
+   "CVE-2025-20196"
   ],
   "fortinet": [
    "CVE-2017-6742",
@@ -57,7 +65,11 @@
    "CVE-2024-55591",
    "CVE-2024-9474",
    "CVE-2025-20333",
-   "CVE-2025-20362"
+   "CVE-2025-20362",
+   "CVE-2025-20162",
+   "CVE-2025-20221",
+   "CVE-2025-20352",
+   "CVE-2025-20196"
   ],
   "juniper_junos": [
    "CVE-2017-6742",
@@ -76,7 +88,11 @@
    "CVE-2024-55591",
    "CVE-2024-9474",
    "CVE-2025-20333",
-   "CVE-2025-20362"
+   "CVE-2025-20362",
+   "CVE-2025-20162",
+   "CVE-2025-20221",
+   "CVE-2025-20352",
+   "CVE-2025-20196"
   ],
   "paloalto_panos": [
    "CVE-2017-6742",
@@ -95,7 +111,11 @@
    "CVE-2024-55591",
    "CVE-2024-9474",
    "CVE-2025-20333",
-   "CVE-2025-20362"
+   "CVE-2025-20362",
+   "CVE-2025-20162",
+   "CVE-2025-20221",
+   "CVE-2025-20352",
+   "CVE-2025-20196"
   ]
  },
  "kev": {
@@ -226,6 +246,14 @@
    "dateAdded": "2025-09-25",
    "knownRansomwareCampaignUse": "Unknown",
    "notes": "CISA Mitigation Instructions: https://www.cisa.gov/news-events/directives/ed-25-03-identify-and-mitigate-potential-compromise-cisco-devices ; https://www.cisa.gov/news-events/directives/supplemental-direction-ed-25-03-core-dump-and-hunt-instructions ; https://www.cisa.gov/eviction-strategies-tool/create-from-template ; https://sec.cloudapps.cisco.com/security/center/resources/asa_ftd_continued_attacks ;   https://sec.cloudapps.cisco.com/security/center/private/resources/asa_ftd_continued_attacks#Details ; https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-webvpn-YROOTUW ; https://nvd.nist.gov/vuln/detail/CVE-2025-20362"
+  },
+  "CVE-2025-20352": {
+   "vendorProject": "Cisco",
+   "product": "IOS and IOS XE",
+   "vulnerabilityName": "Cisco IOS and IOS XE Software SNMP Denial of Service and Remote Code Execution Vulnerability",
+   "dateAdded": "2025-09-29",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-snmp-x4LPhte ; https://nvd.nist.gov/vuln/detail/CVE-2025-20352"
   }
  },
  "epss": {
@@ -312,6 +340,26 @@
   "CVE-2017-6742": {
    "epss": 0.21261,
    "percentile": 0.97606,
+   "date": "2026-11-06"
+  },
+  "CVE-2025-20162": {
+   "epss": 0.00541,
+   "percentile": 0.45644,
+   "date": "2026-11-06"
+  },
+  "CVE-2025-20221": {
+   "epss": 0.00641,
+   "percentile": 0.5091,
+   "date": "2026-11-06"
+  },
+  "CVE-2025-20352": {
+   "epss": 0.40575,
+   "percentile": 0.98657,
+   "date": "2026-11-06"
+  },
+  "CVE-2025-20196": {
+   "epss": 0.00417,
+   "percentile": 0.36246,
    "date": "2026-11-06"
   }
  }

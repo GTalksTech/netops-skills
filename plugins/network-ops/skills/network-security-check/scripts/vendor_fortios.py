@@ -82,6 +82,8 @@ def analyze(text, dev):
                                  + " ".join(sorted(bad)),
                                  [f"set allowaccess {' '.join(itf['allowaccess'])}"], exposed=True,
                                  where=itf["name"]))
+    feature(facts, "fgfm", any("fgfm" in i["allowaccess"] for i in facts["interfaces"]),
+            any("fgfm" in i["allowaccess"] for i in facts["interfaces"] if i["name"] in internet_if))
     any_admin_web = any({"http", "https"} & set(i["allowaccess"]) for i in facts["interfaces"])
     feature(facts, "admin_web", any_admin_web, admin_web_inet)
 

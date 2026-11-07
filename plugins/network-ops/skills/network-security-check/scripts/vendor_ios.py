@@ -120,8 +120,15 @@ def analyze(text, dev):
             why.append("no ACL")
         if why:
             snmp_bad.append((re.sub(r"community \S+", "community <hidden>", h), why, not acl))
+    communities = [h for h in top if h.startswith("snmp-server community ")]
+    feature(facts, "snmp", bool(communities) or any(h.startswith("snmp-server") for h in top),
+            internet and any(x[2] for x in snmp_bad))
+    feature(facts, "dhcp_snooping", "ip dhcp snooping" in top, False)   # an access-layer feature
+    feature(facts, "iox", "iox" in top, internet)
+    ike = [h for h in top if re.match(r"crypto (isakmp|ikev2) ", h)]
+    feature(facts, "ike", bool(ike), internet and bool(ike))
+    feature(facts, "sdwan", any(h == "sdwan" or h.startswith("sdwan ") for h in top), internet)
     if snmp_bad:
-        feature(facts, "snmp", True, internet and any(x[2] for x in snmp_bad))
         found.append(finding("IOS-SNMP-COMMUNITY",
                              "; ".join(f"community {n + 1}: {', '.join(w)}" for n, (_, w, _) in enumerate(snmp_bad)),
                              [l for l, _, _ in snmp_bad], exposed=internet and any(x[2] for x in snmp_bad)))

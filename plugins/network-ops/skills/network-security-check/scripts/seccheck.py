@@ -42,7 +42,7 @@ STALE_SIGNATURE_DAYS = 30   # house rule, SCORING.md: FortiGuard pushes IPS upda
 FEATURE_LABELS = {"http_server": "the web UI (ip http server)", "smart_install": "Smart Install",
                   "snmp": "SNMP", "webvpn": "AnyConnect / WebVPN", "mgmt_http": "ASDM (http server)",
                   "sslvpn": "SSL VPN", "admin_web": "the admin web interface",
-                  "globalprotect": "GlobalProtect", "mgmt_web": "the management web interface",
+                  "globalprotect": "GlobalProtect", "sdwan": "SD-WAN mode", "dhcp_snooping": "DHCP snooping", "iox": "IOx app hosting", "ike": "IKE / IPsec VPN", "fgfm": "FortiManager access (fgfm)", "mgmt_web": "the management web interface",
                   "jweb": "J-Web"}
 PARSERS = {"ios": vendor_ios, "fortios": vendor_fortios, "panos": vendor_panos, "asa": vendor_asa,
            "junos_set": vendor_junos}
@@ -159,6 +159,8 @@ def cve_inputs(hit, dev, pcfg, cache, attacked):
         else:
             why["automatable"] = why["technical_impact"] = "derived from CVSS vector (no CISA answer yet)"
 
+    vector = (rec.get("cvss") or {}).get("vector") or ""
+    av = dict(p.split(":", 1) for p in vector.split("/") if ":" in p).get("AV")
     text = f"{rec.get('title', '')} {rec.get('description', '')} {rec.get('configurations', '')}"
     named = [f for f, rx in (pcfg.get("features") or {}).items() if re.search(rx, text, re.I)]
     feats = dev.get("features", {})
@@ -179,6 +181,13 @@ def cve_inputs(hit, dev, pcfg, cache, attacked):
     else:
         exposed = bool(dev.get("internet_facing"))
         why["publicly_exposed"] = dev.get("exposure_reason", "")
+    if av in ("A", "L", "P") and exposed:
+        # CVSS: Adjacent attacks can't cross a routed boundary; Local and Physical need access
+        # to the device itself. Not reachable from the internet, whatever the device faces.
+        exposed = False
+        why["publicly_exposed"] = {"A": "attack vector Adjacent: the attacker must be on the same network segment",
+                                   "L": "attack vector Local: the attacker needs a session on the device",
+                                   "P": "attack vector Physical: the attacker needs the device in hand"}[av]
     return exposed, kev, auto, total, why, feature_off, named
 
 
@@ -242,7 +251,7 @@ def build(args):
                 exposed, kev, auto, total, why, off, named = cve_inputs(h, d, pcfg, cache, attacked)
                 epss = cache["epss"].get(cid, {})
                 s = scoring.score(exposed, kev, auto, total, epss.get("percentile", 0),
-                                  cap="14d" if off else None)
+                                  cap="upgrade" if off else None)
                 g = cve_groups.setdefault(cid, {"type": "cve", "id": cid, "title": cve_title(h["record"], cache),
                                                 "record": h["record"], "epss": epss,
                                                 "kev": cache["kev"].get(cid), "devices": []})
@@ -280,10 +289,23 @@ def build(args):
         findings += event_findings(ev_summary, checks, cve_groups, by_name, cache)
 
     findings.sort(key=lambda f: (-f["score"], f["id"]))
+    rollup = []
+    for d in facts:
+        mine = [(f, x) for f in findings if f["type"] == "cve" for x in f["devices"] if x["device"] == d["name"]]
+        if not mine:
+            continue
+        by = {b: sum(1 for _, x in mine if x["deadline"] == b) for b in scoring.ORDER}
+        worst = next(b for b in scoring.ORDER if by[b])
+        rollup.append({"device": d["name"], "version": d["version"], "model": d.get("model"), "cves": len(mine),
+                       "kev": sum(1 for f, _ in mine if f["kev"]), "by_deadline": by, "worst": worst,
+                       "feature_off": sum(1 for _, x in mine if x["feature_off"]),
+                       "check_fixed_release": platforms[d["platform"]].get("psirt")})
+    rollup.sort(key=lambda r: (scoring.ORDER.index(r["worst"]), -r["kev"], -r["cves"]))
     return {"generated": dt.datetime.now().isoformat(timespec="seconds"), "repo": str(repo),
             "advisory_cache": {"fetched": cache["fetched"], "kev_version": cache["kev_version"]} if cache else None,
             "devices": [{k: v for k, v in d.items() if k != "findings"} for d in facts],
             "counts": {b: sum(1 for f in findings if f["deadline"] == b) for b in scoring.ORDER},
+            "upgrade_plan": rollup,
             "findings": findings, "events": _ev_light(ev_summary), "notes": notes}
 
 
@@ -356,22 +378,36 @@ def markdown(rep, checks):
     for b in scoring.ORDER:
         L.append(f"| {scoring.BANDS[b][2]} | {c.get(b, 0)} |")
     L.append("")
+    if rep["upgrade_plan"]:
+        L.append("## Upgrade plan (one upgrade clears every CVE listed for a device)\n")
+        L.append("| Device | Version | CVEs | In KEV | 3d+triage | 3d | 14d | 60d | Upgrade | Feature off |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|")
+        for r in rep["upgrade_plan"]:
+            b = r["by_deadline"]
+            L.append(f"| {r['device']} | {r['version']} | {r['cves']} | {r['kev']} | {b['3d+triage']} | {b['3d']} | "
+                     f"{b['14d']} | {b['60d']} | {b['upgrade']} | {r['feature_off']} |")
+        L.append("")
+    urgent = ("3d+triage", "3d", "14d")
     for title, typ in (("CVEs on your devices", "cve"), ("Configuration", "config"), ("Firewall events", "event")):
         rows = [f for f in rep["findings"] if f["type"] == typ]
         if not rows:
             continue
         L.append(f"## {title} ({len(rows)})\n")
-        for f in rows:
+        shown = [f for f in rows if f["deadline"] in urgent] if typ == "cve" else rows
+        for f in shown:
             if typ == "cve":
                 devs = ", ".join(f"{d['device']} ({d['version']}, {d['score']})" for d in f["devices"])
                 epss = f["epss"].get("epss")
                 L.append(f"- **{f['score']}** {f['id']}: {f['title']}. Devices: {devs}. "
                          f"KEV: {'yes' if f['kev'] else 'no'}. EPSS: {f'{epss:.3f}' if epss is not None else 'n/a'}. "
-                         f"CVSS: {(f['cvss'] or {}).get('score', 'n/a')}. Why: {f['why'].get('publicly_exposed')}.")
+                         f"CVSS: {(f['cvss'] or {}).get('score', 'n/a')}. Exposure: {f['why'].get('publicly_exposed')}.")
             elif typ == "config":
                 L.append(f"- **{f['score']}** {f['id']} on {f['device']}: {f['detail']}. Fix: {f['fix']}")
             else:
                 L.append(f"- **{f['score']}** {f['id']}: {f['detail']}")
+        rest = len(rows) - len(shown)
+        if rest:
+            L.append(f"- ...and {rest} more CVEs at 60 days or next upgrade: see the JSON report.")
         L.append("")
     if rep["notes"] or any(d["notes"] for d in rep["devices"]):
         L.append("## Coverage notes\n")

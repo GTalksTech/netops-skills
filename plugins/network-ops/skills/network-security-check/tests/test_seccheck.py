@@ -127,7 +127,8 @@ def test_cves_hit_the_right_devices(report):
     assert hits["CVE-2024-3400"] == ["pa-fw-01"]
     assert hits["CVE-2024-21762"] == ["fw-01"]
     assert hits["CVE-2023-36845"] == ["srx-01"]
-    assert "hq-acc-sw-01" not in str(hits)                        # 17.15.01 is past every fixture CVE
+    for cid in ("CVE-2023-20198", "CVE-2018-0171", "CVE-2017-6742"):
+        assert "hq-acc-sw-01" not in hits.get(cid, [])            # 17.15.01 has those fixes
 
 
 def test_kev_on_exposed_feature_is_3_days_and_triage(report):
@@ -229,3 +230,37 @@ def test_event_formats_parse():
 def test_modified_z_matches_nist_definition():
     med, z = events.modified_z([1, 2, 3, 4, 100])
     assert med == 3 and round(z[-1], 2) == round(0.6745 * 97 / 1, 2)
+
+
+# ---------- round 2: real advisory data ----------
+def _dev(f, name):
+    return next(d for d in f["devices"] if d["device"] == name)
+
+
+def test_feature_off_goes_to_next_upgrade(report):
+    sdwan = find(report, "CVE-2025-20221")[0]                    # SD-WAN only
+    assert all(d["deadline"] == "upgrade" and d["feature_off"] for d in sdwan["devices"])
+    dhcp = find(report, "CVE-2025-20162")[0]                     # DHCP snooping only
+    assert _dev(dhcp, "hq-edge-rtr-01")["deadline"] == "upgrade"
+
+
+def test_same_cve_scores_per_device_exposure(report):
+    snmp = find(report, "CVE-2025-20352")[0]                     # KEV, SNMP RCE
+    assert _dev(snmp, "hq-edge-rtr-01")["deadline"] == "3d+triage"   # community with no ACL, public IP
+    assert _dev(snmp, "hq-core-sw-01")["deadline"] == "14d"          # SNMP on, ACL, internal
+    assert "not on an internet-facing" in _dev(snmp, "hq-core-sw-01")["why"]["publicly_exposed"]
+
+
+def test_adjacent_attack_vector_is_not_public():
+    rec = {"id": "CVE-X", "title": "", "description": "", "cvss": {"vector": "CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"},
+           "ssvc": {"automatable": "yes", "technical_impact": "total"}}
+    dev = {"internet_facing": True, "exposure_reason": "public IP", "features": {}}
+    exposed, *_ , why, off, named = seccheck.cve_inputs({"record": rec}, dev, {"features": {}},
+                                                        {"kev": {}}, set())
+    assert exposed is False and "Adjacent" in why["publicly_exposed"]
+
+
+def test_upgrade_plan_rolls_up_per_device(report):
+    plan = {r["device"]: r for r in report["upgrade_plan"]}
+    assert plan["hq-edge-rtr-01"]["worst"] == "3d+triage"
+    assert plan["hq-edge-rtr-01"]["cves"] == sum(plan["hq-edge-rtr-01"]["by_deadline"].values())

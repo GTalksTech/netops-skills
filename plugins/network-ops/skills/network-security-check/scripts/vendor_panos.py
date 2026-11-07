@@ -1,8 +1,8 @@
 # ============================================================
 # Script:       vendor_panos.py
 # Purpose:      Palo Alto PAN-OS: facts and config checks from "show config running"
-#               (brace format) on a single firewall. Panorama-pushed rules show up in the
-#               running config of the firewall as well.
+#               (default brace format) on a single firewall. Reads rulebase plus
+#               pre-rulebase / post-rulebase, where Panorama rules sit when present.
 # Author:       G Talks Tech
 # Notes:        Read-only. Checks every vsys.
 # ============================================================
@@ -115,10 +115,15 @@ def analyze(text, dev):
 
     for vsname, vs in vsyses.items():
         services = vs.get("service") or {}
-        rules = get(vs, "rulebase", "security", "rules") or {}
+        rules = {}
+        for base in ("pre-rulebase", "rulebase", "post-rulebase"):
+            rules.update(get(vs, base, "security", "rules") or {})
+        open_inbound_zones = set()
         for rname, r in rules.items():
             if r.get("action") != "allow" or r.get("disabled") == "yes":
                 continue
+            if r.get("negate-source") == "yes" or r.get("negate-destination") == "yes":
+                continue    # negated rules need address math this parser doesn't do
             frm, to = as_list(r.get("from")), as_list(r.get("to"))
             src, dst = as_list(r.get("source")), as_list(r.get("destination"))
             app, svc = as_list(r.get("application")), as_list(r.get("service"))
@@ -132,6 +137,8 @@ def analyze(text, dev):
             seg_src = any(is_segmented(z) for z in frm)
             reaches_internal = to == ["any"] or any(not is_inet_zone([z]) and not is_segmented(z) for z in to)
             outbound = is_inet_zone(to) and not is_inet_zone(frm) and frm != ["any"]
+            if is_inet_zone(frm) and any_app and any_svc:
+                open_inbound_zones |= set(to)
             if seg_src and reaches_internal and any_app and dst == ["any"]:
                 found.append(finding("PAN-SEGMENT", f"{label}: {', '.join(frm)} -> {', '.join(to)}, "
                                      "any destination, any application", ev, exposed=False, where=label))
@@ -149,7 +156,10 @@ def analyze(text, dev):
                 found.append(finding("PAN-INBOUND-NO-PROFILE", f"{label}: from {', '.join(frm)}, no "
                                      "security profiles", ev, exposed=True, where=label))
 
-        for rname, r in (get(vs, "rulebase", "nat", "rules") or {}).items():
+        nat_rules = {}
+        for base in ("pre-rulebase", "rulebase", "post-rulebase"):
+            nat_rules.update(get(vs, base, "nat", "rules") or {})
+        for rname, r in nat_rules.items():
             if r.get("disabled") == "yes":
                 continue
             frm = as_list(r.get("from"))
@@ -163,6 +173,8 @@ def analyze(text, dev):
                 ports = (ports or set()) | {int(tport)}
             target = dt.get("translated-address", "?")
             ev = [f"from {' '.join(frm)}", f"service {' '.join(svc)}", f"translated-address {target}"]
+            if ports is None and not open_inbound_zones:
+                continue    # all-ports NAT, but no security rule lets everything through
             if ports is None:
                 found.append(finding("PAN-NAT-RISKY", f"NAT rule '{rname}' maps to {target} on all "
                                      "ports (service any)", ev, exposed=True, where=rname))

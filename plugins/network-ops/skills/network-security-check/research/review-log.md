@@ -57,4 +57,35 @@ Also checked: full fetch for two vendors takes about 80 seconds without an NVD k
 
 ## Round 3: independent review of parsers and matching
 
-(see below)
+A separate reviewer (no access to my reasoning) probed the parsers with real config variants
+and broken input. Confirmed and fixed:
+
+- **Critical:** FortiOS multi-VDOM (`config global`) lost every interface, so exposed
+  management, VIPs and inbound rules disappeared. Fixed, and pinned with a wrapped copy of the
+  fixture.
+- **Critical:** a config the parser couldn't read made CVE features look "off", which pushed KEV
+  CVEs to "next upgrade". Features are now unknown when no interfaces were parsed.
+- **Critical:** Junos `apply-groups` ignored (telnet and untrust services hidden). Expanded now.
+- False positives fixed: banner text read as config; public IP in the IOS management VRF or
+  on an ASA management-only interface counted as internet-facing; `line vty ... transport
+  input none` flagged for no ACL; `logging host <hostname>` not seen; ASA single jump host
+  treated like 0.0.0.0/0; inactive ACEs; FortiOS profile groups read as "no IPS"; all-ports
+  static NAT flagged when the outside ACL or security policy restricts it.
+- False negatives fixed: IOS WAN on DHCP (`ip nat outside`) now internet-facing; ACL with an
+  early deny to one host still counts as open; ASA `any6`, `nat (inside,any)`, two-field
+  `ssh ::/0 outside`; FortiOS `srcintf any` treated as inbound and VIP groups resolved;
+  PAN-OS pre/post-rulebase read (Panorama).
+- Version compare: EOS four-part builds (4.31.1.1F vs 4.31.1F), 7.6 = 7.6.0, Junos `21.4*`
+  train bounds.
+- Scoring vs doc: event "total control" now follows the tied CVE; IPS age is measured from the
+  snapshot date.
+- Crashes: truncated PAN config, missing device_type, cache index without a fetch time, corrupt
+  cache record, bad IPS date. Each now becomes a note on that device instead of stopping the run.
+
+Known gaps left (listed for the next round):
+- ASA twice NAT (`nat (...) source static ...`) is not parsed.
+- PAN-OS rules with negate-source/destination are skipped, not analysed.
+- PAN-OS set/json/xml output formats aren't parsed (a note says so).
+- IOS vty with no `transport input` line gives a note, not a finding, because the default
+  depends on the release.
+- Junos EVO version strings (`-EVO`) sort above the plain release.

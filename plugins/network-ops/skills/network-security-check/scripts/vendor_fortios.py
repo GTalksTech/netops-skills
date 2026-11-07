@@ -2,8 +2,8 @@
 # Script:       vendor_fortios.py
 # Purpose:      FortiGate (FortiOS): facts and config checks from the saved "show" output.
 # Author:       G Talks Tech
-# Notes:        Read-only. Single-VDOM configs. Multi-VDOM ("config vdom / edit root")
-#               is flattened: policies of every VDOM are checked together.
+# Notes:        Read-only. Multi-VDOM configs ("config global" + "config vdom / edit X")
+#               are flattened: policies of every VDOM are checked together.
 # ============================================================
 import re
 
@@ -16,8 +16,10 @@ ANY_ADDR = {"all", "any", "all6", "any6"}
 
 
 def _section(tree, name):
-    """A config section, wherever it sits (top level or inside 'config vdom / edit X')."""
+    """A config section, wherever it sits: top level, 'config global' (multi-VDOM: interfaces,
+    admins) or inside 'config vdom / edit X' (policies, VIPs)."""
     out = dict(tree.get(name, {}))
+    out.update(tree.get("global", {}).get(name, {}))
     for vd in tree.get("vdom", {}).values():
         out.update(vd.get(name, {}))
     return out
@@ -102,6 +104,7 @@ def analyze(text, dev):
 
     # --- policies ---
     vips = _section(tree, "firewall vip")
+    vipgrp = {g: v.get("member", []) for g, v in _section(tree, "firewall vipgrp").items()}
     for pid, p in _section(tree, "firewall policy").items():
         if p.get("action") != ["accept"] or p.get("status") == ["disable"]:
             continue
@@ -110,7 +113,7 @@ def analyze(text, dev):
         label = f"policy {pid}" + (f" '{p['name'][0]}'" if p.get("name") else "")
         ev = [f"srcintf {' '.join(src)} -> dstintf {' '.join(dst)}", f"srcaddr {' '.join(sa)}",
               f"dstaddr {' '.join(da)}", f"service {' '.join(svc)}"]
-        inbound = is_inet(src) and not is_inet(dst)
+        inbound = (is_inet(src) or "any" in src) and not is_inet(dst)
         any_svc = "ALL" in svc
         outbound = is_inet(dst) and not is_inet(src) and "any" not in src
         seg = segmented(src) and not is_inet(dst) and not segmented(dst) and any_svc and bool(da & ANY_ADDR)
@@ -127,11 +130,12 @@ def analyze(text, dev):
         if p.get("logtraffic") == ["disable"]:
             found.append(finding("FGT-NO-LOG", f"{label}: logtraffic disable", ev, exposed=inbound,
                                  where=label))
-        if inbound and not p.get("ips-sensor"):
+        if inbound and not p.get("ips-sensor") and not p.get("profile-group"):
             found.append(finding("FGT-INBOUND-NO-IPS", f"{label}: inbound from internet, no IPS sensor",
                                  ev, exposed=True, where=label))
         if inbound:
-            for vname in da & set(vips):
+            members = set(da) | {m for g in da & set(vipgrp) for m in vipgrp[g]}
+            for vname in members & set(vips):
                 v = vips[vname]
                 ext = v.get("extintf", ["any"])
                 if not (is_inet(ext) or ext == ["any"]):

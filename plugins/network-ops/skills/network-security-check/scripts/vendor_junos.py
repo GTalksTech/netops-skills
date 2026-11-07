@@ -15,6 +15,10 @@ WEAK = {"public", "private"}
 
 def analyze(text, dev):
     lines = junos_set(text)
+    # apply-groups: lines under "set groups G ..." apply as if written at the top level
+    applied = {l.split()[2] for l in lines if l.startswith("set apply-groups ")}
+    lines += ["set " + l.split(" ", 3)[3] for l in lines
+              if l.startswith("set groups ") and len(l.split()) > 3 and l.split()[2] in applied]
     facts = new_facts()
     found = []
     ips, zone_of, zone_svcs = {}, {}, {}
@@ -51,7 +55,7 @@ def analyze(text, dev):
             return bool({svc, "all"} & inet_svcs)
         return bool(inet)
 
-    if "set system services telnet" in lines:
+    if any(l == "set system services telnet" or l.startswith("set system services telnet ") for l in lines):
         found.append(finding("JUNOS-TELNET", "system services telnet", ["set system services telnet"],
                              exposed=exposed("telnet")))
     http = [l for l in lines if l.startswith("set system services web-management http")

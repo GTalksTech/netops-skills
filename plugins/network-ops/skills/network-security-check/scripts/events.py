@@ -178,6 +178,7 @@ def spikes(evs, key, size, z_limit=3.5, min_count=20, min_buckets=8):
                         "targets": Counter(e["dst"] for e in inside).most_common(3),
                         "signatures": Counter(e["signature"] for e in inside).most_common(3),
                         "distinct_signatures": len({e["signature"] for e in inside}),
+                        "severities": sorted({e["severity"] for e in inside}),
                         "blocked": sum(e["count"] for e in inside if e["blocked"]),
                         "all_blocked": all(e["blocked"] for e in inside),
                         "public_source": any(is_public(e["src"]) for e in inside),

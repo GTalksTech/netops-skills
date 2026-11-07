@@ -200,7 +200,13 @@ def load(cache_dir):
     idx = json.loads(idx_file.read_text(encoding="utf-8"))
     recs = {}
     for f in (cache_dir / "cve").glob("CVE-*.json"):
-        recs[f.stem] = json.loads(f.read_text(encoding="utf-8"))
+        try:
+            recs[f.stem] = json.loads(f.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            f.unlink()      # corrupt cache entry: the next fetch gets it again
+    idx.setdefault("platform_cves", {})
+    idx.setdefault("kev", {})
+    idx.setdefault("epss", {})
     idx["records"] = recs
     return idx
 

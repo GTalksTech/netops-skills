@@ -24,9 +24,22 @@ def tokens(v):
     return tuple(out)
 
 
+def _split(v):
+    """Leading numbers, then the rest: '4.31.1.1F' -> ((4, 31, 1, 1), ('f',)). Trailing zeros in
+    the numeric part are dropped so 7.6 equals 7.6.0."""
+    t = tokens(v)
+    i = next((n for n, x in enumerate(t) if isinstance(x, str)), len(t))
+    num = list(t[:i])
+    while len(num) > 1 and num[-1] == 0:
+        num.pop()
+    return tuple(num), t[i:]
+
+
 def _key(v):
-    # ints sort before letters at the same position: 17.9.4 < 17.9.4a, 10.2.7 < 10.2.7-h1
-    return tuple((0, t, "") if isinstance(t, int) else (1, 0, t) for t in tokens(v))
+    # Numbers first (4.31.1.1F > 4.31.1F), then the suffix, where a number sorts before a
+    # letter: 17.9.4 < 17.9.4a, 10.2.7 < 10.2.7-h1.
+    num, rest = _split(v)
+    return (num, tuple((0, x, "") if isinstance(x, int) else (1, 0, x) for x in rest))
 
 
 def cmp(a, b):
@@ -35,7 +48,13 @@ def cmp(a, b):
 
 
 def same(a, b):
-    return tokens(a) == tokens(b)
+    return _split(a) == _split(b)
+
+
+def _in_train(version, bound):
+    """'21.4*' style bound: every release of the 21.4 train."""
+    train = tokens(bound.rstrip("*"))
+    return tokens(version)[: len(train)] == train
 
 
 def _open_start(v):
@@ -51,7 +70,8 @@ def _release(v):
 def status_per_release(version, entry):
     """Palo Alto's own ranges: {version: 10.2, changes: [{at: 10.2.7-h8, ...}, ...]} list the
     first fixed hotfix of each maintenance release. A version is affected when it is older than
-    the fix on its own release, or when its release is older than every fixed release listed.
+    the fix on its own release, or when its release is older than the newest fixed release
+    listed (an older release with no fix of its own never got one).
     Returns None when the entry is for another train."""
     train = tokens(entry.get("version", ""))
     t = tokens(version)
@@ -78,10 +98,14 @@ def status_in_entry(version, entry):
         return status if same(version, start) else None
     if not _open_start(start) and cmp(version, start) < 0:
         return None
-    if upper_lt and not (upper_lt == "*" or cmp(version, upper_lt) < 0):
-        return None
-    if upper_le and not (upper_le == "*" or cmp(version, upper_le) <= 0):
-        return None
+    for bound, ok in ((upper_lt, lambda c: c < 0), (upper_le, lambda c: c <= 0)):
+        if not bound or bound == "*":
+            continue
+        if bound.endswith("*"):
+            if not (_in_train(version, bound) or cmp(version, bound.rstrip("*")) < 0):
+                return None
+        elif not ok(cmp(version, bound)):
+            return None
     for ch in sorted(entry.get("changes", []), key=lambda c: _key(c["at"])):
         if cmp(version, ch["at"]) >= 0:
             status = ch["status"]

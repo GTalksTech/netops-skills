@@ -67,7 +67,7 @@ def load_devices(repo, site=None, device=None):
 
 def device_facts(dev, repo, platforms):
     """Version, model, kind, exposure and config findings for one device, from its snapshot."""
-    p = dev["device_type"]
+    p = dev.get("device_type", "")
     out = {"name": dev["name"], "site": dev.get("site", "unassigned"), "platform": p,
            "version": None, "model": None, "findings": [], "features": {}, "notes": [],
            "interface_ips": []}
@@ -98,9 +98,15 @@ def device_facts(dev, repo, platforms):
     facts = None
     dev = {**dev, "_is_switch": bool(re.match(SWITCH_MODELS, out["model"] or ""))}
     if mod and cfg.exists():
-        facts, found = mod.analyze(cfg.read_text(encoding="utf-8", errors="replace"), dev)
+        try:
+            facts, found = mod.analyze(cfg.read_text(encoding="utf-8", errors="replace"), dev)
+        except Exception as e:  # one unreadable config never stops the run
+            facts, found = None, []
+            out["notes"].append(f"config parser failed on {cfg.name} ({type(e).__name__}: {e}): config checks "
+                                "skipped. Please report this with a sanitized copy of the config.")
+    if facts is not None:
         out["findings"] = found
-        out["features"] = facts["features"]
+        out["features"] = facts["features"] if facts["interfaces"] else {}
         out["notes"] += facts["notes"]
         out["interface_ips"] = [ip.split("/")[0] for i in facts["interfaces"] for ip in i.get("ips", [])]
         if not facts["interfaces"]:
@@ -108,9 +114,9 @@ def device_facts(dev, repo, platforms):
                                 "parser doesn't read (for PAN-OS, the default brace format is needed, not "
                                 "'set cli config-output-format set/json/xml'). Config checks are unreliable "
                                 "for this device.")
-    elif mod:
+    elif mod and not cfg.exists():
         out["notes"].append(f"config file {cfg.name} missing: config checks skipped")
-    else:
+    elif not mod:
         out["notes"].append("no config checks for this platform yet (CVE matching only)")
 
     override = dev.get("exposure")
@@ -130,8 +136,13 @@ def device_facts(dev, repo, platforms):
                                   "inventory if it faces the internet")
     if p == "fortinet" and vf.exists():
         m = re.search(r"^IPS-DB:\s*\S+\((\d{4}-\d{2}-\d{2})", vf.read_text(encoding="utf-8", errors="replace"), re.M)
-        if m:
-            age = (dt.date.today() - dt.date.fromisoformat(m.group(1))).days
+        try:
+            when = dt.date.fromisoformat(m.group(1)) if m else None
+        except ValueError:
+            when = None
+        if when:
+            taken = dt.date.fromtimestamp(vf.stat().st_mtime)   # the snapshot run, not today
+            age = (taken - when).days
             if age > STALE_SIGNATURE_DAYS:
                 out["findings"].append({"check": "FGT-IPS-STALE", "detail": f"IPS-DB dated {m.group(1)}, "
                                         f"{age} days old", "evidence": [m.group(0)], "exposed": out["internet_facing"], "where": None})
@@ -239,7 +250,12 @@ def build(args):
         notes.append("no advisory cache: run 'seccheck.py fetch' first. CVE matching skipped.")
     cve_groups = {}
     if cache:
-        age = dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(cache["fetched"])
+        try:
+            fetched = dt.datetime.fromisoformat(cache.get("fetched", ""))
+            fetched = fetched if fetched.tzinfo else fetched.replace(tzinfo=dt.timezone.utc)
+            age = dt.datetime.now(dt.timezone.utc) - fetched
+        except ValueError:
+            age = dt.timedelta(days=999)
         if age.days > 7:
             notes.append(f"advisory cache is {age.days} days old: run fetch again for current KEV and EPSS")
         for d in facts:
@@ -338,11 +354,13 @@ def event_findings(summ, checks, cve_groups, by_name, cache):
         hit_dev = sorted({ip_owner[t] for t, _ in e["targets"] if ip_owner.get(t) in devs})
         spike = next((sp for sp in summ["signature_spikes"] if sp["key"] in e["signatures"]), None)
         not_blocked = e["count"] - e["blocked"]
+        top_in = max(g["devices"], key=lambda x: x["score"])["inputs"]
         add("EV-TARGETS-VULNERABLE",
             f"{e['count']} attempt(s) at {cid} ({e['signatures'][0]}); vulnerable: {', '.join(devs)}"
             + (f", aimed at {', '.join(hit_dev)} directly" if hit_dev else "")
             + (f"; {not_blocked} NOT blocked" if not_blocked else "; all blocked"),
-            e["public_source"], True, True, True, 1.0, cve=cid, targets=e["targets"],
+            e["public_source"], True, top_in["automatable"], top_in["technical_impact"] == "total",
+            1.0, cve=cid, targets=e["targets"],
             sources_seen=e["sources"], spike=spike)
 
     campaign_srcs = {s for sp in summ["signature_spikes"] if sp["key"] in covered_sigs for s, _ in sp["sources"]}
@@ -365,7 +383,8 @@ def event_findings(summ, checks, cve_groups, by_name, cache):
                     f"normal {sp['median']:g} per hour, modified z {sp['z'] if sp['z'] is not None else 'n/a'}")
             add(key, f"{what}: {sp['count']} events {sp['start'][5:16]} to {sp['end'][11:16]} ({base}); "
                 + ("all blocked" if sp["all_blocked"] else f"{sp['count'] - sp['blocked']} NOT blocked"),
-                sp["public_source"], any(c in kev for c in sp["cves"]), True, False,
+                sp["public_source"], any(c in kev for c in sp["cves"]), True,
+                any(s == "critical" for s in sp.get("severities", [])),
                 min(sp["count"] / 1000, 1), cap="60d" if sp["all_blocked"] else None, spike=sp)
     return out
 

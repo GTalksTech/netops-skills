@@ -277,3 +277,198 @@ def test_inventory_exposure_override(tmp_path):
     dev = next(d for d in seccheck.load_devices(repo) if d["name"] == "hq-core-sw-01")
     facts = seccheck.device_facts(dev, repo, platforms)
     assert facts["internet_facing"] is True and "inventory" in facts["exposure_reason"]
+
+
+# ---------- round 3: independent review ----------
+import vendor_asa  # noqa: E402
+import vendor_fortios  # noqa: E402
+import vendor_ios  # noqa: E402
+import vendor_junos  # noqa: E402
+import vendor_panos  # noqa: E402
+import parsers  # noqa: E402
+
+
+def ids(found):
+    return sorted(f["check"] for f in found)
+
+
+def test_fortios_multi_vdom_keeps_interfaces():
+    text = (FX / "snapshots/hq/fw-01/show.txt").read_text()
+    head, rest = text.split("config vpn ssl settings", 1)
+    wrapped = ("config global\n" + head.split("\n", 1)[1] + "end\nconfig vdom\nedit root\n"
+               "config vpn ssl settings" + rest + "next\nend\n")
+    facts, found = vendor_fortios.analyze(wrapped, {})
+    assert "wan1" in facts["internet_interfaces"]
+    assert {"FGT-MGMT-ON-WAN", "FGT-VIP-RISKY", "FGT-ADMIN-NO-TRUSTHOST"} <= set(ids(found))
+
+
+def test_unparsed_config_never_marks_features_off(tmp_path):
+    repo = tmp_path / "snap"
+    shutil.copytree(FX / "snapshots", repo)
+    (repo / "dc/pa-fw-01/show-config-running.txt").write_text("set deviceconfig system hostname pa-fw-01\n")
+    platforms, _ = seccheck.load_settings()
+    dev = next(d for d in seccheck.load_devices(repo) if d["name"] == "pa-fw-01")
+    facts = seccheck.device_facts(dev, repo, platforms)
+    assert facts["features"] == {} and facts["internet_facing"] is True
+    assert any("parsed to no interfaces" in n for n in facts["notes"])
+
+
+def test_junos_apply_groups():
+    cfg = """set groups SEC system services telnet connection-limit 5
+set groups SEC security zones security-zone untrust host-inbound-traffic system-services all
+set apply-groups SEC
+set system services web-management http interface ge-0/0/0.0
+set interfaces ge-0/0/0 unit 0 family inet address 198.51.100.18/30
+set security zones security-zone untrust interfaces ge-0/0/0.0
+"""
+    facts, found = vendor_junos.analyze(cfg, {})
+    assert "JUNOS-TELNET" in ids(found)
+    assert facts["features"]["jweb"]["internet"] is True
+
+
+def test_ios_banner_text_is_not_config():
+    cfg = "hostname r1\nbanner motd ^C\nip http server\nsnmp-server community public RW\n^C\n" \
+          "ip ssh version 2\nlogging host 10.0.0.5\nline vty 0 4\n access-class 5 in\n transport input ssh\n"
+    _, found = vendor_ios.analyze(cfg, {})
+    assert "IOS-HTTP-SERVER" not in ids(found) and "IOS-SNMP-COMMUNITY" not in ids(found)
+
+
+def test_ios_public_ip_in_mgmt_vrf_is_not_internet():
+    cfg = "hostname r1\ninterface GigabitEthernet0\n vrf forwarding Mgmt-intf\n ip address 198.51.100.9 255.255.255.0\n" \
+          "ip http secure-server\nip ssh version 2\nlogging host syslog.lab.local\nline vty 0 4\n transport input ssh\n"
+    facts, found = vendor_ios.analyze(cfg, {})
+    assert facts["internet_facing"] is False
+    assert "IOS-NO-REMOTE-LOG" not in ids(found)                 # hostname syslog target counts
+
+
+def test_ios_dhcp_wan_with_nat_outside_is_internet():
+    cfg = "hostname r1\ninterface Gi0/0\n ip address dhcp\n ip nat outside\nsnmp-server community public RO\n" \
+          "ip ssh version 2\nlogging host 10.0.0.5\n"
+    facts, found = vendor_ios.analyze(cfg, {})
+    assert facts["internet_facing"] is True
+    assert next(f for f in found if f["check"] == "IOS-SNMP-COMMUNITY")["exposed"] is True
+
+
+def test_ios_vty_transport_none_is_not_flagged():
+    cfg = "hostname r1\nip ssh version 2\nlogging host 10.0.0.5\nline vty 0 4\n access-class 5 in\n transport input ssh\n" \
+          "line vty 5 15\n transport input none\n"
+    _, found = vendor_ios.analyze(cfg, {})
+    assert "IOS-VTY-ACL" not in ids(found)
+
+
+def test_ios_guest_acl_with_first_deny_to_one_host_is_still_open():
+    cfg = """hostname s1
+vlan 40
+ name GUEST
+interface Vlan10
+ ip address 10.1.10.1 255.255.255.0
+interface Vlan40
+ ip address 10.1.40.1 255.255.255.0
+ ip access-group G in
+ip access-list extended G
+ 10 deny ip any host 10.1.10.5
+ 20 permit ip any any
+ip ssh version 2
+logging host 10.0.0.5
+"""
+    _, found = vendor_ios.analyze(cfg, {})
+    assert "IOS-SEGMENT-ROUTED" in ids(found)
+
+
+def test_asa_management_nameif_and_single_jump_host():
+    cfg = """hostname a1
+interface Management1/1
+ management-only
+ nameif management
+ security-level 100
+ ip address 198.51.100.40 255.255.255.0
+interface Gi1/1
+ nameif outside
+ security-level 0
+ ip address 203.0.113.9 255.255.255.0
+http server enable
+http 198.51.100.0 255.255.255.0 management
+ssh 203.0.113.50 255.255.255.255 outside
+access-list OUT extended permit ip any4 any4 inactive
+access-group OUT in interface outside
+logging host management 10.0.0.5
+"""
+    facts, found = vendor_asa.analyze(cfg, {})
+    assert facts["internet_interfaces"] == ["outside"]
+    mg = [f for f in found if f["check"] == "ASA-MGMT-ON-OUTSIDE"]
+    assert len(mg) == 1 and mg[0]["exposed"] is False and "http" not in mg[0]["detail"]
+    assert "ASA-ANY-ANY" not in ids(found)
+
+
+def test_asa_all_ports_nat_needs_an_open_acl():
+    assert not [f for f in vendor_asa.analyze((FX / "snapshots/branch1/asa-01/show-running-config.txt").read_text(), {})[1]
+                if f["check"] == "ASA-NAT-RISKY" and "all ports" in f["detail"]]
+
+
+def test_fortios_profile_group_counts_as_ips_and_vipgrp_resolves():
+    cfg = """config system interface
+    edit "wan1"
+        set ip 203.0.113.10 255.255.255.248
+        set role wan
+    next
+end
+config firewall vip
+    edit "rdp"
+        set extip 203.0.113.11
+        set mappedip "10.0.0.5"
+        set extintf "wan1"
+        set portforward enable
+        set extport 3389
+        set mappedport 3389
+    next
+end
+config firewall vipgrp
+    edit "pub"
+        set interface "wan1"
+        set member "rdp"
+    next
+end
+config firewall policy
+    edit 7
+        set srcintf "wan1"
+        set dstintf "internal"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "pub"
+        set service "RDP"
+        set utm-status enable
+        set profile-type group
+        set profile-group "strict"
+    next
+end
+"""
+    _, found = vendor_fortios.analyze(cfg, {})
+    assert "FGT-VIP-RISKY" in ids(found) and "FGT-INBOUND-NO-IPS" not in ids(found)
+
+
+def test_panos_post_rulebase_is_read():
+    text = (FX / "snapshots/dc/pa-fw-01/show-config-running.txt").read_text().replace(
+        "          rulebase {", "          post-rulebase {")
+    _, found = vendor_panos.analyze(text, {})
+    assert "PAN-SEGMENT" in ids(found)
+
+
+def test_truncated_panos_config_does_not_crash():
+    parsers.panos_tree("config { devices { x { network { interface { ethernet { e1 { layer3 { ip [ 1.2.3.4/24")
+
+
+@pytest.mark.parametrize("a,b,expect", [("4.31.1.1F", "4.31.1F", 1), ("4.28.10.1M", "4.28.10M", 1),
+                                         ("7.6.0", "7.6", 0)])
+def test_version_compare_round3(a, b, expect):
+    assert versions.cmp(a, b) == expect
+
+
+def test_train_wildcard_bound():
+    assert versions.status_in_entry("21.4R3-S5", {"version": "21.4", "lessThan": "21.4*", "status": "affected"}) == "affected"
+
+
+def test_corrupt_cache_record_is_skipped(tmp_path):
+    shutil.copytree(FX / "advisories", tmp_path / "adv")
+    (tmp_path / "adv/cve/CVE-2024-3400.json").write_text("{not json")
+    cache = advisories.load(tmp_path / "adv")
+    assert "CVE-2024-3400" not in cache["records"] and cache["records"]

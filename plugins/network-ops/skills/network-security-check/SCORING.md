@@ -30,7 +30,7 @@ The number only sorts findings that share a deadline.
 | **Publicly exposed?** Can an untrusted host on the internet reach the vulnerable thing? | If the advisory names a feature (web UI, SSL VPN, GlobalProtect, AnyConnect, J-Web, management interface), is that feature on an internet-facing interface in this config? If it names none: does the device face the internet? | Is the misconfigured service reachable from an internet-facing interface? | Did the events come from a public address? |
 | **Known exploited?** | In CISA KEV, or the vendor's advisory reports exploitation, or your own IPS logs show attempts at it | The check cites documented attacks on this exact weakness (listed per check in `research/sources.md`), and the instance is exposed | The signature is tied to a KEV CVE |
 | **Automatable?** Can an attacker script every step? | CISA's answer for that CVE (Vulnrichment). If CISA has none yet: network attack, no privileges, no user interaction in the CVSS vector | Set per check in `settings/checks.yaml`, with its source | Yes (it's traffic hitting your firewall) |
-| **Total control?** Does the attacker end up controlling the device, or what it guards? | CISA's answer (Vulnrichment). If none: CVSS confidentiality AND integrity impact both High | Set per check | The tied CVE's answer, else critical severity = yes |
+| **Total control?** Does the attacker end up controlling the device, or what it guards? | CISA's answer (Vulnrichment). If none: CVSS confidentiality AND integrity impact both High | Set per check | The tied CVE's answer, else yes only when the signature is critical |
 
 **Attack vector overrides exposure.** If the CVE's CVSS vector says Adjacent, Local or Physical,
 the CVE is scored as not publicly exposed, whatever the device faces. In CVSS, Adjacent means the
@@ -40,8 +40,10 @@ attack can't cross a routed boundary, and Local or Physical need access to the d
 "Internet-facing" comes from the config: a public IP on the interface, a FortiOS `role wan`,
 or an interface or zone named like untrust/outside/wan/internet. You can override any device
 in the inventory with `exposure: public` or `exposure: internal`. If the check can't read
-a firewall's interfaces, it assumes the firewall faces the internet, the same way BOD 26-04 says
-"if one method finds it exposed, the answer is yes".
+a firewall's interfaces, it assumes the firewall faces the internet for its CVEs, the same way
+BOD 26-04 says "if one method finds it exposed, the answer is yes". It also stops trusting that
+config for feature checks, so no CVE gets marked "feature off" from a config it couldn't read.
+Interfaces in a management VRF or a management-only interface never count as internet-facing.
 
 ## CISA BOD 26-04, Table 1
 
@@ -100,7 +102,7 @@ disagree with it. They are in the code as named constants or caps.
 7. **Spike test:** modified z-score above 3.5 (NIST/SEMATECH e-Handbook 1.3.5.17). We add: at
    least 8 hours of history, at least 20 events in the hour, and when the baseline is flat
    (MAD = 0, common for rare signatures) the hour must be at least 5 times (median + 1).
-8. **Stale IPS signatures:** older than 30 days. FortiGuard publishes IPS updates daily, so 30
+8. **Stale IPS signatures:** older than 30 days on the day the snapshot was taken. FortiGuard publishes IPS updates daily, so 30
    days means updates have stopped, not that they are slow.
 9. **No CISA answer and no CVSS vector: assume the worst** (automatable, total control), and say
    so in the finding.

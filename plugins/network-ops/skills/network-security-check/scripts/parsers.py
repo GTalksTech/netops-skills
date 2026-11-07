@@ -15,8 +15,21 @@ import shlex
 def ios_blocks(text):
     """[(header, [child lines])] for every top-level line. Children keep no indent."""
     blocks = []
+    delim = None
     for raw in text.replace("\r", "").split("\n"):
         line = raw.rstrip()
+        if delim:                       # inside a banner: body lines are text, not config
+            if delim in line:
+                delim = None
+            continue
+        m = re.match(r"banner \S+ (\^C|\S)", line)
+        if m:
+            d = m.group(1)
+            rest = line[m.end():]
+            if d not in rest:
+                delim = d
+            blocks.append((line.split(d)[0].strip(), []))
+            continue
         if not line.strip() or line.strip() == "!":
             continue
         if line[0] not in " \t":
@@ -93,7 +106,7 @@ def panos_tree(text):
             elif t == "[":
                 pos += 1
                 items = []
-                while toks[pos] != "]":
+                while pos < len(toks) and toks[pos] != "]":
                     items.append(toks[pos])
                     pos += 1
                 pos += 1

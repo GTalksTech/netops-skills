@@ -13,8 +13,13 @@ from parsers import ios_blocks
 WEAK_COMMUNITIES = {"public", "private", "cisco", "community", "snmp", "admin", "secret"}
 
 
+PRIVATE_DENY = re.compile(r"^deny\s+ip\s+\S+(\s+\S+)?\s+(any|10\.0\.0\.0 0\.255\.255\.255|"
+                          r"172\.16\.0\.0 0\.15\.255\.255|192\.168\.0\.0 0\.0\.255\.255)(\s|$)")
+
+
 def _acl_is_open(blocks, name):
-    """True when an ACL lets everything through before any deny (permit ip any any first)."""
+    """True when an ACL reaches a permit ip any any without first denying the internal ranges
+    (deny ip ... any, or a deny to 10/8, 172.16/12 or 192.168/16)."""
     lines = []
     for h, ch in blocks:
         if h == f"ip access-list extended {name}" or h == f"ip access-list standard {name}":
@@ -23,7 +28,7 @@ def _acl_is_open(blocks, name):
             lines.append(h.split(" ", 2)[2])
     for l in lines:
         l = re.sub(r"^\d+\s+", "", l)
-        if l.startswith("deny"):
+        if PRIVATE_DENY.match(l):
             return False
         if re.match(r"permit\s+ip\s+any\s+any\b", l) or l == "permit any":
             return True
@@ -65,16 +70,27 @@ def analyze(text, dev):
                 itf["vrf"] = c.split()[-1]
             elif c == "shutdown":
                 itf["shutdown"] = True
+            elif c == "ip nat outside":
+                itf["nat_outside"] = True
+            elif c.startswith("ip address dhcp"):
+                itf["ips"].append("dhcp")
             elif c.startswith("description "):
                 itf["description"] = c[12:]
         vm = re.match(r"[Vv]lan(\d+)$", name)
         itf["vlan_name"] = vlan_names.get(vm.group(1)) if vm else None
-        itf["public"] = any(is_public(ip) for ip in itf["ips"])
+        itf["public"] = any(is_public(ip) for ip in itf["ips"] if ip != "dhcp")
+        mgmt = bool(re.search(r"mgmt|management|oob", itf["vrf"], re.I))
+        # a public IP, or a NAT outside interface (also covers a DHCP address from the ISP)
+        itf["internet"] = (itf["public"] or itf.get("nat_outside", False)) and not mgmt and not itf["shutdown"]
         facts["interfaces"].append(itf)
-        if itf["public"] and not itf["shutdown"]:
+        if itf["internet"]:
             facts["internet_interfaces"].append(name)
 
     internet = bool(facts["internet_interfaces"])
+    if len(top) < 5:
+        facts["notes"].append("config is nearly empty: config checks skipped")
+        facts["internet_facing"], facts["exposure_reason"] = internet, "config not readable"
+        return facts, []
 
     # --- management plane ---
     http_lines = [h for h in top if re.match(r"ip http (secure-)?server$", h)]
@@ -87,8 +103,13 @@ def analyze(text, dev):
                                                "ip http access-class" if internet and not http_acl else ""),
                              http_lines, exposed=internet and not http_acl))
 
-    vty = [(h, ch) for h, ch in blocks if h.startswith("line vty")]
+    vty = [(h, ch) for h, ch in blocks if h.startswith("line vty")
+           and "transport input none" not in ch]
     no_acl = [h for h, ch in vty if not any(c.startswith("access-class") for c in ch)]
+    no_tin = [h for h, ch in vty if not any(c.startswith("transport input") for c in ch)]
+    if no_tin:
+        facts["notes"].append(f"{', '.join(no_tin)}: no 'transport input' line. The default (and whether "
+                              "telnet is allowed) depends on the release: set 'transport input ssh'.")
     for h, ch in vty:
         tin = [c for c in ch if c.startswith("transport input")]
         if any(re.search(r"\b(telnet|all)\b", c) for c in tin):
@@ -97,7 +118,8 @@ def analyze(text, dev):
     if no_acl:
         found.append(finding("IOS-VTY-ACL", "No access-class on: " + ", ".join(no_acl), no_acl,
                              exposed=internet))
-    if vty and "ip ssh version 2" not in top:
+    if vty and "ip ssh version 2" not in top and not all(
+            any(re.search(r"transport input (none|telnet)$", c) for c in ch) for _, ch in vty):
         found.append(finding("IOS-SSH-V1", "No 'ip ssh version 2' line", [], exposed=False))
 
     snmp_bad = []
@@ -154,7 +176,7 @@ def analyze(text, dev):
         facts["notes"].append("Smart Install state is not in the config. Run 'show vstack config' "
                               "on switches to confirm it is disabled.")
 
-    if not any(re.match(r"logging (host )?\d", h) for h in top):
+    if not any(re.match(r"logging (host \S|\d)", h) for h in top):
         found.append(finding("IOS-NO-REMOTE-LOG", "No 'logging host' line", [], exposed=False))
 
     # --- segmentation: a segmented SVI routing to other SVIs in the same VRF with no ACL ---

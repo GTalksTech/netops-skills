@@ -45,20 +45,31 @@ def analyze(text, dev):
             elif c.startswith("ip address dhcp"):
                 itf["ips"].append("dhcp")
         itf["public"] = any(is_public(i) for i in itf["ips"] if i != "dhcp")
+        itf["mgmt_only"] = "management-only" in ch
         if itf["nameif"]:
             nameif[itf["nameif"]] = itf
         facts["interfaces"].append(itf)
-    inet = {n for n, i in nameif.items() if i["public"] or looks_internet(n)}
+    inet = {n for n, i in nameif.items() if (i["public"] or looks_internet(n)) and not i["mgmt_only"]
+            and n != "management"}
     facts["internet_interfaces"] = sorted(inet)
 
     # --- management on outside ---
-    mgmt = [h for h in top if re.match(r"(http|ssh|telnet) \S+ \S+ \S+$", h)
+    mgmt = [h for h in top if re.match(r"(http|ssh|telnet) \S+( \S+)? \S+$", h)
             and not h.startswith(("http server", "ssh version", "ssh timeout", "ssh key-exchange",
                                   "ssh cipher", "telnet timeout", "ssh stricthostkeycheck"))]
     http_on = "http server enable" in top or any(h.startswith("http server enable") for h in top)
     out_mgmt = [h for h in mgmt if h.split()[-1] in inet and (not h.startswith("http") or http_on)]
+
+    def broad(h):
+        """Allowed from anywhere or a wide range, not one jump host or a small admin subnet."""
+        p = h.split()
+        if "/" in p[1]:
+            return int(p[1].split("/")[1]) < 24
+        return mask_to_prefix(p[2]) is not None and mask_to_prefix(p[2]) < 24
     if out_mgmt:
-        found.append(finding("ASA-MGMT-ON-OUTSIDE", "; ".join(out_mgmt), out_mgmt, exposed=True))
+        wide = [h for h in out_mgmt if broad(h)]
+        found.append(finding("ASA-MGMT-ON-OUTSIDE", "; ".join(out_mgmt) + ("" if wide else
+                             " (limited to specific source addresses)"), out_mgmt, exposed=bool(wide)))
     feature(facts, "mgmt_http", http_on, http_on and any(h.startswith("http ") for h in out_mgmt))
     if any(h.startswith("telnet ") for h in mgmt):
         found.append(finding("ASA-TELNET", "telnet management lines present",
@@ -78,7 +89,9 @@ def analyze(text, dev):
         elif re.match(r"access-group (\S+) global", h):
             applied.setdefault(h.split()[1], []).append("global")
     for h in top:
-        m = re.match(r"access-list (\S+) extended permit ip any4? any4?(\s|$)", h)
+        m = re.match(r"access-list (\S+) extended permit ip any[46]? any[46]?(\s|$)", h)
+        if m and " inactive" in h:
+            continue
         if m and m.group(1) in applied and any(i in inet or i == "global" for i in applied[m.group(1)]):
             # inside "permit ip any any" is the usual outbound default and is not flagged here
             ifs = applied[m.group(1)]
@@ -93,10 +106,18 @@ def analyze(text, dev):
         host = next((c.split()[1] for c in ch if c.startswith(("host ", "subnet ", "range "))), "?")
         for c in ch:
             m = re.match(r"nat \((\S+),(\S+)\) static (\S+)(.*)", c)
-            if not m or m.group(2) not in inet:
+            if not m or not (m.group(2) in inet or (m.group(2) == "any" and inet)):
                 continue
             svc = m.group(4).split()
             if "service" not in svc:
+                # all-ports static NAT: only a finding when an internet-facing ACL lets
+                # everything through to that host (the ACL decides what is reachable)
+                open_acl = any(re.match(rf"access-list (\S+) extended permit ip any4? (host {re.escape(host)}|"
+                                        rf"object {re.escape(h.split()[2])}|any4?)(\s|$)", a)
+                               and a.split()[1] in applied and any(i in inet for i in applied[a.split()[1]])
+                               for a in top)
+                if not open_acl:
+                    continue
                 found.append(finding("ASA-NAT-RISKY", f"{h.split()[2]} ({host}) is static-NATed to "
                                      f"{m.group(3)} on all ports", [h, c], exposed=True, where=h.split()[2]))
                 continue

@@ -66,3 +66,10 @@ def test_every_profile_loads_read_only():
     for p in snapshot.PLATFORMS.glob("*.yaml"):
         prof = snapshot.load_profile(p.stem)
         assert prof["health_commands"], f"{p.stem} has no health commands"
+
+
+def test_uptime_zero_minutes_is_zero_not_unknown():
+    rx = r"uptime is (.+)"
+    assert snapshot.uptime_seconds("R1 uptime is 0 minutes", rx) == 0
+    assert snapshot.uptime_seconds("R1 uptime is 1 minute", rx) == 60
+    assert snapshot.uptime_seconds("no uptime line here", rx) is None

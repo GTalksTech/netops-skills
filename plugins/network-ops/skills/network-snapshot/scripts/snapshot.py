@@ -94,7 +94,10 @@ def uptime_seconds(text, regex):
     hms = re.search(r"\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b", text)
     if hms and not re.search(r"hour|minute", text, re.I):  # "12 days, 3:04:05", "1w2d 03:04"
         total += int(hms.group(1)) * 3600 + int(hms.group(2)) * 60 + int(hms.group(3) or 0)
-    return total or None
+    # a device that booted seconds ago says "0 minutes": that is uptime 0, not unknown
+    if not total and not re.search(r"\d", text):
+        return None
+    return total
 
 
 def is_unsupported(output, prof):

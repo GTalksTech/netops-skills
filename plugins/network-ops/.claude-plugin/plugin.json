@@ -1,6 +1,6 @@
 {
   "name": "network-ops",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "AI skills for network engineers from G Talks Tech: multi-vendor network snapshots saved to git and health checks, both read-only, plus a controlled push that puts approved changes on your devices with every command shown before you approve it.",
   "author": {
     "name": "Garrett Masters (G Talks Tech)",

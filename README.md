@@ -21,6 +21,7 @@ Add the marketplace once, then install the plugin:
 |---|---|
 | network-snapshot | Read-only snapshot of every device (configs and key state), saved to git, with Claude explaining what changed since last time. Cisco IOS/IOS-XE and FortiGate tested; eleven more vendor profiles included and marked untested. |
 | network-health-check | Is the network healthy right now: whole network, one site or one device. Checks hardware, redundancy, routing, links, errors, spanning tree, CPU, logs and time, and reports findings worst first with the evidence. Read-only. |
+| network-security-check | Read-only security check from your snapshots: CVEs on the versions you run, risky config and IPS event spikes, scored by real risk with CISA's BOD 26-04 method. Preview. |
 
 Setup, vendors and read-only account steps: [plugins/network-ops/README.md](plugins/network-ops/README.md).
 

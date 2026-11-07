@@ -103,6 +103,11 @@ def device_facts(dev, repo, platforms):
         out["features"] = facts["features"]
         out["notes"] += facts["notes"]
         out["interface_ips"] = [ip.split("/")[0] for i in facts["interfaces"] for ip in i.get("ips", [])]
+        if not facts["interfaces"]:
+            out["notes"].append(f"config in {cfg.name} parsed to no interfaces: the format may be one this "
+                                "parser doesn't read (for PAN-OS, the default brace format is needed, not "
+                                "'set cli config-output-format set/json/xml'). Config checks are unreliable "
+                                "for this device.")
     elif mod:
         out["notes"].append(f"config file {cfg.name} missing: config checks skipped")
     else:

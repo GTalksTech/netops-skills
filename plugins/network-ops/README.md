@@ -8,6 +8,7 @@ you get every skill, including the ones that ship with future videos.
 | network-snapshot | Read-only snapshot of every device, saved to git, with what changed since last time |
 | network-push | Puts an approved change on the network: shows every switch command in the approval prompt, pushes one device at a time (descriptions can batch) with a separate change account, stops on errors, logs what it sent |
 | network-health-check | Is the network healthy right now: whole network, one site or one device. Read-only; findings worst first with evidence and fix, then what checked out healthy |
+| network-security-check | Read-only security check from your snapshots: CVEs on the versions you run, risky config, IPS event spikes, each scored by real risk (preview) |
 
 ## network-snapshot
 
@@ -204,6 +205,31 @@ end
 - Nokia SR OS: a user profile that allows `show` only.
 - Cisco ASA: a user at a privilege level that has the show commands in the profile (ASA command
   authorization).
+
+## network-security-check (preview)
+
+Works only from files: the configs and show output network-snapshot saved, a local cache of
+public advisory data, and firewall event exports you give it. It never logs in to a device.
+
+- **CVEs:** matches each device's software version against the vendor's own CVE records, then
+  checks CISA KEV, FIRST EPSS and whether the affected feature faces the internet.
+- **Config:** exposed management, any-any rules, risky port forwards, IoT or guest segments that
+  route into the LAN, weak SNMP and passwords, missing logging. Every check names its source.
+- **Events:** attacks on a CVE you are vulnerable to, critical hits that were not blocked, and
+  spikes per signature or per source.
+- **Score:** one 0-100 score and a deadline per finding, from CISA BOD 26-04's four questions
+  (exposed, known exploited, automatable, total control). The method is in
+  `skills/network-security-check/SCORING.md`.
+
+```
+python skills/network-security-check/scripts/seccheck.py fetch
+python skills/network-security-check/scripts/seccheck.py run --events threat-log.csv
+```
+
+CVE matching covers Cisco IOS-XE, ASA, NX-OS, FortiOS, PAN-OS, Junos, Arista EOS and AOS-CX.
+Config checks cover IOS-XE, ASA, FortiOS, PAN-OS and Junos, written from vendor docs and not yet
+run against real devices. Reports land in `~/network-security/reports/`. They describe your
+weak spots, so keep them private.
 
 ## Safety
 

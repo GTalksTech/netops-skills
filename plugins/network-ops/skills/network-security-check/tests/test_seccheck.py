@@ -264,3 +264,16 @@ def test_upgrade_plan_rolls_up_per_device(report):
     plan = {r["device"]: r for r in report["upgrade_plan"]}
     assert plan["hq-edge-rtr-01"]["worst"] == "3d+triage"
     assert plan["hq-edge-rtr-01"]["cves"] == sum(plan["hq-edge-rtr-01"]["by_deadline"].values())
+
+
+def test_inventory_exposure_override(tmp_path):
+    repo = tmp_path / "snap"
+    shutil.copytree(FX / "snapshots", repo)
+    inv = (repo / "inventory.yaml").read_text().replace(
+        "{name: hq-core-sw-01,  host: 192.0.2.232, site: hq}",
+        "{name: hq-core-sw-01,  host: 192.0.2.232, site: hq, exposure: public}")
+    (repo / "inventory.yaml").write_text(inv)
+    platforms, _ = seccheck.load_settings()
+    dev = next(d for d in seccheck.load_devices(repo) if d["name"] == "hq-core-sw-01")
+    facts = seccheck.device_facts(dev, repo, platforms)
+    assert facts["internet_facing"] is True and "inventory" in facts["exposure_reason"]

@@ -1,0 +1,62 @@
+: Saved
+:
+: Serial Number: JAD000000AA
+: Hardware:   ASA5516, 8192 MB RAM, CPU Atom C2000 series 2416 MHz, 1 CPU (8 cores)
+:
+ASA Version 9.18(3)56
+!
+hostname asa-01
+enable password ***** pbkdf2
+names
+!
+interface GigabitEthernet1/1
+ nameif outside
+ security-level 0
+ ip address 198.51.100.2 255.255.255.248
+!
+interface GigabitEthernet1/2
+ nameif inside
+ security-level 100
+ ip address 10.40.0.1 255.255.255.0
+!
+interface Management1/1
+ management-only
+ nameif management
+ security-level 100
+ ip address 192.168.1.251 255.255.255.0
+!
+object network RDP-HOST
+ host 10.40.0.25
+ nat (inside,outside) static 198.51.100.3 service tcp 3389 3389
+object network WEB-HOST
+ host 10.40.0.80
+ nat (inside,outside) static 198.51.100.4 service tcp https https
+object network FILE-SRV
+ host 10.40.0.30
+ nat (inside,outside) static 198.51.100.5
+access-list OUTSIDE-IN extended permit tcp any host 10.40.0.80 eq https
+access-list OUTSIDE-IN extended permit tcp any host 10.40.0.25 eq 3389
+access-list INSIDE-IN extended permit ip any any
+access-group OUTSIDE-IN in interface outside
+access-group INSIDE-IN in interface inside
+!
+http server enable
+http 0.0.0.0 0.0.0.0 outside
+http 192.168.1.0 255.255.255.0 management
+ssh 192.168.1.0 255.255.255.0 management
+ssh 0.0.0.0 0.0.0.0 outside
+telnet 10.40.0.0 255.255.255.0 inside
+ssh version 2
+!
+webvpn
+ enable outside
+ anyconnect enable
+ tunnel-group-list enable
+!
+snmp-server host management 192.168.1.20 community public version 2c
+snmp-server community public
+!
+logging enable
+logging buffered informational
+!
+: end

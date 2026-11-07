@@ -1,0 +1,357 @@
+# Check catalog for network-security-check. Every check names its source (the keys point at
+# research/sources.md) and the four BOD 26-04 inputs the score needs. "exposed" is NOT set
+# here: the engine works it out per finding from the device config (is the thing reachable
+# from a public network?).
+#
+#   known_exploited: true only when a tier-1 source documents attackers abusing exactly this
+#                    weakness on network devices. That source is listed first.
+#   automatable / total_control: SSVC meanings (BOD 26-04 points to the CISA/CERT SSVC
+#                    definitions). total = the attacker controls the device or what it guards.
+#   weight: 0..1, position inside the score band, ordering findings that share a deadline.
+#
+# Change a value only with a source. Add the source to research/sources.md first.
+
+# ---------- Cisco IOS / IOS-XE ----------
+IOS-HTTP-SERVER:
+  title: Web UI (ip http server / secure-server) is enabled
+  why: The IOS-XE web UI was the entry point for CVE-2023-20198, exploited at scale in 2023. Cisco's own fix guidance is to turn it off where it is not needed.
+  fix: "no ip http server / no ip http secure-server, or limit it with ip http access-class to a management subnet."
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.7
+  sources: [cisco-sa-iosxe-webui, stig-ios-http, cisa-kev]
+IOS-TELNET:
+  title: Telnet allowed on VTY lines
+  why: Telnet sends the login and every command in clear text, so anyone on the path can read the password.
+  fix: transport input ssh on every line vty.
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.6
+  sources: [stig-ios-vty-acl, stig-iosxe-ndm-ssh, nsa-nisg]
+IOS-SSH-V1:
+  title: SSH version 2 is not enforced
+  why: SSHv1 has known protocol weaknesses. Without "ip ssh version 2" the device can accept v1 clients.
+  fix: ip ssh version 2.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-iosxe-ndm-ssh, nsa-nisg]
+IOS-VTY-ACL:
+  title: VTY lines have no access-class
+  why: Without an ACL any host that can route to the device can try to log in.
+  fix: "access-class <mgmt-acl> in on every line vty, permitting only the management subnet."
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.5
+  sources: [stig-ios-vty-acl, nsa-nisg]
+IOS-SNMP-COMMUNITY:
+  title: Weak SNMP community (default name, read-write, or no ACL)
+  why: Default or read-write v1/v2c communities let anyone who can reach UDP 161 read or change config. CISA and NCSC documented state actors using SNMP and Smart Install against Cisco devices (TA18-106A).
+  fix: Move to SNMPv3 authPriv. Until then, remove RW communities, use a long random community, and bind it to an ACL.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.6
+  sources: [cisa-ta18-106a, stig-ios-snmp, nsa-nisg]
+IOS-PASSWORD-STORAGE:
+  title: Weak password storage (enable password, type 0, type 7 or type 5)
+  why: Type 0 is clear text, type 7 is reversible, type 5 is MD5. NSA recommends type 8 or 9.
+  fix: Use "enable algorithm-type scrypt secret" and "username X algorithm-type scrypt secret". Then rotate the passwords.
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.4
+  sources: [nsa-nisg, nsa-cisco-password-types]
+IOS-SMART-INSTALL:
+  title: Smart Install (vstack) is enabled
+  why: Smart Install has no authentication. Attackers used it to pull and change configs (Cisco advisory, CISA TA18-106A).
+  fix: no vstack.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [cisco-smart-install, cisa-ta18-106a]
+IOS-NO-REMOTE-LOG:
+  title: No remote syslog server
+  why: Logs kept only on the device are lost on reboot and can be wiped by an attacker. You also can't see an attack in progress.
+  fix: logging host <syslog-server>.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-ios-logging, nist-800-92]
+IOS-SEGMENT-ROUTED:
+  title: Segmented VLAN routes freely on this switch (no ACL on its SVI)
+  why: The VLAN's name says it is meant to be kept apart (IoT, cameras, guest, OT). It has a routed SVI with no inbound ACL, in the same VRF as user or server VLANs, so the switch routes between them and the firewall never sees that traffic.
+  fix: Move the gateway for that VLAN to the firewall, put it in its own VRF, or add an inbound ACL that permits only what it needs (DNS, NTP, its controller) and denies the internal ranges.
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.7
+  sources: [nsa-nisg-segmentation, nist-800-41]
+
+# ---------- FortiGate (FortiOS) ----------
+FGT-ANY-ANY:
+  title: Allow policy with any source, any destination and any service
+  why: A rule this broad turns the firewall into a router for that path. NIST 800-41 asks for deny by default and rules no wider than the need.
+  fix: Replace with rules for the real sources, destinations and services. Check the policy hit counts first to see what it carries.
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [stig-fortigate-fw, nist-800-41]
+FGT-INBOUND-ANY-SERVICE:
+  title: Inbound allow from the internet with service ALL
+  why: Every port on the destination is reachable from the internet, not just the published service.
+  fix: Limit the service to the ports the server publishes.
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.7
+  sources: [nist-800-41, cisa-stopransomware]
+FGT-MGMT-ON-WAN:
+  title: Administrative access (HTTPS/HTTP/SSH/Telnet/SNMP) on an internet-facing interface
+  why: CISA BOD 23-02 tells agencies to take network-device management interfaces off the internet. FortiOS admin-interface CVEs are regularly on the KEV list.
+  fix: Remove https/http/ssh/telnet/snmp from allowaccess on WAN interfaces. Manage from inside or over VPN. If it must stay, add trusted hosts and a local-in policy.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.9
+  sources: [cisa-bod-23-02, fortinet-hardening, cisa-kev]
+FGT-NO-LOG:
+  title: Allow policy with traffic logging disabled
+  why: If the rule does not log, you can't investigate what went through it.
+  fix: set logtraffic all (or utm) on the policy.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [nist-800-41, nist-800-92]
+FGT-INBOUND-NO-IPS:
+  title: Inbound allow from the internet without an IPS sensor
+  why: Traffic to the published server is not inspected, so exploit attempts against it pass unseen.
+  fix: Attach an IPS sensor (and AV for file services) to the policy.
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.5
+  sources: [fortinet-hardening, nist-800-41]
+FGT-VIP-RISKY:
+  title: Virtual IP publishes a risky service, or all ports, to the internet
+  why: RDP, SMB, Telnet, SSH and database ports facing the internet are a common ransomware entry point (CISA #StopRansomware Guide).
+  fix: Put the service behind VPN or ZTNA. If it has to be published, restrict source addresses and publish only the needed port.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [cisa-stopransomware, nist-800-41]
+FGT-ADMIN-NO-TRUSTHOST:
+  title: Administrator account with no trusted hosts
+  why: Without trusted hosts the account can log in from any address that reaches the admin interface.
+  fix: set trusthost1 <mgmt-subnet> on every admin, and add a local-in policy for the admin ports.
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.4
+  sources: [fortinet-trusthost, fortinet-hardening]
+FGT-SEGMENT:
+  title: Segmented network allowed into internal networks with any service
+  why: The interface or zone name says it is meant to be kept apart (IoT, cameras, guest, OT). This policy lets it reach internal networks on every port.
+  fix: Allow only what the devices need (their controller, DNS, NTP) and deny the internal ranges.
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.7
+  sources: [nsa-nisg-segmentation, nist-800-41]
+
+# ---------- Palo Alto (PAN-OS) ----------
+PAN-ANY-ANY:
+  title: Allow rule with any source, any destination and any application/service
+  why: A rule this broad turns the firewall into a router for that path.
+  fix: Replace with rules for the real zones, addresses and App-IDs. Policy Optimizer shows what the rule carries.
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [stig-panw-alg, nist-800-41]
+PAN-INBOUND-ANY-SERVICE:
+  title: Inbound allow from an internet zone with any application and any service
+  why: Every port and app on the destination is reachable from the internet.
+  fix: Limit the rule to the published App-ID and its default service.
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.7
+  sources: [stig-panw-alg, nist-800-41]
+PAN-MGMT-ON-UNTRUST:
+  title: Interface management profile with HTTPS/HTTP/SSH/Telnet/SNMP on an internet-facing interface
+  why: CISA BOD 23-02 tells agencies to take management interfaces off the internet. Palo Alto says the same for PAN-OS management access.
+  fix: Remove the management profile from internet-facing interfaces (keep ping only if needed). Manage from the dedicated management port or inside.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.9
+  sources: [cisa-bod-23-02, panw-mgmt-access, cisa-kev]
+PAN-NO-LOG:
+  title: Allow rule with log at session end turned off
+  why: Without session logs you can't investigate what went through the rule.
+  fix: Enable log at session end and log forwarding.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [nist-800-41, nist-800-92]
+PAN-INBOUND-NO-PROFILE:
+  title: Inbound allow from an internet zone without security profiles
+  why: Without a vulnerability protection profile, exploit attempts against the published server pass uninspected.
+  fix: Attach a security profile group (vulnerability, antivirus, anti-spyware at least).
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.5
+  sources: [panw-best-practice, nist-800-41]
+PAN-NAT-RISKY:
+  title: Destination NAT publishes a risky service, or all ports, to the internet
+  why: RDP, SMB, Telnet, SSH and database ports facing the internet are a common ransomware entry point.
+  fix: Put the service behind VPN. If it must be published, restrict source addresses and the service.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [cisa-stopransomware, nist-800-41]
+PAN-SEGMENT:
+  title: Segmented zone allowed into internal zones with any application
+  why: The zone name says it is meant to be kept apart (IoT, cameras, guest, OT). This rule lets it reach internal zones with anything.
+  fix: Allow only the App-IDs the devices need and deny the rest.
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.7
+  sources: [nsa-nisg-segmentation, nist-800-41]
+
+# ---------- Cisco ASA ----------
+ASA-ANY-ANY:
+  title: Interface ACL permits ip any any
+  why: A rule this broad turns the firewall into a router for that path. On the outside interface it opens the whole inside.
+  fix: Replace with entries for the real sources, destinations and ports. Check hit counts first.
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [nist-800-41]
+ASA-MGMT-ON-OUTSIDE:
+  title: ASDM (http), SSH or Telnet management allowed on the outside interface
+  why: CISA BOD 23-02 tells agencies to take management interfaces off the internet. ASA web-services CVEs are on the KEV list.
+  fix: Remove http/ssh/telnet entries for outside interfaces. Manage from inside or over VPN.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.9
+  sources: [cisa-bod-23-02, cisa-kev]
+ASA-TELNET:
+  title: Telnet management is configured
+  why: Telnet sends the login in clear text.
+  fix: Remove the telnet lines and use SSH.
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.5
+  sources: [nsa-nisg]
+ASA-NAT-RISKY:
+  title: Static NAT publishes a risky service, or all ports, to the internet
+  why: RDP, SMB, Telnet, SSH and database ports facing the internet are a common ransomware entry point.
+  fix: Put the service behind VPN. If it must be published, restrict sources in the outside ACL.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [cisa-stopransomware, nist-800-41]
+ASA-SNMP-COMMUNITY:
+  title: Default SNMP community (public/private)
+  why: A default community lets anyone who reaches UDP 161 read the device.
+  fix: Use SNMPv3, or at least a long random community limited to the poller's address.
+  known_exploited: true
+  automatable: true
+  total_control: false
+  weight: 0.5
+  sources: [cisa-ta18-106a, nsa-nisg]
+ASA-NO-REMOTE-LOG:
+  title: No remote syslog server
+  why: Logs kept only on the device are lost on reboot and can be wiped by an attacker.
+  fix: logging host <interface> <syslog-server> and logging enable.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [nist-800-92]
+
+# ---------- Juniper Junos ----------
+JUNOS-TELNET:
+  title: Telnet service is enabled
+  why: Telnet sends the login in clear text.
+  fix: delete system services telnet.
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.6
+  sources: [nsa-nisg]
+JUNOS-HTTP:
+  title: J-Web over plain HTTP is enabled
+  why: The admin web UI over HTTP sends the login in clear text. J-Web CVEs have been exploited (KEV).
+  fix: delete system services web-management http. Keep https only if needed, bound to a management interface.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.7
+  sources: [cisa-kev, nsa-nisg]
+JUNOS-SNMP-COMMUNITY:
+  title: Default or read-write SNMP community
+  why: A default or read-write community lets anyone who reaches UDP 161 read or change the device.
+  fix: Use SNMPv3. Remove read-write communities and add a client list.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.6
+  sources: [cisa-ta18-106a, nsa-nisg]
+
+# ---------- Firewall events ----------
+EV-TARGETS-VULNERABLE:
+  title: Attacks seen against a CVE that one of your devices is vulnerable to
+  why: The IPS saw exploit attempts for a CVE that this check also matched to a device you run.
+  fix: Patch the device now and check it for compromise. Confirm the IPS blocks this signature.
+  known_exploited: true
+  automatable: true
+  total_control: true
+  weight: 0.9
+  sources: [cisa-bod-26-04, cisa-kev]
+EV-NOT-BLOCKED:
+  title: Critical or high IPS signature seen and allowed (not blocked)
+  why: The IPS saw the attack and let it through, usually because the signature or profile is set to alert only.
+  fix: Set the signature action to block or reset, or move the profile to block-on-critical/high.
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.7
+  sources: [nist-800-94]
+EV-SPIKE-SIGNATURE:
+  title: Spike in events for one IPS signature
+  why: One signature jumped well above its own normal rate (modified z-score over 3.5, NIST/SEMATECH outlier test). That's often a new scan or exploit campaign.
+  fix: Look at the sources and targets in the spike window. Confirm the signature blocks, and patch anything it targets.
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.5
+  sources: [nist-sematech-outliers, nist-800-94]
+EV-SPIKE-SOURCE:
+  title: Spike in events from one source address
+  why: One source jumped well above its own normal rate, or tried many different signatures. That's typical of a scanner or an attacker working through exploits.
+  fix: Block the source at the edge if it is external. If it is internal, treat the host as possibly compromised.
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.5
+  sources: [nist-sematech-outliers, nist-800-94]

@@ -1,0 +1,63 @@
+Building configuration...
+!
+hostname hq-core-sw-01
+!
+enable algorithm-type scrypt secret 9 $9$abc$def
+username admin privilege 15 algorithm-type scrypt secret 9 $9$abc$def
+!
+ip routing
+!
+vlan 10
+ name USERS
+vlan 20
+ name SERVERS
+vlan 30
+ name IOT-CAMERAS
+vlan 40
+ name GUEST
+vlan 99
+ name MGMT
+!
+interface Vlan10
+ description User workstations
+ ip address 10.10.10.1 255.255.255.0
+!
+interface Vlan20
+ description Server farm
+ ip address 10.10.20.1 255.255.255.0
+!
+interface Vlan30
+ description Cameras and door controllers
+ ip address 10.10.30.1 255.255.255.0
+!
+interface Vlan40
+ description Guest wifi
+ ip address 10.10.40.1 255.255.255.0
+ ip access-group GUEST-IN in
+!
+interface Vlan99
+ ip address 10.10.99.1 255.255.255.0
+!
+ip access-list extended GUEST-IN
+ 10 permit udp any host 10.10.20.53 eq domain
+ 20 deny ip any 10.0.0.0 0.255.255.255
+ 30 permit ip any any
+ip access-list standard MGMT-ONLY
+ 10 permit 10.10.99.0 0.0.0.255
+!
+no ip http server
+no ip http secure-server
+ip ssh version 2
+logging host 10.10.20.50
+no vstack
+!
+snmp-server community Xk29!mon RO MGMT-ONLY
+!
+line vty 0 4
+ access-class MGMT-ONLY in
+ transport input ssh
+line vty 5 15
+ access-class MGMT-ONLY in
+ transport input ssh
+!
+end

@@ -1,0 +1,27 @@
+
+hostname: pa-fw-01
+ip-address: 192.168.1.250
+public-ip-address: unknown
+netmask: 255.255.255.0
+default-gateway: 192.168.1.1
+ipv6-address: unknown
+mac-address: 00:1b:17:00:01:02
+time: --
+uptime: --
+family: 400
+model: PA-440
+serial: 0123456789
+vm-mode: off
+sw-version: 10.2.7-h3
+global-protect-client-package-version: 6.2.1
+app-version: 8798-8420
+app-release-date: --
+av-version: 0
+threat-version: 8798-8420
+url-filtering-version: 20240101.20011
+wildfire-version: 0
+logdb-version: 10.2.1
+platform-family: 400
+vpn-disable-mode: off
+multi-vsys: off
+operational-mode: normal

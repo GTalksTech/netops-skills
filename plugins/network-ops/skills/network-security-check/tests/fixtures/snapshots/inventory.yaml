@@ -1,0 +1,12 @@
+# Test inventory: lab names, RFC 5737 / RFC 1918 addresses. Mirrors network-snapshot's format.
+defaults:
+  username: claude-ro
+  device_type: cisco_ios
+devices:
+  - {name: hq-edge-rtr-01, host: 192.0.2.231, site: hq}
+  - {name: hq-core-sw-01,  host: 192.0.2.232, site: hq}
+  - {name: hq-acc-sw-01,   host: 192.0.2.235, site: hq}
+  - {name: fw-01,          host: 192.0.2.242, site: hq, device_type: fortinet}
+  - {name: pa-fw-01,       host: 192.0.2.250, site: dc, device_type: paloalto_panos}
+  - {name: asa-01,         host: 192.0.2.251, site: branch1, device_type: cisco_asa}
+  - {name: srx-01,         host: 192.0.2.252, site: branch1, device_type: juniper_junos, kind: firewall}

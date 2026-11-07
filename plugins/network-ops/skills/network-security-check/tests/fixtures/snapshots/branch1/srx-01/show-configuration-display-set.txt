@@ -1,0 +1,15 @@
+set version 21.4R3-S4.9
+set system host-name srx-01
+set system root-authentication encrypted-password "$6$lab$hash"
+set system login user claude-ro class read-only
+set system services ssh
+set system services telnet
+set system services web-management http interface ge-0/0/0.0
+set system services web-management https system-generated-certificate
+set system syslog host 10.50.20.50 any any
+set snmp community public authorization read-only
+set interfaces ge-0/0/0 unit 0 family inet address 198.51.100.18/30
+set interfaces ge-0/0/1 unit 0 family inet address 10.50.0.1/24
+set security zones security-zone untrust interfaces ge-0/0/0.0 host-inbound-traffic system-services https
+set security zones security-zone untrust interfaces ge-0/0/0.0 host-inbound-traffic system-services ike
+set security zones security-zone trust interfaces ge-0/0/1.0 host-inbound-traffic system-services all

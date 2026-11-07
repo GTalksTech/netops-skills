@@ -1,0 +1,418 @@
+Receive Time,Type,Threat/Content Type,Source address,Destination address,Rule,Source Zone,Destination Zone,Threat/Content Name,Threat ID,Severity,Action,Repeat Count
+2026/11/05 00:09:00,THREAT,vulnerability,192.0.2.197,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 00:10:00,THREAT,vulnerability,192.0.2.150,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 00:13:00,THREAT,vulnerability,192.0.2.112,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 00:18:00,THREAT,vulnerability,192.0.2.57,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 00:19:00,THREAT,vulnerability,192.0.2.26,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 00:19:00,THREAT,vulnerability,192.0.2.72,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 00:24:00,THREAT,vulnerability,192.0.2.123,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 00:44:00,THREAT,vulnerability,192.0.2.28,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 01:04:00,THREAT,vulnerability,192.0.2.177,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 01:40:00,THREAT,vulnerability,192.0.2.142,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 01:43:00,THREAT,vulnerability,192.0.2.54,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 01:50:00,THREAT,vulnerability,192.0.2.164,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 01:52:00,THREAT,vulnerability,192.0.2.171,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 02:08:00,THREAT,vulnerability,192.0.2.142,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 02:27:00,THREAT,vulnerability,192.0.2.142,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 02:28:00,THREAT,vulnerability,192.0.2.142,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 02:39:00,THREAT,vulnerability,192.0.2.200,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 02:53:00,THREAT,vulnerability,192.0.2.25,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 03:06:00,THREAT,vulnerability,192.0.2.128,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 03:27:00,THREAT,vulnerability,192.0.2.62,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 03:41:00,THREAT,vulnerability,192.0.2.115,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 03:59:00,THREAT,vulnerability,192.0.2.167,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 04:06:00,THREAT,vulnerability,192.0.2.12,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 04:22:00,THREAT,vulnerability,192.0.2.91,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 04:23:00,THREAT,vulnerability,192.0.2.190,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 04:29:00,THREAT,vulnerability,192.0.2.190,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 04:39:00,THREAT,vulnerability,192.0.2.133,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 05:00:00,THREAT,vulnerability,192.0.2.73,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 05:10:00,THREAT,vulnerability,192.0.2.125,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 05:23:00,THREAT,vulnerability,192.0.2.82,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 05:44:00,THREAT,vulnerability,192.0.2.69,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 06:06:00,THREAT,vulnerability,192.0.2.176,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 06:14:00,THREAT,vulnerability,192.0.2.124,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 06:21:00,THREAT,vulnerability,192.0.2.77,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 06:28:00,THREAT,vulnerability,192.0.2.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 06:37:00,THREAT,vulnerability,192.0.2.87,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 06:43:00,THREAT,vulnerability,192.0.2.43,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 06:58:00,THREAT,vulnerability,192.0.2.26,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 07:36:00,THREAT,vulnerability,192.0.2.182,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 07:38:00,THREAT,vulnerability,192.0.2.200,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 07:46:00,THREAT,vulnerability,192.0.2.12,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 07:56:00,THREAT,vulnerability,192.0.2.120,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 07:59:00,THREAT,vulnerability,192.0.2.90,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 08:00:00,THREAT,vulnerability,192.0.2.88,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 08:07:00,THREAT,vulnerability,192.0.2.191,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 08:19:00,THREAT,vulnerability,192.0.2.145,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 08:39:00,THREAT,vulnerability,192.0.2.18,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 08:43:00,THREAT,vulnerability,192.0.2.137,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 08:48:00,THREAT,vulnerability,192.0.2.187,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 08:53:00,THREAT,vulnerability,192.0.2.183,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 08:54:00,THREAT,vulnerability,192.0.2.168,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 09:24:00,THREAT,vulnerability,192.0.2.157,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 09:33:00,THREAT,vulnerability,192.0.2.42,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 09:34:00,THREAT,vulnerability,192.0.2.15,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 09:49:00,THREAT,vulnerability,192.0.2.147,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 10:04:00,THREAT,vulnerability,192.0.2.86,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 10:22:00,THREAT,vulnerability,192.0.2.174,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 10:31:00,THREAT,vulnerability,192.0.2.50,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 10:34:00,THREAT,vulnerability,192.0.2.62,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 10:38:00,THREAT,vulnerability,192.0.2.113,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 10:41:00,THREAT,vulnerability,192.0.2.86,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 10:43:00,THREAT,vulnerability,192.0.2.31,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 11:10:00,THREAT,vulnerability,192.0.2.86,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 11:13:00,THREAT,vulnerability,192.0.2.92,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 11:26:00,THREAT,vulnerability,192.0.2.109,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 11:33:00,THREAT,vulnerability,192.0.2.119,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 11:36:00,THREAT,vulnerability,192.0.2.197,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 11:39:00,THREAT,vulnerability,192.0.2.179,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 12:18:00,THREAT,vulnerability,192.0.2.75,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 12:22:00,THREAT,vulnerability,192.0.2.53,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 12:25:00,THREAT,vulnerability,192.0.2.66,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 12:30:00,THREAT,vulnerability,192.0.2.195,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 12:46:00,THREAT,vulnerability,192.0.2.96,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 12:48:00,THREAT,vulnerability,192.0.2.96,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 12:55:00,THREAT,vulnerability,192.0.2.188,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 13:00:00,THREAT,vulnerability,192.0.2.57,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 13:17:00,THREAT,vulnerability,192.0.2.43,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 13:20:00,THREAT,vulnerability,192.0.2.167,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 13:24:00,THREAT,vulnerability,192.0.2.21,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 13:41:00,THREAT,vulnerability,192.0.2.18,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 14:16:00,THREAT,vulnerability,192.0.2.171,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 14:19:00,THREAT,vulnerability,192.0.2.114,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 14:20:00,THREAT,vulnerability,192.0.2.176,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 14:41:00,THREAT,vulnerability,192.0.2.131,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 14:43:00,THREAT,vulnerability,192.0.2.29,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 15:01:00,THREAT,vulnerability,192.0.2.31,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 15:04:00,THREAT,vulnerability,192.0.2.128,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 15:07:00,THREAT,vulnerability,192.0.2.128,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 15:14:00,THREAT,vulnerability,192.0.2.71,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 15:17:00,THREAT,vulnerability,192.0.2.187,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 15:27:00,THREAT,vulnerability,192.0.2.58,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 15:38:00,THREAT,vulnerability,192.0.2.180,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 16:10:00,THREAT,vulnerability,192.0.2.33,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 16:18:00,THREAT,vulnerability,192.0.2.27,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 16:30:00,THREAT,vulnerability,192.0.2.25,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 16:34:00,THREAT,vulnerability,192.0.2.102,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 16:34:00,THREAT,vulnerability,192.0.2.180,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 16:43:00,THREAT,vulnerability,192.0.2.150,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 16:49:00,THREAT,vulnerability,192.0.2.159,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 16:50:00,THREAT,vulnerability,192.0.2.109,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 17:20:00,THREAT,vulnerability,192.0.2.189,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 17:21:00,THREAT,vulnerability,192.0.2.160,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 17:29:00,THREAT,vulnerability,192.0.2.71,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 17:32:00,THREAT,vulnerability,192.0.2.19,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 17:46:00,THREAT,vulnerability,192.0.2.66,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 17:47:00,THREAT,vulnerability,192.0.2.112,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 17:55:00,THREAT,vulnerability,192.0.2.106,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 17:58:00,THREAT,vulnerability,192.0.2.173,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 18:02:00,THREAT,vulnerability,192.0.2.22,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 18:13:00,THREAT,vulnerability,192.0.2.136,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 18:25:00,THREAT,vulnerability,192.0.2.98,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 18:26:00,THREAT,vulnerability,192.0.2.59,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 18:38:00,THREAT,vulnerability,192.0.2.117,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 18:44:00,THREAT,vulnerability,192.0.2.137,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 18:45:00,THREAT,vulnerability,192.0.2.35,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 18:51:00,THREAT,vulnerability,192.0.2.198,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 19:02:00,THREAT,vulnerability,192.0.2.192,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 19:08:00,THREAT,vulnerability,192.0.2.76,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 19:16:00,THREAT,vulnerability,192.0.2.198,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 19:17:00,THREAT,vulnerability,192.0.2.129,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 19:24:00,THREAT,vulnerability,192.0.2.76,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 19:38:00,THREAT,vulnerability,192.0.2.61,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 19:40:00,THREAT,vulnerability,192.0.2.27,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 19:54:00,THREAT,vulnerability,192.0.2.75,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 19:58:00,THREAT,vulnerability,192.0.2.173,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 20:04:00,THREAT,vulnerability,192.0.2.168,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 20:10:00,THREAT,vulnerability,192.0.2.62,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 20:11:00,THREAT,vulnerability,192.0.2.63,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 20:15:00,THREAT,vulnerability,192.0.2.189,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 20:17:00,THREAT,vulnerability,192.0.2.69,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 20:45:00,THREAT,vulnerability,192.0.2.43,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 21:01:00,THREAT,vulnerability,192.0.2.165,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 21:14:00,THREAT,vulnerability,192.0.2.51,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 21:28:00,THREAT,vulnerability,192.0.2.113,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 21:29:00,THREAT,vulnerability,192.0.2.197,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 21:54:00,THREAT,vulnerability,192.0.2.142,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 22:31:00,THREAT,vulnerability,192.0.2.66,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 22:32:00,THREAT,vulnerability,192.0.2.160,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 22:33:00,THREAT,vulnerability,192.0.2.72,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 22:41:00,THREAT,vulnerability,192.0.2.166,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 22:51:00,THREAT,vulnerability,192.0.2.132,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 22:55:00,THREAT,vulnerability,192.0.2.177,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/05 22:58:00,THREAT,vulnerability,192.0.2.121,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 23:00:00,THREAT,vulnerability,192.0.2.165,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 23:02:00,THREAT,vulnerability,192.0.2.147,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 23:17:00,THREAT,vulnerability,192.0.2.152,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 23:18:00,THREAT,vulnerability,192.0.2.154,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 23:30:00,THREAT,vulnerability,192.0.2.173,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/05 23:45:00,THREAT,vulnerability,192.0.2.106,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/05 23:45:00,THREAT,vulnerability,192.0.2.51,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 00:07:00,THREAT,vulnerability,192.0.2.152,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 00:18:00,THREAT,vulnerability,192.0.2.63,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 00:26:00,THREAT,vulnerability,192.0.2.68,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 00:36:00,THREAT,vulnerability,192.0.2.193,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 00:54:00,THREAT,vulnerability,192.0.2.79,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 01:03:00,THREAT,vulnerability,192.0.2.21,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 01:04:00,THREAT,vulnerability,192.0.2.74,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 01:16:00,THREAT,vulnerability,192.0.2.109,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 01:28:00,THREAT,vulnerability,192.0.2.154,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 01:31:00,THREAT,vulnerability,192.0.2.129,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 01:35:00,THREAT,vulnerability,192.0.2.21,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 01:55:00,THREAT,vulnerability,192.0.2.25,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 02:08:00,THREAT,vulnerability,192.0.2.91,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 02:12:00,THREAT,vulnerability,192.0.2.46,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 02:16:00,THREAT,vulnerability,192.0.2.164,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 02:27:00,THREAT,vulnerability,192.0.2.149,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 02:27:00,THREAT,vulnerability,192.0.2.58,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 02:42:00,THREAT,vulnerability,192.0.2.33,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 03:17:00,THREAT,vulnerability,192.0.2.195,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 03:27:00,THREAT,vulnerability,192.0.2.172,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 03:28:00,THREAT,vulnerability,192.0.2.13,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 03:45:00,THREAT,vulnerability,192.0.2.47,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 03:51:00,THREAT,vulnerability,192.0.2.124,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 04:14:00,THREAT,vulnerability,192.0.2.125,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 04:17:00,THREAT,vulnerability,192.0.2.181,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 04:32:00,THREAT,vulnerability,192.0.2.18,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 04:37:00,THREAT,vulnerability,192.0.2.68,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 05:31:00,THREAT,vulnerability,192.0.2.120,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 05:39:00,THREAT,vulnerability,192.0.2.13,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 05:42:00,THREAT,vulnerability,192.0.2.189,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 05:48:00,THREAT,vulnerability,192.0.2.59,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 05:49:00,THREAT,vulnerability,192.0.2.45,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 05:55:00,THREAT,vulnerability,192.0.2.132,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 05:57:00,THREAT,vulnerability,192.0.2.150,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 05:58:00,THREAT,vulnerability,192.0.2.159,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 06:00:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:00:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:01:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:02:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:03:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:03:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:03:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:03:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:03:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:03:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:04:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:04:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:04:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:04:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:05:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:05:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:05:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:05:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:06:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:06:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:06:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:07:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:08:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:08:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:08:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:08:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:08:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:08:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:09:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:09:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:09:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:10:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:10:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:10:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:10:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:10:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:11:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:11:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:12:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:12:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:13:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:14:00,THREAT,vulnerability,192.0.2.20,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 06:14:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:14:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:14:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:14:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:14:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:16:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:16:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:17:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:17:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:17:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:18:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:18:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:18:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:18:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:19:00,THREAT,vulnerability,192.0.2.82,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 06:19:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:19:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:19:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:21:00,THREAT,vulnerability,192.0.2.128,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 06:21:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:21:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:21:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:22:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:22:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:22:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:22:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:23:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:23:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:24:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:24:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:24:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:25:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:26:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:26:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:26:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:27:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:30:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:31:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:32:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:32:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:32:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:32:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:33:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:33:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:33:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:33:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:34:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:34:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:34:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:35:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:35:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:35:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:35:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:35:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:36:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:36:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:36:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:36:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:36:00,THREAT,vulnerability,192.0.2.157,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 06:37:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:37:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:38:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:39:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:39:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:39:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:41:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:42:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:42:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:43:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:43:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:43:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:43:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:43:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:43:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:44:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:44:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:44:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:46:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:46:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:46:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:47:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:49:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:49:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:50:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:50:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:51:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:51:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:51:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:52:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:53:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:53:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:55:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,alert,1
+2026/11/06 06:55:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:55:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:55:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:56:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:56:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:56:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:58:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:59:00,THREAT,vulnerability,198.51.100.66,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:59:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 06:59:00,THREAT,vulnerability,198.51.100.67,203.0.113.20,Inbound DMZ,untrust,dmz,Palo Alto Networks GlobalProtect OS Command Injection Vulnerability(95187),95187,critical,reset-both,1
+2026/11/06 07:07:00,THREAT,vulnerability,192.0.2.88,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 07:12:00,THREAT,vulnerability,192.0.2.157,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 07:19:00,THREAT,vulnerability,192.0.2.45,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 07:32:00,THREAT,vulnerability,192.0.2.122,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 07:38:00,THREAT,vulnerability,192.0.2.40,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 08:06:00,THREAT,vulnerability,192.0.2.150,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 08:15:00,THREAT,vulnerability,192.0.2.136,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 08:15:00,THREAT,vulnerability,192.0.2.184,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 08:25:00,THREAT,vulnerability,192.0.2.11,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 08:44:00,THREAT,vulnerability,192.0.2.172,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 08:50:00,THREAT,vulnerability,192.0.2.42,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 09:00:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 0(40000),40000,high,reset-both,1
+2026/11/06 09:01:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 1(40001),40001,low,reset-both,1
+2026/11/06 09:02:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 2(40002),40002,informational,reset-both,1
+2026/11/06 09:03:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 3(40003),40003,medium,reset-both,1
+2026/11/06 09:04:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 4(40004),40004,low,reset-both,1
+2026/11/06 09:05:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 5(40005),40005,informational,reset-both,1
+2026/11/06 09:06:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 6(40006),40006,medium,reset-both,1
+2026/11/06 09:07:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 7(40007),40007,low,reset-both,1
+2026/11/06 09:08:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 8(40008),40008,informational,reset-both,1
+2026/11/06 09:09:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 9(40009),40009,medium,reset-both,1
+2026/11/06 09:10:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 10(40010),40010,low,reset-both,1
+2026/11/06 09:11:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 11(40011),40011,informational,reset-both,1
+2026/11/06 09:12:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 12(40012),40012,medium,reset-both,1
+2026/11/06 09:13:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 13(40013),40013,low,reset-both,1
+2026/11/06 09:14:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 14(40014),40014,informational,reset-both,1
+2026/11/06 09:15:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 0(40000),40000,high,reset-both,1
+2026/11/06 09:16:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 1(40001),40001,low,reset-both,1
+2026/11/06 09:17:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 2(40002),40002,informational,reset-both,1
+2026/11/06 09:18:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 3(40003),40003,medium,reset-both,1
+2026/11/06 09:19:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 4(40004),40004,low,reset-both,1
+2026/11/06 09:20:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 5(40005),40005,informational,reset-both,1
+2026/11/06 09:20:00,THREAT,vulnerability,192.0.2.40,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 09:21:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 6(40006),40006,medium,reset-both,1
+2026/11/06 09:22:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 7(40007),40007,low,reset-both,1
+2026/11/06 09:23:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 8(40008),40008,informational,reset-both,1
+2026/11/06 09:24:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 9(40009),40009,medium,reset-both,1
+2026/11/06 09:25:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 10(40010),40010,low,reset-both,1
+2026/11/06 09:26:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 11(40011),40011,informational,reset-both,1
+2026/11/06 09:27:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 12(40012),40012,medium,reset-both,1
+2026/11/06 09:27:00,THREAT,vulnerability,192.0.2.129,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 09:28:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 13(40013),40013,low,reset-both,1
+2026/11/06 09:29:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 14(40014),40014,informational,reset-both,1
+2026/11/06 09:30:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 0(40000),40000,high,reset-both,1
+2026/11/06 09:31:00,THREAT,vulnerability,192.0.2.93,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 09:31:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 1(40001),40001,low,reset-both,1
+2026/11/06 09:32:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 2(40002),40002,informational,reset-both,1
+2026/11/06 09:33:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 3(40003),40003,medium,reset-both,1
+2026/11/06 09:34:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 4(40004),40004,low,reset-both,1
+2026/11/06 09:35:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 5(40005),40005,informational,reset-both,1
+2026/11/06 09:36:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 6(40006),40006,medium,reset-both,1
+2026/11/06 09:37:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 7(40007),40007,low,reset-both,1
+2026/11/06 09:38:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 8(40008),40008,informational,reset-both,1
+2026/11/06 09:39:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 9(40009),40009,medium,reset-both,1
+2026/11/06 09:40:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 10(40010),40010,low,reset-both,1
+2026/11/06 09:41:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 11(40011),40011,informational,reset-both,1
+2026/11/06 09:42:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 12(40012),40012,medium,reset-both,1
+2026/11/06 09:43:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 13(40013),40013,low,reset-both,1
+2026/11/06 09:44:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 14(40014),40014,informational,reset-both,1
+2026/11/06 09:45:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 0(40000),40000,high,reset-both,1
+2026/11/06 09:46:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 1(40001),40001,low,reset-both,1
+2026/11/06 09:47:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 2(40002),40002,informational,reset-both,1
+2026/11/06 09:48:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 3(40003),40003,medium,reset-both,1
+2026/11/06 09:49:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 4(40004),40004,low,reset-both,1
+2026/11/06 09:50:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 5(40005),40005,informational,reset-both,1
+2026/11/06 09:51:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 6(40006),40006,medium,reset-both,1
+2026/11/06 09:51:00,THREAT,vulnerability,192.0.2.74,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 09:52:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 7(40007),40007,low,reset-both,1
+2026/11/06 09:53:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 8(40008),40008,informational,reset-both,1
+2026/11/06 09:54:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 9(40009),40009,medium,reset-both,1
+2026/11/06 09:55:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 10(40010),40010,low,reset-both,1
+2026/11/06 09:56:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 11(40011),40011,informational,reset-both,1
+2026/11/06 09:57:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt Variant 12(40012),40012,medium,reset-both,1
+2026/11/06 09:58:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection Variant 13(40013),40013,low,reset-both,1
+2026/11/06 09:58:00,THREAT,vulnerability,192.0.2.147,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 09:59:00,THREAT,vulnerability,198.51.100.99,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe Variant 14(40014),40014,informational,reset-both,1
+2026/11/06 10:03:00,THREAT,vulnerability,192.0.2.84,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 10:05:00,THREAT,vulnerability,192.0.2.41,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 10:11:00,THREAT,vulnerability,192.0.2.107,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 10:27:00,THREAT,vulnerability,192.0.2.170,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 10:56:00,THREAT,vulnerability,192.0.2.16,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 10:59:00,THREAT,vulnerability,192.0.2.187,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 11:15:00,THREAT,vulnerability,192.0.2.48,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 11:22:00,THREAT,vulnerability,192.0.2.194,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 11:32:00,THREAT,vulnerability,192.0.2.125,203.0.113.21,Inbound DMZ,untrust,dmz,Microsoft Windows SMB Probe(31914),31914,informational,reset-both,1
+2026/11/06 11:55:00,THREAT,vulnerability,192.0.2.117,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1
+2026/11/06 11:59:00,THREAT,vulnerability,192.0.2.119,203.0.113.21,Inbound DMZ,untrust,dmz,HTTP Directory Traversal Request Attempt(30844),30844,medium,reset-both,1
+2026/11/06 11:59:00,THREAT,vulnerability,192.0.2.85,203.0.113.21,Inbound DMZ,untrust,dmz,SIPVicious Scanner Detection(32760),32760,low,reset-both,1

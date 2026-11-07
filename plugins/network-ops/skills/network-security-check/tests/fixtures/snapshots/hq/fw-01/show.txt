@@ -1,0 +1,152 @@
+#config-version=FGT60F-7.4.2-FW-build2571-231219:opmode=0:vdom=0:user=claude-ro-cli
+config system global
+    set admintimeout 30
+    set hostname "fw-01"
+    set timezone "US/Central"
+end
+config system interface
+    edit "wan1"
+        set vdom "root"
+        set ip 203.0.113.10 255.255.255.248
+        set allowaccess ping https ssh
+        set type physical
+        set role wan
+    next
+    edit "internal"
+        set vdom "root"
+        set ip 10.20.0.1 255.255.255.0
+        set allowaccess ping https ssh
+        set type hard-switch
+        set role lan
+    next
+    edit "iot"
+        set vdom "root"
+        set ip 10.20.30.1 255.255.255.0
+        set allowaccess ping
+        set alias "IoT cameras"
+        set role lan
+        set interface "internal"
+        set vlanid 30
+    next
+    edit "servers"
+        set vdom "root"
+        set ip 10.20.20.1 255.255.255.0
+        set allowaccess ping
+        set role lan
+        set interface "internal"
+        set vlanid 20
+    next
+end
+config system admin
+    edit "admin"
+        set accprofile "super_admin"
+        set vdom "root"
+        set password ENC SH2nlSm7BqZ2rqOtlL0Yu2O8wVaLxGPWB9wRBdZf2YGdLJN6qGFrHC4rD0Hd18=
+    next
+    edit "netops-ro"
+        set accprofile "read-only"
+        set vdom "root"
+        set trusthost1 192.168.1.0 255.255.255.0
+        set password ENC SH2xyz=
+    next
+end
+config vpn ssl settings
+    set servercert "Fortinet_Factory"
+    set tunnel-ip-pools "SSLVPN_TUNNEL_ADDR1"
+    set source-interface "wan1"
+    set source-address "all"
+    set default-portal "full-access"
+end
+config firewall vip
+    edit "rdp-jumphost"
+        set extip 203.0.113.11
+        set mappedip "10.20.20.15"
+        set extintf "wan1"
+        set portforward enable
+        set extport 3389
+        set mappedport 3389
+    next
+    edit "web-server"
+        set extip 203.0.113.12
+        set mappedip "10.20.20.80"
+        set extintf "wan1"
+        set portforward enable
+        set extport 443
+        set mappedport 443
+    next
+    edit "old-nas"
+        set extip 203.0.113.13
+        set mappedip "10.20.20.30"
+        set extintf "wan1"
+    next
+end
+config firewall policy
+    edit 1
+        set name "LAN-to-Internet"
+        set srcintf "internal"
+        set dstintf "wan1"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "all"
+        set schedule "always"
+        set service "ALL"
+        set utm-status enable
+        set ips-sensor "default"
+        set logtraffic all
+        set nat enable
+    next
+    edit 2
+        set name "Inbound-RDP"
+        set srcintf "wan1"
+        set dstintf "internal"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "rdp-jumphost"
+        set schedule "always"
+        set service "RDP"
+    next
+    edit 3
+        set name "Inbound-Web"
+        set srcintf "wan1"
+        set dstintf "servers"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "web-server"
+        set schedule "always"
+        set service "HTTPS"
+        set utm-status enable
+        set ips-sensor "protect_http_server"
+    next
+    edit 4
+        set name "IoT-to-LAN"
+        set srcintf "iot"
+        set dstintf "internal" "servers"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "all"
+        set schedule "always"
+        set service "ALL"
+        set logtraffic disable
+    next
+    edit 5
+        set name "temp-troubleshoot"
+        set srcintf "any"
+        set dstintf "any"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "all"
+        set schedule "always"
+        set service "ALL"
+        set status disable
+    next
+    edit 6
+        set name "Old-NAS"
+        set srcintf "wan1"
+        set dstintf "servers"
+        set action accept
+        set srcaddr "all"
+        set dstaddr "old-nas"
+        set schedule "always"
+        set service "ALL"
+    next
+end

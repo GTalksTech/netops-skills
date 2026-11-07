@@ -1,0 +1,4 @@
+Hostname: srx-01
+Model: srx340
+Junos: 21.4R3-S4.9
+JUNOS Software Release [21.4R3-S4.9]

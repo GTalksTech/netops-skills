@@ -1,0 +1,47 @@
+Building configuration...
+
+Current configuration : 2210 bytes
+!
+version 17.9
+service timestamps debug datetime msec
+service timestamps log datetime msec
+!
+hostname hq-edge-rtr-01
+!
+enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+aaa new-model
+!
+username admin privilege 15 password 7 0822455D0A16
+username claude-ro privilege 5 secret 9 $9$nhEmQVczB7dqsO$X.HsgL6x1il0RxkOSSvyQYwucySCt7qFm4v7pqCxkKM
+!
+interface GigabitEthernet0/0/0
+ description ISP uplink
+ ip address 203.0.113.2 255.255.255.252
+ ip nat outside
+!
+interface GigabitEthernet0/0/1
+ description to hq-core-sw-01
+ ip address 10.0.0.1 255.255.255.252
+ ip nat inside
+!
+interface GigabitEthernet0
+ vrf forwarding Mgmt-intf
+ ip address 192.168.1.231 255.255.255.0
+!
+ip http server
+ip http secure-server
+ip route 0.0.0.0 0.0.0.0 203.0.113.1
+ip ssh version 2
+!
+snmp-server community public RO
+snmp-server community n3tops-rw RW 99
+!
+line con 0
+ stopbits 1
+line vty 0 4
+ transport input ssh telnet
+line vty 5 15
+ transport input ssh
+!
+end

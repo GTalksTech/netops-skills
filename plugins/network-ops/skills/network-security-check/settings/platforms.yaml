@@ -1,0 +1,154 @@
+# Vendor settings for network-security-check. One entry per network-snapshot profile name
+# (the inventory's device_type). Adding a vendor for CVE matching is a settings change here,
+# no Python: say where the version lives, how NVD names the OS (CPE), and how the vendor
+# names it in its own CVE records (CNA "product").
+#
+#   kind:        firewall | router_switch. Firewalls default to edge (internet-facing) exposure.
+#   version:     snapshot file + regex. Group 1 = software version. Optional model regex.
+#   config:      snapshot file holding the running config, and which parser reads it.
+#   cpe:         NVD CPE vendor:product prefixes, used to discover CVE IDs for this OS.
+#   cna_product: regex matched against "product" in the vendor's CVE records.
+#   nvd_keyword: exact phrase for NVD keyword search (catches CVEs NVD has not mapped to a CPE).
+#   kev:         regex on "vendorProject:product" in the CISA KEV feed.
+#   features:    feature -> regex on the CVE title and description. When a CVE names a feature,
+#                its exposure comes from whether that feature is on, and on an internet-facing
+#                interface, in this device config.
+#   psirt:       the vendor's advisory page, shown in the report as the place to confirm.
+#   checks:      tested | untested | none. Config checks for this parser.
+#                untested = written from vendor docs, never run against a real device.
+
+cisco_ios:
+  vendor: Cisco
+  kind: router_switch
+  version:
+    file: show-version.txt
+    regex: 'Cisco IOS XE Software, Version\s+(\S+)|Cisco IOS Software.*?Version\s+([^,\s]+)'
+    model: '^cisco\s+(\S+)\s+\(.*?\)\s+processor'
+  config: {file: show-running-config-view-full.txt, parser: ios}
+  cpe: ['cisco:ios_xe', 'cisco:ios']
+  cna_product: '^Cisco IOS XE Software$|^Cisco IOS Software$|^IOS XE$'
+  nvd_keyword: 'Cisco IOS XE'
+  kev: 'Cisco:IOS'
+  features:
+    http_server: 'web ui|web user interface|http server|web-based (management|user)|webui'
+    smart_install: 'smart install'
+    snmp: '\bsnmp\b'
+  psirt: https://sec.cloudapps.cisco.com/security/center/softwarechecker.x
+  checks: untested
+
+cisco_asa:
+  vendor: Cisco
+  kind: firewall
+  version:
+    file: show-version.txt
+    regex: 'Cisco Adaptive Security Appliance Software Version\s+(\S+)'
+    model: '^Hardware:\s+([^,\s]+)'
+  config: {file: show-running-config.txt, parser: asa}
+  cpe: ['cisco:adaptive_security_appliance_software']
+  cna_product: 'Adaptive Security Appliance'
+  nvd_keyword: 'Adaptive Security Appliance'
+  kev: 'Cisco:.*(ASA|Adaptive Security)'
+  features:
+    webvpn: 'anyconnect|ssl ?vpn|webvpn|remote access vpn|clientless|vpn web server'
+    mgmt_http: 'asdm|web services interface|management interface|http management'
+    snmp: '\bsnmp\b'
+  psirt: https://sec.cloudapps.cisco.com/security/center/softwarechecker.x
+  checks: untested
+
+fortinet:
+  vendor: Fortinet
+  kind: firewall
+  version:
+    file: get-system-status.txt
+    regex: '^Version:\s*\S+\s+v(\d+\.\d+\.\d+)'
+    model: '^Version:\s*(\S+)\s+v'
+  config: {file: show.txt, parser: fortios}
+  cpe: ['fortinet:fortios']
+  cna_product: '^FortiOS$'
+  nvd_keyword: 'FortiOS'
+  kev: 'Fortinet:.*FortiOS|Fortinet:Multiple Products'
+  features:
+    sslvpn: 'ssl.?vpn|sslvpnd'
+    admin_web: 'administrative interface|management interface|admin(istrative)? (gui|ui|web)|node\.?js websocket|https? (admin|management)|authentication bypass using an alternate path'
+  psirt: https://www.fortiguard.com/psirt
+  checks: untested
+
+paloalto_panos:
+  vendor: Palo Alto Networks
+  kind: firewall
+  version:
+    file: show-system-info.txt
+    regex: '^sw-version:\s*(\S+)'
+    model: '^model:\s*(\S+)'
+  config: {file: show-config-running.txt, parser: panos}
+  cpe: ['paloaltonetworks:pan-os']
+  cna_product: '^PAN-OS$'
+  nvd_keyword: 'PAN-OS'
+  kev: 'Palo Alto Networks:PAN-OS'
+  features:
+    globalprotect: 'globalprotect'
+    mgmt_web: 'management (web )?interface|management web'
+  psirt: https://security.paloaltonetworks.com
+  checks: untested
+
+juniper_junos:
+  vendor: Juniper
+  kind: router_switch          # an SRX is a firewall: set kind: firewall on it in the inventory
+  version:
+    file: show-version.txt
+    regex: '^Junos:\s*(\S+)'
+    model: '^Model:\s*(\S+)'
+  config: {file: show-configuration-display-set.txt, parser: junos_set}
+  cpe: ['juniper:junos']
+  cna_product: '^Junos OS$'
+  nvd_keyword: 'Junos OS'
+  kev: 'Juniper:Junos'
+  features:
+    jweb: 'j-web'
+  psirt: https://supportportal.juniper.net/s/global-search/%40uri?language=en_US#sort=%40sfcec_community_publish_date_formula__c%20descending&f:ctype=[Security%20Advisories]
+  checks: untested
+
+arista_eos:
+  vendor: Arista
+  kind: router_switch
+  version:
+    file: show-version.txt
+    regex: '^Software image version:\s*(\S+)'
+    model: '^Arista\s+(\S+)'
+  config: {file: show-running-config.txt, parser: none}
+  cpe: ['arista:eos']
+  cna_product: '^EOS$'
+  nvd_keyword: 'Arista EOS'
+  kev: 'Arista:EOS'
+  psirt: https://www.arista.com/en/support/advisories-notices
+  checks: none
+
+cisco_nxos:
+  vendor: Cisco
+  kind: router_switch
+  version:
+    file: show-version.txt
+    regex: '(?:NXOS|system):\s+version\s+(\S+)'
+    model: '^\s*cisco\s+(Nexus\S*\s*\S+)'
+  config: {file: show-running-config.txt, parser: none}
+  cpe: ['cisco:nx-os']
+  cna_product: 'NX-OS'
+  nvd_keyword: 'Cisco NX-OS'
+  kev: 'Cisco:NX-OS'
+  psirt: https://sec.cloudapps.cisco.com/security/center/publicationListing.x
+  checks: none
+
+aruba_aoscx:
+  vendor: HPE Aruba Networking
+  kind: router_switch
+  version:
+    file: show-version.txt
+    regex: '^Version\s*:\s*(\S+)'
+    model: '^Product Name\s*:\s*(.+)$'
+  config: {file: show-running-config.txt, parser: none}
+  cpe: ['arubanetworks:arubaos-cx', 'hpe:arubaos-cx']
+  cna_product: 'AOS-CX|ArubaOS-CX'
+  nvd_keyword: 'AOS-CX'
+  kev: '(Aruba|HPE).*:.*(AOS-CX|ArubaOS-CX)'
+  psirt: https://networkingsupport.hpe.com/notifications/security
+  checks: none

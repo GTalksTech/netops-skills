@@ -1,0 +1,318 @@
+{
+ "fetched": "2026-11-07T11:34:39+00:00",
+ "kev_version": "2026.11.06",
+ "platform_cves": {
+  "cisco_asa": [
+   "CVE-2017-6742",
+   "CVE-2018-0171",
+   "CVE-2022-40684",
+   "CVE-2023-20198",
+   "CVE-2023-20273",
+   "CVE-2023-36844",
+   "CVE-2023-36845",
+   "CVE-2024-0012",
+   "CVE-2024-20353",
+   "CVE-2024-20359",
+   "CVE-2024-21762",
+   "CVE-2024-26010",
+   "CVE-2024-3400",
+   "CVE-2024-55591",
+   "CVE-2024-9474",
+   "CVE-2025-20333",
+   "CVE-2025-20362"
+  ],
+  "cisco_ios": [
+   "CVE-2017-6742",
+   "CVE-2018-0171",
+   "CVE-2022-40684",
+   "CVE-2023-20198",
+   "CVE-2023-20273",
+   "CVE-2023-36844",
+   "CVE-2023-36845",
+   "CVE-2024-0012",
+   "CVE-2024-20353",
+   "CVE-2024-20359",
+   "CVE-2024-21762",
+   "CVE-2024-26010",
+   "CVE-2024-3400",
+   "CVE-2024-55591",
+   "CVE-2024-9474",
+   "CVE-2025-20333",
+   "CVE-2025-20362"
+  ],
+  "fortinet": [
+   "CVE-2017-6742",
+   "CVE-2018-0171",
+   "CVE-2022-40684",
+   "CVE-2023-20198",
+   "CVE-2023-20273",
+   "CVE-2023-36844",
+   "CVE-2023-36845",
+   "CVE-2024-0012",
+   "CVE-2024-20353",
+   "CVE-2024-20359",
+   "CVE-2024-21762",
+   "CVE-2024-26010",
+   "CVE-2024-3400",
+   "CVE-2024-55591",
+   "CVE-2024-9474",
+   "CVE-2025-20333",
+   "CVE-2025-20362"
+  ],
+  "juniper_junos": [
+   "CVE-2017-6742",
+   "CVE-2018-0171",
+   "CVE-2022-40684",
+   "CVE-2023-20198",
+   "CVE-2023-20273",
+   "CVE-2023-36844",
+   "CVE-2023-36845",
+   "CVE-2024-0012",
+   "CVE-2024-20353",
+   "CVE-2024-20359",
+   "CVE-2024-21762",
+   "CVE-2024-26010",
+   "CVE-2024-3400",
+   "CVE-2024-55591",
+   "CVE-2024-9474",
+   "CVE-2025-20333",
+   "CVE-2025-20362"
+  ],
+  "paloalto_panos": [
+   "CVE-2017-6742",
+   "CVE-2018-0171",
+   "CVE-2022-40684",
+   "CVE-2023-20198",
+   "CVE-2023-20273",
+   "CVE-2023-36844",
+   "CVE-2023-36845",
+   "CVE-2024-0012",
+   "CVE-2024-20353",
+   "CVE-2024-20359",
+   "CVE-2024-21762",
+   "CVE-2024-26010",
+   "CVE-2024-3400",
+   "CVE-2024-55591",
+   "CVE-2024-9474",
+   "CVE-2025-20333",
+   "CVE-2025-20362"
+  ]
+ },
+ "kev": {
+  "CVE-2017-6742": {
+   "vendorProject": "Cisco",
+   "product": "IOS and IOS XE Software",
+   "vulnerabilityName": "Cisco IOS and IOS XE Software SNMP Remote Code Execution Vulnerability",
+   "dateAdded": "2023-04-19",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-20170629-snmp; https://nvd.nist.gov/vuln/detail/CVE-2017-6742"
+  },
+  "CVE-2018-0171": {
+   "vendorProject": "Cisco",
+   "product": "IOS and IOS XE",
+   "vulnerabilityName": "Cisco IOS and IOS XE Software Smart Install Remote Code Execution Vulnerability",
+   "dateAdded": "2021-11-03",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://nvd.nist.gov/vuln/detail/CVE-2018-0171"
+  },
+  "CVE-2022-40684": {
+   "vendorProject": "Fortinet",
+   "product": "Multiple Products",
+   "vulnerabilityName": "Fortinet Multiple Products Authentication Bypass Vulnerability",
+   "dateAdded": "2022-10-11",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": "https://www.fortiguard.com/psirt/FG-IR-22-377;  https://nvd.nist.gov/vuln/detail/CVE-2022-40684"
+  },
+  "CVE-2023-20198": {
+   "vendorProject": "Cisco",
+   "product": "IOS XE Web UI",
+   "vulnerabilityName": "Cisco IOS XE Web UI Privilege Escalation Vulnerability",
+   "dateAdded": "2023-10-16",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://www.cisco.com/c/en/us/support/docs/ios-nx-os-software/ios-xe-dublin-17121/221128-software-fix-availability-for-cisco-ios.html;  https://nvd.nist.gov/vuln/detail/CVE-2023-20198"
+  },
+  "CVE-2023-20273": {
+   "vendorProject": "Cisco",
+   "product": "Cisco IOS XE Web UI",
+   "vulnerabilityName": "Cisco IOS XE Web UI Command Injection Vulnerability",
+   "dateAdded": "2023-10-23",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-iosxe-webui-privesc-j22SaA4z;  https://nvd.nist.gov/vuln/detail/CVE-2023-20273"
+  },
+  "CVE-2023-36844": {
+   "vendorProject": "Juniper",
+   "product": "Junos OS",
+   "vulnerabilityName": "Juniper Junos OS EX Series PHP External Variable Modification Vulnerability",
+   "dateAdded": "2023-11-13",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://supportportal.juniper.net/s/article/2023-08-Out-of-Cycle-Security-Bulletin-Junos-OS-SRX-Series-and-EX-Series-Multiple-vulnerabilities-in-J-Web-can-be-combined-to-allow-a-preAuth-Remote-Code-Execution?language=en_US ;  https://nvd.nist.gov/vuln/detail/CVE-2023-36844"
+  },
+  "CVE-2023-36845": {
+   "vendorProject": "Juniper",
+   "product": "Junos OS",
+   "vulnerabilityName": "Juniper Junos OS EX Series and SRX Series PHP External Variable Modification Vulnerability",
+   "dateAdded": "2023-11-13",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://supportportal.juniper.net/s/article/2023-08-Out-of-Cycle-Security-Bulletin-Junos-OS-SRX-Series-and-EX-Series-Multiple-vulnerabilities-in-J-Web-can-be-combined-to-allow-a-preAuth-Remote-Code-Execution?language=en_US ;  https://nvd.nist.gov/vuln/detail/CVE-2023-36845"
+  },
+  "CVE-2024-0012": {
+   "vendorProject": "Palo Alto Networks",
+   "product": "PAN-OS",
+   "vulnerabilityName": "Palo Alto Networks PAN-OS Management Interface Authentication Bypass Vulnerability",
+   "dateAdded": "2024-11-18",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": "https://security.paloaltonetworks.com/CVE-2024-0012 ; https://nvd.nist.gov/vuln/detail/CVE-2024-0012"
+  },
+  "CVE-2024-20353": {
+   "vendorProject": "Cisco",
+   "product": "Adaptive Security Appliance (ASA) and Firepower Threat Defense (FTD)",
+   "vulnerabilityName": "Cisco ASA and FTD Denial of Service Vulnerability",
+   "dateAdded": "2024-04-24",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-websrvs-dos-X8gNucD2;   https://nvd.nist.gov/vuln/detail/CVE-2024-20353"
+  },
+  "CVE-2024-20359": {
+   "vendorProject": "Cisco",
+   "product": "Adaptive Security Appliance (ASA) and Firepower Threat Defense (FTD)",
+   "vulnerabilityName": "Cisco ASA and FTD Privilege Escalation Vulnerability",
+   "dateAdded": "2024-04-24",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-persist-rce-FLsNXF4h;  https://nvd.nist.gov/vuln/detail/CVE-2024-20359"
+  },
+  "CVE-2024-21762": {
+   "vendorProject": "Fortinet",
+   "product": "FortiOS",
+   "vulnerabilityName": "Fortinet FortiOS Out-of-Bound Write Vulnerability",
+   "dateAdded": "2024-02-09",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": "https://fortiguard.fortinet.com/psirt/FG-IR-24-015 ;   https://nvd.nist.gov/vuln/detail/CVE-2024-21762"
+  },
+  "CVE-2024-3400": {
+   "vendorProject": "Palo Alto Networks",
+   "product": "PAN-OS",
+   "vulnerabilityName": "Palo Alto Networks PAN-OS Command Injection Vulnerability",
+   "dateAdded": "2024-04-12",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": "https://security.paloaltonetworks.com/CVE-2024-3400 ;   https://nvd.nist.gov/vuln/detail/CVE-2024-3400"
+  },
+  "CVE-2024-55591": {
+   "vendorProject": "Fortinet",
+   "product": "FortiOS and FortiProxy",
+   "vulnerabilityName": "Fortinet FortiOS and FortiProxy Authentication Bypass Vulnerability",
+   "dateAdded": "2025-01-14",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": "https://fortiguard.fortinet.com/psirt/FG-IR-24-535 ; https://nvd.nist.gov/vuln/detail/CVE-2024-55591"
+  },
+  "CVE-2024-9474": {
+   "vendorProject": "Palo Alto Networks",
+   "product": "PAN-OS",
+   "vulnerabilityName": "Palo Alto Networks PAN-OS Management Interface OS Command Injection Vulnerability",
+   "dateAdded": "2024-11-18",
+   "knownRansomwareCampaignUse": "Known",
+   "notes": "https://security.paloaltonetworks.com/CVE-2024-9474 ; https://nvd.nist.gov/vuln/detail/CVE-2024-9474"
+  },
+  "CVE-2025-20333": {
+   "vendorProject": "Cisco",
+   "product": "Secure Firewall Adaptive Security Appliance and Secure Firewall Threat Defense",
+   "vulnerabilityName": "Cisco Secure Firewall Adaptive Security Appliance (ASA) and Secure Firewall Threat Defense (FTD) Buffer Overflow Vulnerability",
+   "dateAdded": "2025-09-25",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "CISA Mitigation Instructions: https://www.cisa.gov/news-events/directives/ed-25-03-identify-and-mitigate-potential-compromise-cisco-devices ; https://www.cisa.gov/news-events/directives/supplemental-direction-ed-25-03-core-dump-and-hunt-instructions ; https://www.cisa.gov/eviction-strategies-tool/create-from-template ; https://sec.cloudapps.cisco.com/security/center/resources/asa_ftd_continued_attacks ;    https://sec.cloudapps.cisco.com/security/center/private/resources/asa_ftd_continued_attacks#Details ; https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-webvpn-z5xP8EUB ; https://nvd.nist.gov/vuln/detail/CVE-2025-20333"
+  },
+  "CVE-2025-20362": {
+   "vendorProject": "Cisco",
+   "product": "Secure Firewall Adaptive Security Appliance and Secure Firewall Threat Defense",
+   "vulnerabilityName": "Cisco Secure Firewall Adaptive Security (ASA) Appliance and Secure Firewall Threat Defense (FTD) Missing Authorization Vulnerability",
+   "dateAdded": "2025-09-25",
+   "knownRansomwareCampaignUse": "Unknown",
+   "notes": "CISA Mitigation Instructions: https://www.cisa.gov/news-events/directives/ed-25-03-identify-and-mitigate-potential-compromise-cisco-devices ; https://www.cisa.gov/news-events/directives/supplemental-direction-ed-25-03-core-dump-and-hunt-instructions ; https://www.cisa.gov/eviction-strategies-tool/create-from-template ; https://sec.cloudapps.cisco.com/security/center/resources/asa_ftd_continued_attacks ;   https://sec.cloudapps.cisco.com/security/center/private/resources/asa_ftd_continued_attacks#Details ; https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-webvpn-YROOTUW ; https://nvd.nist.gov/vuln/detail/CVE-2025-20362"
+  }
+ },
+ "epss": {
+  "CVE-2025-20362": {
+   "epss": 0.86688,
+   "percentile": 0.99743,
+   "date": "2026-11-06"
+  },
+  "CVE-2025-20333": {
+   "epss": 0.72037,
+   "percentile": 0.99433,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-9474": {
+   "epss": 0.93767,
+   "percentile": 0.99844,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-55591": {
+   "epss": 0.9435,
+   "percentile": 0.99851,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-3400": {
+   "epss": 0.99999,
+   "percentile": 1.0,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-26010": {
+   "epss": 0.00786,
+   "percentile": 0.56283,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-21762": {
+   "epss": 0.84589,
+   "percentile": 0.99705,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-20359": {
+   "epss": 0.18816,
+   "percentile": 0.97294,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-20353": {
+   "epss": 0.69824,
+   "percentile": 0.99373,
+   "date": "2026-11-06"
+  },
+  "CVE-2024-0012": {
+   "epss": 0.99787,
+   "percentile": 0.99956,
+   "date": "2026-11-06"
+  },
+  "CVE-2023-36845": {
+   "epss": 0.9507,
+   "percentile": 0.99862,
+   "date": "2026-11-06"
+  },
+  "CVE-2023-36844": {
+   "epss": 0.89958,
+   "percentile": 0.99795,
+   "date": "2026-11-06"
+  },
+  "CVE-2023-20273": {
+   "epss": 0.92938,
+   "percentile": 0.99832,
+   "date": "2026-11-06"
+  },
+  "CVE-2023-20198": {
+   "epss": 0.99613,
+   "percentile": 0.99947,
+   "date": "2026-11-06"
+  },
+  "CVE-2022-40684": {
+   "epss": 0.99984,
+   "percentile": 0.99983,
+   "date": "2026-11-06"
+  },
+  "CVE-2018-0171": {
+   "epss": 0.99479,
+   "percentile": 0.99943,
+   "date": "2026-11-06"
+  },
+  "CVE-2017-6742": {
+   "epss": 0.21261,
+   "percentile": 0.97606,
+   "date": "2026-11-06"
+  }
+ }
+}

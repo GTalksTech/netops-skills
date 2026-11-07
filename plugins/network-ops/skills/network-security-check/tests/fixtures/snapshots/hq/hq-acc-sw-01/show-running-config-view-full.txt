@@ -1,0 +1,29 @@
+hostname hq-acc-sw-01
+!
+enable algorithm-type scrypt secret 9 $9$abc$def
+username admin privilege 15 algorithm-type scrypt secret 9 $9$abc$def
+!
+vlan 10
+ name USERS
+vlan 30
+ name IOT-CAMERAS
+!
+interface Vlan99
+ ip address 10.10.99.11 255.255.255.0
+!
+interface GigabitEthernet1/0/1
+ switchport access vlan 30
+ switchport mode access
+!
+no ip http server
+no ip http secure-server
+ip ssh version 2
+logging host 10.10.20.50
+no vstack
+snmp-server community Xk29!mon RO MGMT-ONLY
+!
+line vty 0 15
+ access-class MGMT-ONLY in
+ transport input ssh
+!
+end

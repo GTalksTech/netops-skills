@@ -1,0 +1,205 @@
+config {
+  mgt-config {
+    users {
+      admin {
+        phash *;
+        permissions {
+          role-based {
+            superuser yes;
+          }
+        }
+      }
+    }
+  }
+  shared {
+    application;
+  }
+  devices {
+    localhost.localdomain {
+      network {
+        interface {
+          ethernet {
+            ethernet1/1 {
+              layer3 {
+                ip {
+                  203.0.113.20/28;
+                }
+                interface-management-profile allow-mgmt;
+              }
+            }
+            ethernet1/2 {
+              layer3 {
+                ip {
+                  10.30.0.1/24;
+                }
+                interface-management-profile allow-mgmt;
+                units {
+                  ethernet1/2.30 {
+                    ip {
+                      10.30.30.1/24;
+                    }
+                    tag 30;
+                  }
+                }
+              }
+            }
+            ethernet1/3 {
+              layer3 {
+                ip {
+                  10.30.20.1/24;
+                }
+              }
+            }
+          }
+        }
+        profiles {
+          interface-management-profile {
+            allow-mgmt {
+              https yes;
+              ssh yes;
+              ping yes;
+            }
+          }
+        }
+      }
+      deviceconfig {
+        system {
+          hostname pa-fw-01;
+          ip-address 192.168.1.250;
+        }
+      }
+      vsys {
+        vsys1 {
+          zone {
+            untrust {
+              network {
+                layer3 [ ethernet1/1];
+              }
+            }
+            trust {
+              network {
+                layer3 [ ethernet1/2];
+              }
+            }
+            iot {
+              network {
+                layer3 [ ethernet1/2.30];
+              }
+            }
+            dmz {
+              network {
+                layer3 [ ethernet1/3];
+              }
+            }
+          }
+          service {
+            tcp-3389 {
+              protocol {
+                tcp {
+                  port 3389;
+                }
+              }
+            }
+          }
+          global-protect {
+            global-protect-portal {
+              GP-Portal {
+                portal-config {
+                  local-address {
+                    interface ethernet1/1;
+                  }
+                }
+              }
+            }
+            global-protect-gateway {
+              GP-Gateway {
+                local-address {
+                  interface ethernet1/1;
+                }
+              }
+            }
+          }
+          rulebase {
+            security {
+              rules {
+                "Outbound Internet" {
+                  from trust;
+                  to untrust;
+                  source any;
+                  destination any;
+                  source-user any;
+                  category any;
+                  application [ web-browsing ssl dns];
+                  service application-default;
+                  action allow;
+                  profile-setting {
+                    group default;
+                  }
+                }
+                "Inbound DMZ" {
+                  from untrust;
+                  to dmz;
+                  source any;
+                  destination 203.0.113.21;
+                  source-user any;
+                  category any;
+                  application any;
+                  service any;
+                  action allow;
+                  log-end no;
+                }
+                "IoT Anywhere" {
+                  from iot;
+                  to [ trust dmz];
+                  source any;
+                  destination any;
+                  source-user any;
+                  category any;
+                  application any;
+                  service any;
+                  action allow;
+                }
+                "Allow All Temp" {
+                  from any;
+                  to any;
+                  source any;
+                  destination any;
+                  source-user any;
+                  category any;
+                  application any;
+                  service any;
+                  action allow;
+                  disabled yes;
+                }
+              }
+            }
+            nat {
+              rules {
+                "DMZ-Static" {
+                  destination-translation {
+                    translated-address 10.30.20.10;
+                  }
+                  to untrust;
+                  from untrust;
+                  source any;
+                  destination 203.0.113.21;
+                  service any;
+                }
+                "RDP-Jump" {
+                  destination-translation {
+                    translated-address 10.30.0.25;
+                  }
+                  to untrust;
+                  from untrust;
+                  source any;
+                  destination 203.0.113.22;
+                  service tcp-3389;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

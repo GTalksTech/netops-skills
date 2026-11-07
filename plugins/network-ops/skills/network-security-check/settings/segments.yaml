@@ -1,0 +1,26 @@
+# Names that tell the check a VLAN, interface or zone is meant to be kept apart from internal
+# networks. Matched against VLAN names, SVI and interface descriptions, interface aliases and
+# zone names. Edit for your naming. A name that matches is "segmented"; the checks then look
+# for paths from it into the rest of the network.
+segmented: '(?:^|[^a-z])(iot|cams?|cameras?|cctv|video|surveillance|guest|visitor|byod|ot|scada|ics|plc|bms|hvac|building|pos|pci)(?:[^a-z]|$)'
+
+# Names that mark an interface or zone as facing the internet, in addition to a public IP
+# address or a FortiOS "role wan".
+internet_names: '^(untrust|outside|internet|wan\d*|external|isp\d*|inet)$|(?:^|[-_ ])(untrust|outside|internet|wan|isp)(?:[-_ ]|$)'
+
+# Services that should not be published to the internet. Source: CISA #StopRansomware Guide
+# (RDP, SMB), NSA NISG 7.1 (clear text admin: Telnet). The rest are remote admin and database
+# ports with the same exposure.
+risky_ports:
+  22: SSH
+  23: Telnet
+  135: MS-RPC
+  139: NetBIOS
+  445: SMB
+  1433: MS-SQL
+  3306: MySQL
+  3389: RDP
+  5432: PostgreSQL
+  5900: VNC
+  5985: WinRM
+  5986: WinRM

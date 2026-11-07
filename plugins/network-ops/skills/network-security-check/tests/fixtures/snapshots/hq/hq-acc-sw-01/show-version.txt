@@ -1,0 +1,2 @@
+Cisco IOS XE Software, Version 17.15.01
+cisco C9200L-24P-4G (ARM64) processor with 600000K/3071K bytes of memory.

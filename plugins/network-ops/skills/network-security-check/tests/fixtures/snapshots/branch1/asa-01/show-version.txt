@@ -1,0 +1,12 @@
+
+Cisco Adaptive Security Appliance Software Version 9.18(3)56
+SSP Operating System Version 2.12(1.42)
+Device Manager Version 7.18(1)152
+
+Compiled on Tue 10-Oct-23 11:18 GMT by builders
+System image file is "disk0:/asa9-18-3-56-smp-k8.bin"
+Config file at boot was "startup-config"
+
+asa-01 up --
+
+Hardware:   ASA5516, 8192 MB RAM, CPU Atom C2000 series 2416 MHz, 1 CPU (8 cores)

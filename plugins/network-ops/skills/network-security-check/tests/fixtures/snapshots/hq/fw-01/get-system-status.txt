@@ -1,0 +1,21 @@
+Version: FortiGate-60F v7.4.2,build2571,231219 (GA.F)
+First GA patch build date: 230509
+Security Level: 1
+Firmware Signature: certified
+Virus-DB: 92.08924(2024-11-01 14:23)
+IPS-DB: 28.00921(2024-11-01 01:01)
+Serial-Number: FGT60FTK00000000
+BIOS version: 05000029
+Log hard disk: Not available
+Hostname: fw-01
+Private Encryption: Disable
+Operation Mode: NAT
+Current virtual domain: root
+Max number of virtual domains: 10
+Virtual domains status: 1 in NAT mode, 0 in TP mode
+Virtual domain configuration: disable
+FIPS-CC mode: disable
+Current HA mode: standalone
+Branch point: 2571
+Release Version Information: GA
+System time: --

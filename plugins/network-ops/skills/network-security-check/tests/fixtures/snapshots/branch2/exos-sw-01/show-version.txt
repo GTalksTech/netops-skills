@@ -1,0 +1,5 @@
+Switch      : 800771-00-02 1834N-40123 Rev 2 IMG: 32.1.1.6
+PSU-1       : Internal PSU-1 800752-00-01 1830W-80011 Rev 1
+Image   : ExtremeXOS version 32.1.1.6 by release-manager
+          on Thu Apr 15 12:00:00 EDT 2021
+BootROM : Default 3.4.2.8    Alternate 3.4.2.8

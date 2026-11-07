@@ -1,0 +1,5 @@
+Image stamp:    /ws/swbuildm/rel_quebec_qaoff/code/build/tam(swbuildm_rel_quebec_qaoff_rel_quebec)
+                Nov 27 2020 08:51:39
+                WC.16.10.0012
+                451
+Boot Image:     Primary

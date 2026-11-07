@@ -43,9 +43,9 @@ def http_json(url, headers=None, tries=4):
                 return None
             if n == tries - 1:
                 raise
-        except (urllib.error.URLError, TimeoutError):
+        except (OSError, ValueError) as e:  # resets, timeouts, TLS errors, truncated JSON
             if n == tries - 1:
-                raise
+                raise RuntimeError(f"{url.split('?')[0]}: {type(e).__name__}: {e} (after {tries} tries)") from e
         time.sleep(2 ** (n + 1))
 
 

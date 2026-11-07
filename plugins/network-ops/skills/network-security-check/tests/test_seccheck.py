@@ -472,3 +472,26 @@ def test_corrupt_cache_record_is_skipped(tmp_path):
     (tmp_path / "adv/cve/CVE-2024-3400.json").write_text("{not json")
     cache = advisories.load(tmp_path / "adv")
     assert "CVE-2024-3400" not in cache["records"] and cache["records"]
+
+
+# ---------- more vendors (snapshot profiles added by health-check v2) ----------
+def test_dell_train_wildcard(report):
+    assert "dell-sw-01" in [d["device"] for d in find(report, "CVE-2024-37125")[0]["devices"]]   # "10.5.5.x"
+
+
+def test_exos_and_procurve_match_via_nvd(report):
+    assert find(report, "CVE-2023-43119")[0]["devices"][0]["matched_by"] == "NVD CPE data"
+    assert find(report, "CVE-2023-39267")[0]["devices"][0]["device"] == "hp-sw-01"
+
+
+def test_manual_vendors_get_a_note_not_a_guess(report):
+    d = {x["name"]: x for x in report["devices"]}
+    assert d["huawei-sw-01"]["version"] == "V200R005C10SPC800"
+    assert any("by hand" in n for n in d["nokia-pe-01"]["notes"])
+    assert not [f for f in report["findings"] if f["type"] == "cve"
+                and {"huawei-sw-01", "nokia-pe-01"} & {x["device"] for x in f["devices"]}]
+
+
+def test_models_from_other_files(report):
+    d = {x["name"]: x for x in report["devices"]}
+    assert d["exos-sw-01"]["model"] == "X465-48W" and d["dell-sw-01"]["model"] == "S5248F-ON"

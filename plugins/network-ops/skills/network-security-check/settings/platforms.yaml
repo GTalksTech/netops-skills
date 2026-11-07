@@ -157,3 +157,82 @@ aruba_aoscx:
   kev: '(Aruba|HPE).*:.*(AOS-CX|ArubaOS-CX)'
   psirt: https://networkingsupport.hpe.com/notifications/security
   checks: none
+
+dell_os10:
+  vendor: Dell
+  kind: router_switch
+  version:
+    file: show-version.txt
+    regex: '^OS Version:\s*(\S+)'
+    model: '^System Type:\s*(\S+)'
+  config: {file: show-running-configuration.txt, parser: none}
+  cpe: ['dell:smartfabric_os10']
+  cna_product: 'SmartFabric OS10'
+  nvd_keyword: 'SmartFabric OS10'
+  kev: 'Dell:.*OS10'
+  psirt: https://www.dell.com/support/security/en-us
+  checks: none
+
+extreme_exos:
+  vendor: Extreme Networks
+  kind: router_switch
+  version:
+    file: show-version.txt
+    regex: 'ExtremeXOS version (\S+)'
+    model_file: show-switch.txt
+    model: '^System Type:\s*(\S+)'
+  config: {file: show-configuration.txt, parser: none}
+  cpe: ['extremenetworks:extremexos', 'extremenetworks:exos']
+  cna_product: 'EXOS|ExtremeXOS|Switch Engine'
+  nvd_keyword: 'ExtremeXOS'
+  kev: 'Extreme'
+  psirt: https://extremeportal.force.com/ExtrSupportHome
+  checks: none
+
+hp_procurve:
+  vendor: HPE Aruba Networking
+  kind: router_switch
+  version:
+    file: show-version.txt
+    regex: '^\s*([A-Z]{1,3}\.\d{2}\.\d{2}\.\d{4})\s*$'
+  config: {file: show-running-config.txt, parser: none}
+  # HPE's CVE records write ArubaOS-Switch versions as prose ("K.16.02.0033 and below"),
+  # so matching falls back to NVD CPE data.
+  cpe: ['hpe:arubaos-switch', 'hp:procurve_switch_software']
+  cna_product: 'ArubaOS-Switch'
+  nvd_keyword: 'ArubaOS-Switch'
+  kev: '(HP|Aruba).*(ProCurve|ArubaOS-Switch)'
+  psirt: https://networkingsupport.hpe.com/notifications/security
+  checks: none
+
+huawei_vrp:
+  vendor: Huawei
+  kind: router_switch
+  version:
+    file: display-version.txt
+    regex: 'VRP \(R\) software, Version \S+ \(\S+ (V\d{3}R\d{3}\S*)\)'
+    model: '^HUAWEI\s+(\S+)\s+uptime'
+  config: {file: display-current-configuration.txt, parser: none}
+  # Huawei's CVE records list models and releases as free text, so there is no reliable
+  # automatic match. The report shows the version and points to Huawei's PSIRT (CSAF feed:
+  # https://securitybulletin.huawei.com/.well-known/csaf/provider-metadata.json).
+  cve_matching: manual
+  cpe: []
+  cna_product: '^$'
+  psirt: https://www.huawei.com/en/psirt/all-bulletins
+  checks: none
+
+nokia_sros:
+  vendor: Nokia
+  kind: router_switch
+  version:
+    file: show-system-information.txt
+    regex: '^System Version\s*:\s*(\S+)'
+    model: '^System Type\s*:\s*(.+?)\s*$'
+  config: {file: admin-display-config.txt, parser: none}
+  # Nokia's CVE records say things like "All supported releases prior to Release 24".
+  cve_matching: manual
+  cpe: []
+  cna_product: '^$'
+  psirt: https://www.nokia.com/notices/responsible-disclosure/
+  checks: none

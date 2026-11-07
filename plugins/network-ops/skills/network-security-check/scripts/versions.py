@@ -16,7 +16,7 @@ import re
 def tokens(v):
     """Split a version into comparable parts. '17.09.04a' -> (17, 9, 4, 'a')."""
     v = str(v).strip().lower()
-    v = re.sub(r"^[a-z]{2}\.", "", v)            # AOS-CX platform prefix: FL.10.10.1000
+    v = re.sub(r"^[a-z]{1,3}\.", "", v)          # platform prefix: FL.10.10.1000, WC.16.10.0012
     v = re.sub(r"^(pan-os|fortios|junos|eos)\s+", "", v)
     out = []
     for t in re.findall(r"\d+|[a-z]+", v):
@@ -95,6 +95,8 @@ def status_in_entry(version, entry):
     upper_lt, upper_le = entry.get("lessThan"), entry.get("lessThanOrEqual")
     status = entry.get("status", "affected")
     if not upper_lt and not upper_le:
+        if re.search(r"\.x+$", str(start), re.I):     # Dell style "10.5.6.x": the whole train
+            return status if _in_train(version, re.sub(r"\.x+$", "", start, flags=re.I)) else None
         return status if same(version, start) else None
     if not _open_start(start) and cmp(version, start) < 0:
         return None

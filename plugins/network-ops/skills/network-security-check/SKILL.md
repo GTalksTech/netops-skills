@@ -91,9 +91,10 @@ The score comes from four inputs. Find the one that is wrong:
 | FortiGate (FortiOS) | yes | 9 checks, untested |
 | Palo Alto PAN-OS | yes | 7 checks, untested |
 | Juniper Junos | yes | 3 management checks, untested (no SRX policy checks yet) |
-| Arista EOS, Cisco NX-OS, HPE Aruba AOS-CX | yes | none yet |
+| Arista EOS, Cisco NX-OS, HPE Aruba AOS-CX, Dell OS10, Extreme EXOS, HPE ArubaOS-Switch (ProCurve) | yes | none yet |
+| Huawei VRP, Nokia SR OS | version only: their CVE records are free text, so the report says to check by hand and links the PSIRT | none yet |
 
 "Untested" means written from vendor docs and tested on sample configs, not yet run on real
 devices. If the output looks wrong for a device, say so and suggest the parser fix. Other
-vendors (Check Point, SonicWall, Sophos, pfSense/OPNsense, Extreme, Huawei, Dell, Nokia,
-Ubiquiti) are not covered yet. Say so if the inventory has them.
+vendors (Check Point, SonicWall, Sophos, pfSense/OPNsense, Ubiquiti) are not covered yet. Say
+so if the inventory has them.

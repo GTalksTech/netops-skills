@@ -10,3 +10,8 @@ devices:
   - {name: pa-fw-01,       host: 192.0.2.250, site: dc, device_type: paloalto_panos}
   - {name: asa-01,         host: 192.0.2.251, site: branch1, device_type: cisco_asa}
   - {name: srx-01,         host: 192.0.2.252, site: branch1, device_type: juniper_junos, kind: firewall}
+  - {name: dell-sw-01,     host: 192.0.2.60, site: branch2, device_type: dell_os10}
+  - {name: exos-sw-01,     host: 192.0.2.61, site: branch2, device_type: extreme_exos}
+  - {name: hp-sw-01,       host: 192.0.2.62, site: branch2, device_type: hp_procurve}
+  - {name: huawei-sw-01,   host: 192.0.2.63, site: branch2, device_type: huawei_vrp}
+  - {name: nokia-pe-01,    host: 192.0.2.64, site: branch2, device_type: nokia_sros}

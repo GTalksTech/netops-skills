@@ -88,7 +88,9 @@ def device_facts(dev, repo, platforms):
         if m:
             out["version"] = next(g for g in m.groups() if g)
         if pcfg["version"].get("model"):
-            mm = re.search(pcfg["version"]["model"], txt, re.M | re.I)
+            mf = folder / pcfg["version"].get("model_file", pcfg["version"]["file"])
+            mtxt = mf.read_text(encoding="utf-8", errors="replace") if mf.exists() else ""
+            mm = re.search(pcfg["version"]["model"], mtxt, re.M | re.I)
             out["model"] = mm.group(1).strip() if mm else None
     if not out["version"]:
         out["notes"].append(f"software version not found in {vf.name}: CVE matching skipped")
@@ -262,6 +264,10 @@ def build(args):
             if not d.get("version"):
                 continue
             pcfg = platforms[d["platform"]]
+            if pcfg.get("cve_matching") == "manual":
+                d["notes"].append(f"{pcfg['vendor']} CVE records aren't machine-readable: check version "
+                                  f"{d['version']} by hand at {pcfg['psirt']}")
+                continue
             if d["platform"] not in cache["platform_cves"]:
                 d["notes"].append("no advisory data for this platform in the cache: run fetch again")
                 continue
@@ -461,7 +467,8 @@ def main():
         return check_settings(platforms, checks)
     if args.action == "fetch":
         repo = Path(args.repo).expanduser()
-        used = sorted({d["device_type"] for d in load_devices(repo)} & set(platforms))
+        used = sorted(p for p in {d.get("device_type") for d in load_devices(repo)} & set(platforms)
+                      if platforms[p].get("cve_matching") != "manual")
         idx = advisories.fetch(platforms, used, Path(args.out).expanduser() / "advisories", args.cves,
                                args.max_age_days, log=lambda m: print(m, file=sys.stderr))
         print(json.dumps({"fetched": idx["fetched"], "kev_version": idx["kev_version"],

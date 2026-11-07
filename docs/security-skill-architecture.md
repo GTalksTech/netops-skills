@@ -94,10 +94,12 @@ building that adapter.
 Mid-market vendors not in the request but worth an adapter later: Cisco Meraki MX (Dashboard
 API, no CLI), Barracuda CloudGen, Forcepoint, Zyxel.
 
-Route/switch: Cisco IOS-XE, ASA, NX-OS, Junos, Arista EOS and AOS-CX get CVE matching now
-(version from the snapshot). IOS-XE and Junos have config checks. EOS, NX-OS and AOS-CX need
-parsers and check packs. Extreme, Huawei, Dell, Nokia and Ubiquiti need snapshot profiles
-first (owned by network-snapshot).
+Route/switch: Cisco IOS-XE, NX-OS, Junos, Arista EOS, AOS-CX, Dell OS10, Extreme EXOS and
+ArubaOS-Switch get CVE matching now (version from the snapshot). IOS-XE and Junos have config
+checks; the rest need parsers and check packs. Huawei and Nokia publish CVE records whose
+affected versions are free text ("All supported releases prior to Release 24"), so the check
+reports their version with a PSIRT link instead of guessing; Huawei's CSAF feed is the way to
+automate it later. Ubiquiti needs a snapshot profile first.
 
 ## Advisory data: what the CVE side relies on
 

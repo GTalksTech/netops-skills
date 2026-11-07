@@ -226,7 +226,9 @@ python skills/network-security-check/scripts/seccheck.py fetch
 python skills/network-security-check/scripts/seccheck.py run --events threat-log.csv
 ```
 
-CVE matching covers Cisco IOS-XE, ASA, NX-OS, FortiOS, PAN-OS, Junos, Arista EOS and AOS-CX.
+CVE matching covers Cisco IOS-XE, ASA, NX-OS, FortiOS, PAN-OS, Junos, Arista EOS, AOS-CX, Dell
+OS10, Extreme EXOS and ArubaOS-Switch. For Huawei and Nokia it reports the version and links the
+vendor PSIRT, because their CVE records can't be matched automatically.
 Config checks cover IOS-XE, ASA, FortiOS, PAN-OS and Junos, written from vendor docs and not yet
 run against real devices. Reports land in `~/network-security/reports/`. They describe your
 weak spots, so keep them private.

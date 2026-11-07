@@ -11,8 +11,8 @@ in Not checked and suggest the profile fix, never guess a value.
 |---|---|
 | 2 Hardware | H `show-environment-all`, `show-power-inline`; S `show-inventory`, `show-module` |
 | 3 Redundancy | S `show-switch-detail`, `show-redundancy` |
-| 4 Reboots | report; S `show-version` (Last reload reason) |
-| 5 Routing | S `show-ip-ospf-neighbor`, `show-ip-ospf-interface-brief`, `show-ip-bgp-summary`, `show-ip-eigrp-neighbors`, `show-ip-route`; H `show-ip-ospf-neighbor-detail` (up for), `show-ip-bgp-neighbors` (Last reset, established/dropped), `show-ip-eigrp-neighbors-detail`, `show-ip-route-summary` |
+| 4 Reboots | report (`uptime_s`, `reboots`); S `show-version` (Last reload reason; IOL says Unknown reason) |
+| 5 Routing | S `show-ip-ospf-neighbor`, `show-ip-ospf-interface-brief`, `show-ip-bgp-summary`, `show-ip-eigrp-neighbors`, `show-ip-route`; H `show-ip-ospf-neighbor-detail` (up for), `show-ip-bgp-neighbors` (Last reset, established/dropped), `show-ip-eigrp-neighbors-detail`, `show-ip-route-summary`, `show-ip-sla-statistics`; tunnels H `show-crypto-session` |
 | 6 FHRP + root | S `show-standby-brief`, `show-vrrp-brief`, `show-spanning-tree-root`, running config; H `show-standby` |
 | 7 Down / err-disabled | S `show-ip-interface-brief`, `show-interfaces-status`, `show-interfaces-description`, `show-interfaces-trunk`, `show-cdp-neighbors-detail`, `show-lldp-neighbors-detail`; H `show-interfaces-status-err-disabled` |
 | 8 Port-channels | S `show-etherchannel-summary` |
@@ -57,7 +57,7 @@ H `show-ip-ospf-neighbors-detail-vrf-all`, `show-bgp-sessions-vrf-all` · 6 H `s
 · 6 H `show-vrrp-brief` · 7 S `show-interfaces-status`; H `show-interfaces-status-errdisabled` · 8 S
 `show-port-channel-summary` · 9/10/11 H `show-interfaces`, `show-interfaces-counters-errors`,
 `show-interfaces-counters-discards`, `show-interfaces-counters-rates` · 12 H `show-spanning-tree-detail`,
-`show-spanning-tree-inconsistentports` · 13 H `show-interfaces-transceiver` · 14 H `show-processes-top-once`
+`show-spanning-tree-inconsistentports` · 13 H `show-interfaces-transceiver-detail` · 14 H `show-processes-top-once`
 · 15 H `show-logging` · 16 H `show-ntp-status`, `show-ntp-associations`
 
 ## juniper_junos (MX, EX, QFX, SRX)  · untested

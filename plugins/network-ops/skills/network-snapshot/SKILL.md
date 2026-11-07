@@ -1,6 +1,6 @@
 ---
 name: network-snapshot
-description: Take a read-only snapshot of every network device (configs and key operational state), save it to a git repo, and explain what changed since the last snapshot. Multi-vendor over SSH (Cisco IOS/IOS-XE, NX-OS, ASA, FortiGate, Arista, Juniper, Aruba AOS-CX, Palo Alto). Use when the user asks to snapshot, back up or capture the network, asks "what changed on the network", or wants a before/after around a change.
+description: Take a read-only snapshot of every network device (configs and key operational state), save it to a git repo, and explain what changed since the last snapshot. Multi-vendor over SSH (Cisco, FortiGate, Arista, Juniper, Aruba, Palo Alto, Huawei, Extreme, Dell, Nokia). Use when the user asks to snapshot, back up or capture the network, asks "what changed on the network", or wants a before/after around a change.
 ---
 
 # Network snapshot
@@ -47,7 +47,7 @@ python <skill folder>/scripts/snapshot.py [--repo PATH] [--site SITE | --device 
 
 No target means every device. The script prints a JSON report (also saved to
 `<repo>/.snapshot/last-report.json`): `failures`, `reboots`, `changed` (files per device),
-`unchanged`, `unsupported_commands`, `commit`, `first_snapshot`.
+`unchanged`, `unsupported_commands`, `command_errors` (commands that timed out or broke; the rest of that device still ran), `commit`, `first_snapshot`.
 
 ## Report to the user, in this order
 

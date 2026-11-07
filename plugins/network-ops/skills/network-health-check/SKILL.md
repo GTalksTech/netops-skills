@@ -56,8 +56,9 @@ finding depends on it.
 
 ## Compare with the last report
 
-If the reviews folder already has a `*-health.md` for the same or a wider scope, read the newest
-one. Mark each finding **new** or **unchanged**, list what is **fixed**, and compare error
+Two baselines, two jobs. Counters and logs compare with the previous health run (`previous` in
+the report). Findings compare with the newest `*-health.md` in the reviews folder for the same or
+a wider scope: read it. Mark each finding **new** or **unchanged**, list what is **fixed**, and compare error
 counters with the values recorded there (counters growing since then is what matters).
 
 ## Report

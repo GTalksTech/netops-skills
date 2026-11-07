@@ -57,7 +57,7 @@ health_commands:                       # run only with --health; never committed
   - cmd: show spanning-tree inconsistentports
   - cmd: show spanning-tree blockedports
   - cmd: show standby
-  - cmd: show ip ospf statistics
+  - cmd: show track                   # objects behind static routes and FHRP
   - cmd: show ip ospf neighbor detail   # adjacency uptime: flaps
   - cmd: show ip eigrp neighbors detail
   - cmd: show ip bgp neighbors

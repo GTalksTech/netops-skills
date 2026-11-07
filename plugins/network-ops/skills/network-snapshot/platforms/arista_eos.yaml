@@ -23,7 +23,7 @@ health_commands:                       # run only with --health; never committed
   - cmd: show version detail
   - cmd: show reload cause
   - cmd: show system environment all
-  - cmd: show interfaces transceiver
+  - cmd: show interfaces transceiver detail   # detail prints the optic's alarm/warning thresholds
   - cmd: show interfaces counters errors
   - cmd: show interfaces counters discards
   - cmd: show interfaces counters rates

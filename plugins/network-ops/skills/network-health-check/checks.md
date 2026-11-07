@@ -37,12 +37,29 @@ Within a level: closest to the core or the internet first.
   list was refused: the platform lacks it, or the account is not allowed to run it. The device
   prints the same error for both, so say "rejected (not supported, or not permitted for this
   account)". Empty output, `(no output)`, or a feature that is not enabled is also not data. All
-  of these go under Not checked, grouped by vendor, never one line per device.
+  of these go under Not checked, grouped by vendor, never one line per device. But a list
+  command that ran and printed only headers or nothing (`show interfaces status err-disabled`,
+  `show spanning-tree inconsistentports`) is data: it means none.
+  A file vendors.md names that is neither in the health folder nor rejected was not collected
+  (older profile or a custom one): Not checked, "not collected".
 - **Virtual platforms** (IOL, IOSv, CSR/Cat8kv, vEOS/cEOS, vJunos/vMX/vSRX, NX-OSv, FortiGate-VM,
   ASAv, VM-Series) have no fans, PSUs, temperature or optics. Say "hardware: not applicable
   (virtual)" once for those devices; never a finding.
 - **Change in progress.** Log lines within a minute of a config change (`%SYS-5-CONFIG_I`, Junos
   `UI_COMMIT`, a FortiGate config log) are a change being made. Name who changed what in Healthy.
+  The same change also explains route-count moves, interface up/down and FHRP state changes in
+  that minute: one Healthy line ("Change in progress: <who> <what> <when>"), no findings.
+- **Growth beats the per-counter rules.** When P exists, a counter that did not grow is never a
+  finding, whatever the check says about its total (collisions included). Put the totals in
+  Healthy so the next run can compare.
+- **Only this run's devices.** Check the devices in the report's `health` and `devices_ok`. For a
+  device outside the run, use its committed snapshot files only, with their age (SKILL.md, Scoped
+  runs).
+- **Device time for log windows.** Log lines carry the device's clock; read windows against its
+  `show clock` (or equivalent), not the run time, and say so if they differ by more than a minute.
+- **Sources disagree.** Snapshot and health commands run seconds apart. When two outputs disagree
+  (one says the link is down, another up), report the worse state, quote both, and say "changing
+  during the run: re-run to confirm".
 - **One cause, one finding.** An uplink down, the OSPF neighbor gone over it and the port-channel
   member down are one finding with all the evidence, at the worst severity.
 
@@ -64,6 +81,8 @@ The device's own alarm logic is the authority. Report its state words; do not in
   the only PSU (count installed PSUs). A fan not OK: **High**. A temperature sensor at
   warning/minor: **Medium**, at critical/major or shutdown: **Critical**. A line card or module
   not ok/online/active/standby: **High**.
+- Alarms about configuration, not hardware (Junos "Rescue configuration is not set", licence
+  reminders): **Low**.
 - Not a finding: an empty PSU bay on a model that ships with one PSU; "Not present" fan trays on
   fanless models; sensors reading N/A.
 - Fix: replace the failed unit; for temperature check the room, airflow direction and fan state
@@ -93,8 +112,9 @@ Only when the feature is in use (configured, or the snapshot shows it).
   `up_less_than_24h`. **High.** Quote uptime and the reload reason (`show version` Last reload
   reason, NX-OS `show system reset-reason`, Arista `show reload cause`, Huawei
   `display reboot-info`, AOS-CX `show boot-history`).
-- Reason is a crash, watchdog, kernel panic, power loss or "error": **High** even if the reboot
-  was more than 24 h ago and still the latest. Core or crash files dated in the last 30 days
+- Reason is a crash, watchdog, kernel panic, power loss or "error" and it belongs to the current
+  boot (its reload time is about now minus uptime): **High**, even if that was more than 24 h ago.
+  A reload record older than the current boot is history: **Low**, one line. Core or crash files dated in the last 30 days
   (`show cores`, `show system core-dumps`, ASA `show crashinfo`): **High**; older ones: **Low**.
 - Reason is a planned reload (`Reload Command`, `reload`, user) inside a known change window:
   **Low**, say so.
@@ -115,6 +135,8 @@ routing interface with an inventory device on the other end.
   the device uptime and under 24 h: **Medium**, the neighbor reset recently; under 1 h, or BGP
   "connections established" / "dropped" counters grew between P and H: **High**. Quote the last
   reset reason (BGP `Last reset`, hold timer expired = underlay loss).
+- IP SLA / tracked objects (`show ip sla statistics`, `show track`): a probe whose latest return
+  code is not OK: **High** if it drives a route or FHRP track, else **Medium**.
 - Route table: a missing default route on a device that had one in the previous commit:
   **High**. Total routes changed by more than 10% against the previous commit: **Medium**, name
   the protocol that moved.
@@ -209,6 +231,7 @@ Report against the optic's own thresholds; the transceiver ships them, and the o
 or flags the value (`++`/`--` high/low alarm, `+`/`-` warning, Junos `alarm`/`warning` lines).
 - Finding: Rx or Tx power, temperature, voltage or bias at a warning threshold: **Medium**; at an
   alarm threshold: **High**. Rx low on a link that also has growing CRC: **High**, one finding.
+- Output with readings but no thresholds or flags cannot be judged: Not checked, never a guess.
 - Not a finding: copper, DAC and non-DOM optics (N/A); no light on a port that is down and not
   should-be-up (check 7).
 - Fix: clean the fibre both ends, check patch loss, replace the optic.
@@ -255,7 +278,8 @@ Read the log from the previous health report's time, or the last 24 hours if the
 ## 17. Hygiene that causes faults later
 - Running config not saved: Cisco `show running-config view full` differs from
   `show startup-config` beyond timestamps; Huawei current vs saved; Arista/NX-OS/Dell the same
-  way; Junos uncommitted changes. **Low**, **Medium** if the device rebooted unexpectedly before
+  way; Junos uncommitted changes. Not a finding when the config changed in the last 30 minutes
+  (a change still being worked): say so in Healthy. Otherwise **Low**, **Medium** if the device rebooted unexpectedly before
   (the change will be lost on the next one).
 - Debugging left on (`show debugging` lists anything): **Medium**, it loads the CPU.
 - Logging buffer disabled or tiny (fewer than an hour of messages): **Low**, the next incident

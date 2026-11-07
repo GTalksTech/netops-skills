@@ -58,3 +58,20 @@ not relied on alone below.
 The method follows vendor TAC and best-practice material cited above. No third-party skill or
 script was copied; third-party "device health" skill pages seen during research were treated as
 T3 and not used.
+
+## Test rounds (2026-11-07)
+
+Lab v2 was powered off during this work, so each round ran the skill (a fresh agent following
+SKILL.md) on recorded output: lab v2's real 2026-10-31 health run, with faults planted by editing
+copies, and real vendor output from ntc-templates test fixtures. Engine changes have offline unit
+tests (`skills/network-snapshot/tests/test_health.py`); every profile's uptime regex was checked
+against 27 ntc-templates fixtures (Arista, Junos, AOS-CX, ASA, Huawei, ArubaOS-Switch, PAN-OS).
+
+| Round | Data | Caught | Fixed after |
+|---|---|---|---|
+| 1 | lab v2 HQ + CRC growth planted on hq-dist-sw-01 | CRC growth (and that the packet counter did not move); old collision totals demoted to Healthy | rule precedence (growth beats totals); empty list output means none; change-in-progress explains route moves; only this run's devices; two baselines (counters vs findings); IP SLA and `show track` added |
+| 2 | lab v2 HQ + uplink down with its OSPF neighbor, STP topology change, MAC-flap log flood, CRC cleared | all four, ranked Critical / High / High, CRC reported fixed | sources that disagree; device clock for log windows; unsaved config during an open change is not a finding |
+| 3 | Arista leaf + Junos core (ntc-templates output, first run, a timed-out command) | MLAG peer-link down (Critical), PEM Major alarm, first-run totals, command error listed | old reload records are history; config alarms are Low; files not collected; optics without thresholds are not judged (Arista profile now uses `transceiver detail`) |
+
+Still to do: a live run on lab v2 with the new profiles, and a first run on real hardware for
+each untested vendor.

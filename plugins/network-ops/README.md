@@ -27,22 +27,41 @@ G Talks Tech lab v2 (Cisco IOS-XE campus, branch and ISP routers, plus a FortiGa
 
 Answers one question: is the network healthy right now? Ask "health check the network", "is
 hq healthy?" or "is hq-dist-sw-02 ok?". It runs the snapshot engine with `--health` (same
-read-only account, same setup), then checks: every device reachable, recent reboots, interfaces
-that should be up but are down, interface errors, uplinks and the internet link near capacity,
-port-channel members, OSPF neighbors, BGP sessions, HSRP active/standby and whether the active
-switch is the spanning-tree root, inconsistent spanning-tree ports (blocked ports on redundant
-uplinks are normal and never flagged), NTP, CPU, memory and errors in the logs.
+read-only account, same setup) and checks, in the order an engineer would look:
+
+1. Every device reachable
+2. Hardware: the device's own alarms, power supplies, fans, temperature
+3. Redundancy: firewall HA, stacks, vPC / MLAG / VSX / VLT, supervisor failover
+4. Reboots and crashes, with the reload reason
+5. Routing: OSPF, BGP, EIGRP neighbors, adjacencies that reset recently, IP SLA, the default route
+6. HSRP / VRRP active and standby, and whether the active switch is the spanning-tree root
+7. Interfaces that should be up but are down, and err-disabled ports with the reason
+8. Port-channel members
+9. Interface errors and drops that are growing (not old totals)
+10. Uplinks and the internet link near capacity
+11. Link flaps
+12. Spanning tree: inconsistent ports and recent topology changes (blocked ports on redundant
+    uplinks are normal and never flagged)
+13. Optic light levels against the optic's own thresholds
+14. CPU, memory, session tables and storage
+15. Errors in the logs, grouped, with known noise left out
+16. NTP
+17. Unsaved config and debugging left on
+
+Error counters are judged by growth: each run keeps the previous run's raw output, so the report
+says "409 new CRC errors in 43 minutes", not "CRC is non-zero". The first run only has totals and
+says so.
 
 The report lists findings first, worst first, each with the device, the evidence (command and
-file) and the fix, then one line per check that came back healthy, then anything it could not
-check and why. It goes in your workspace's `reviews/` folder, one file per run, and each run is
-compared with the one before.
+file) and the fix, then one line per check that came back healthy (with the numbers), then what
+it could not check and why. A command the device refuses is never counted as healthy. It goes in
+your workspace's `reviews/` folder, one file per run, and each run is compared with the one
+before. Why each check is in, and its sources: [docs/health-check-research.md](../../docs/health-check-research.md).
 
-Vendor coverage: Cisco IOS/IOS-XE gets every check. FortiGate gets all but interface errors and
-load, NTP sync and logs (those need `diagnose`/`execute`, which a read-only account can't run).
-The other vendors have no health commands yet, so they get the checks the snapshot itself
-answers (reachability, reboots, interfaces, port-channels, OSPF, BGP) and the rest are listed as
-not checked.
+Vendor coverage: every profile has health commands. Cisco IOS/IOS-XE and FortiGate are tested.
+FortiGate can't report interface errors, load, NTP sync or logs, because those need `diagnose`
+or `execute`, which a read-only account can't run. The other profiles are untested: they were
+written from vendor documentation, and anything that doesn't parse is listed as not checked.
 
 ## Install
 
@@ -94,6 +113,11 @@ one git commit per run. It's a normal git repo, so `git log` is your change hist
 | Juniper Junos | `juniper_junos` | Untested: written from Juniper docs |
 | HPE Aruba AOS-CX | `aruba_aoscx` | Untested: written from HPE Aruba docs |
 | Palo Alto PAN-OS | `paloalto_panos` | Untested: written from Palo Alto docs |
+| Huawei VRP | `huawei_vrp` | Untested: written from Huawei docs |
+| Extreme EXOS | `extreme_exos` | Untested: written from Extreme docs |
+| Dell EMC OS10 | `dell_os10` | Untested: written from Dell docs |
+| HPE ArubaOS-Switch | `hp_procurve` | Untested: written from HPE Aruba docs |
+| Nokia SR OS | `nokia_sros` | Untested: written from Nokia docs |
 
 Untested means the commands come from the vendor's documentation but haven't run against a real
 device yet. If a command gets rejected or a line changes on every run, the profile needs a fix,
@@ -118,7 +142,13 @@ privilege exec level 5 show running-config view full
 privilege exec level 5 show startup-config
 privilege exec level 5 show spanning-tree inconsistentports
 privilege exec level 5 show spanning-tree blockedports
+privilege exec level 5 show logging
 ```
+
+For the full health check, a privilege 5 account also needs the health commands lowered to its
+level (each `show ...` in the `health_commands` list of `platforms/cisco_ios.yaml`), or it gets
+"% Invalid input" for them and the report lists them as not checked. The quickest way is
+`privilege exec all level 5 show`, which lowers every `show` command.
 
 Plain `show running-config` comes back empty at privilege 5, which is why the profile uses
 `show running-config view full`. The other three lines open up commands that privilege 5 can't
@@ -167,6 +197,11 @@ end
 - Juniper Junos: login class `read-only`.
 - HPE Aruba AOS-CX: group `operators`.
 - Palo Alto PAN-OS: admin role "Superuser (read-only)".
+- Huawei VRP: a level 1 (monitoring) user; `display` commands are available in user view.
+- Extreme EXOS: a user-level (non-admin) account.
+- Dell OS10: role `netoperator`.
+- HPE ArubaOS-Switch: the operator account.
+- Nokia SR OS: a user profile that allows `show` only.
 - Cisco ASA: a user at a privilege level that has the show commands in the profile (ASA command
   authorization).
 

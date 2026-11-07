@@ -110,7 +110,13 @@ def analyze(text, dev):
               f"dstaddr {' '.join(da)}", f"service {' '.join(svc)}"]
         inbound = is_inet(src) and not is_inet(dst)
         any_svc = "ALL" in svc
-        if sa <= ANY_ADDR and da <= ANY_ADDR and any_svc:
+        outbound = is_inet(dst) and not is_inet(src) and "any" not in src
+        seg = segmented(src) and not is_inet(dst) and not segmented(dst) and any_svc and bool(da & ANY_ADDR)
+        if seg:
+            found.append(finding("FGT-SEGMENT", f"{label}: {' '.join(src)} -> {' '.join(dst)}, "
+                                 "all destinations, service ALL", ev, exposed=False, where=label))
+        elif sa <= ANY_ADDR and da <= ANY_ADDR and any_svc and not outbound:
+            # Outbound LAN -> internet all/all/ALL is the usual default and is not flagged here.
             found.append(finding("FGT-ANY-ANY", f"{label}: all -> all, service ALL", ev,
                                  exposed=inbound or "any" in src, where=label))
         elif inbound and any_svc:
@@ -122,9 +128,6 @@ def analyze(text, dev):
         if inbound and not p.get("ips-sensor"):
             found.append(finding("FGT-INBOUND-NO-IPS", f"{label}: inbound from internet, no IPS sensor",
                                  ev, exposed=True, where=label))
-        if segmented(src) and not is_inet(dst) and not segmented(dst) and any_svc and da & ANY_ADDR:
-            found.append(finding("FGT-SEGMENT", f"{label}: {' '.join(src)} -> {' '.join(dst)}, "
-                                 "all destinations, service ALL", ev, exposed=False, where=label))
         if inbound:
             for vname in da & set(vips):
                 v = vips[vname]

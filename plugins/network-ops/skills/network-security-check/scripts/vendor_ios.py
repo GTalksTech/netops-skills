@@ -123,7 +123,7 @@ def analyze(text, dev):
     if snmp_bad:
         feature(facts, "snmp", True, internet and any(x[2] for x in snmp_bad))
         found.append(finding("IOS-SNMP-COMMUNITY",
-                             "; ".join(f"{', '.join(w)}" for _, w, _ in snmp_bad),
+                             "; ".join(f"community {n + 1}: {', '.join(w)}" for n, (_, w, _) in enumerate(snmp_bad)),
                              [l for l, _, _ in snmp_bad], exposed=internet and any(x[2] for x in snmp_bad)))
 
     weak = []
@@ -143,7 +143,7 @@ def analyze(text, dev):
     if "vstack" in top:
         feature(facts, "smart_install", True, internet)
         found.append(finding("IOS-SMART-INSTALL", "vstack is configured", ["vstack"], exposed=internet))
-    elif "no vstack" not in top:
+    elif "no vstack" not in top and dev.get("_is_switch"):
         facts["notes"].append("Smart Install state is not in the config. Run 'show vstack config' "
                               "on switches to confirm it is disabled.")
 

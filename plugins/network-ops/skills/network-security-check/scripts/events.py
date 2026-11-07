@@ -30,11 +30,11 @@ ALIASES = {
     "dst": ["destination address", "destination ip", "dstip", "dest_ip", "dst_ip", "dst",
             "responder ip", "destination"],
     "severity": ["severity", "crlevel", "priority", "alert.severity", "level", "impact"],
-    "action": ["action", "inline result", "alert.action", "reason"],
+    "action": ["action", "inline result", "alert.action"],
     "count": ["repeat count", "count"],
 }
-BLOCKED = re.compile(r"^(drop|dropped|block|blocked|deny|denied|reset|reset-both|reset-client|"
-                     r"reset-server|sinkhole|clear|blocked by policy)$", re.I)
+BLOCKED = re.compile(r"^(drop|dropped|drop-all-packets|drop-packet|block|blocked|block-ip|deny|denied|"
+                     r"reset|reset-both|reset-client|reset-server|sinkhole|blocked by policy)$", re.I)
 CVE_RX = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
 SEV_MAP = {"1": "high", "2": "medium", "3": "low", "4": "info"}  # Suricata / FMC numeric priority
 
@@ -134,7 +134,8 @@ def modified_z(series):
 
 
 def _buckets(evs, key, size):
-    t0 = min(e["time"] for e in evs)
+    first = min(e["time"] for e in evs)
+    t0 = dt.datetime.min + ((first - dt.datetime.min) // size) * size   # align to the clock
     n = int((max(e["time"] for e in evs) - t0) / size) + 1
     per = defaultdict(lambda: [0] * n)
     for e in evs:
@@ -155,21 +156,32 @@ def spikes(evs, key, size, z_limit=3.5, min_count=20, min_buckets=8):
     out = []
     for k, series in per.items():
         med, zs = modified_z(series)
-        for i, c in enumerate(series):
-            if c < min_count:
-                continue
-            z = zs[i] if zs else None
-            if (z is not None and z > z_limit) or (z is None and c >= 5 * (med + 1)):
-                start = t0 + i * size
-                inside = [e for e in timed if key(e) == k and start <= e["time"] < start + size]
-                out.append({"key": k, "bucket_start": start.isoformat(sep=" "), "count": c,
-                            "median": med, "z": round(z, 1) if z is not None else None,
-                            "sources": Counter(e["src"] for e in inside).most_common(3),
-                            "targets": Counter(e["dst"] for e in inside).most_common(3),
-                            "signatures": Counter(e["signature"] for e in inside).most_common(3),
-                            "all_blocked": all(e["blocked"] for e in inside),
-                            "public_source": any(is_public(e["src"]) for e in inside),
-                            "cves": sorted({c for e in inside for c in e["cves"]})})
+        hot = [i for i, c in enumerate(series) if c >= min_count and (
+            (zs and zs[i] > z_limit) or (not zs and c >= 5 * (med + 1)))]
+        # back-to-back spike buckets are one event window
+        runs = []
+        for i in hot:
+            if runs and i == runs[-1][-1] + 1:
+                runs[-1].append(i)
+            else:
+                runs.append([i])
+        for run in runs:
+            start, end = t0 + run[0] * size, t0 + (run[-1] + 1) * size
+            inside = [e for e in timed if key(e) == k and start <= e["time"] < end]
+            peak = max(run, key=lambda i: series[i])
+            out.append({"key": k, "start": start.isoformat(sep=" "), "end": end.isoformat(sep=" "),
+                        "count": sum(series[i] for i in run), "peak": series[peak],
+                        "median": med, "z": round(zs[peak], 1) if zs else None,
+                        "new": med == 0 and sum(series[:run[0]]) == 0,
+                        "history_buckets": run[0],
+                        "sources": Counter(e["src"] for e in inside).most_common(3),
+                        "targets": Counter(e["dst"] for e in inside).most_common(3),
+                        "signatures": Counter(e["signature"] for e in inside).most_common(3),
+                        "distinct_signatures": len({e["signature"] for e in inside}),
+                        "blocked": sum(e["count"] for e in inside if e["blocked"]),
+                        "all_blocked": all(e["blocked"] for e in inside),
+                        "public_source": any(is_public(e["src"]) for e in inside),
+                        "cves": sorted({c for e in inside for c in e["cves"]})})
     return out, n
 
 

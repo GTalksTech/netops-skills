@@ -79,7 +79,8 @@ def analyze(text, dev):
             applied.setdefault(h.split()[1], []).append("global")
     for h in top:
         m = re.match(r"access-list (\S+) extended permit ip any4? any4?(\s|$)", h)
-        if m and m.group(1) in applied:
+        if m and m.group(1) in applied and any(i in inet or i == "global" for i in applied[m.group(1)]):
+            # inside "permit ip any any" is the usual outbound default and is not flagged here
             ifs = applied[m.group(1)]
             found.append(finding("ASA-ANY-ANY", f"{m.group(1)} on {', '.join(ifs)}: {h.split(' ', 2)[2]}",
                                  [h], exposed=any(i in inet or i == "global" for i in ifs),

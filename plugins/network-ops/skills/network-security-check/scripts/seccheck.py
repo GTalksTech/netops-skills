@@ -37,6 +37,13 @@ import vendor_junos  # noqa: E402
 import vendor_panos  # noqa: E402
 
 SETTINGS = HERE.parent / "settings"
+SWITCH_MODELS = r"(?i)^(C9[2-6]\d\d|WS-C|C[1-3]\d{3}|IE-|C1000|CBS)"
+STALE_SIGNATURE_DAYS = 30   # house rule, SCORING.md: FortiGuard pushes IPS updates daily
+FEATURE_LABELS = {"http_server": "the web UI (ip http server)", "smart_install": "Smart Install",
+                  "snmp": "SNMP", "webvpn": "AnyConnect / WebVPN", "mgmt_http": "ASDM (http server)",
+                  "sslvpn": "SSL VPN", "admin_web": "the admin web interface",
+                  "globalprotect": "GlobalProtect", "mgmt_web": "the management web interface",
+                  "jweb": "J-Web"}
 PARSERS = {"ios": vendor_ios, "fortios": vendor_fortios, "panos": vendor_panos, "asa": vendor_asa,
            "junos_set": vendor_junos}
 
@@ -89,6 +96,7 @@ def device_facts(dev, repo, platforms):
     cfg = folder / pcfg["config"]["file"]
     mod = PARSERS.get(pcfg["config"]["parser"])
     facts = None
+    dev = {**dev, "_is_switch": bool(re.match(SWITCH_MODELS, out["model"] or ""))}
     if mod and cfg.exists():
         facts, found = mod.analyze(cfg.read_text(encoding="utf-8", errors="replace"), dev)
         out["findings"] = found
@@ -115,6 +123,14 @@ def device_facts(dev, repo, platforms):
         out["exposure_reason"] = ("firewall: assumed internet-facing" if edge else
                                   "assumed internal (no config parser): set exposure: public in the "
                                   "inventory if it faces the internet")
+    if p == "fortinet" and vf.exists():
+        m = re.search(r"^IPS-DB:\s*\S+\((\d{4}-\d{2}-\d{2})", vf.read_text(encoding="utf-8", errors="replace"), re.M)
+        if m:
+            age = (dt.date.today() - dt.date.fromisoformat(m.group(1))).days
+            if age > STALE_SIGNATURE_DAYS:
+                out["findings"].append({"check": "FGT-IPS-STALE", "detail": f"IPS-DB dated {m.group(1)}, "
+                                        f"{age} days old", "evidence": [m.group(0)], "exposed": out["internet_facing"], "where": None})
+
     return out
 
 
@@ -151,17 +167,30 @@ def cve_inputs(hit, dev, pcfg, cache, attacked):
     if known:
         exposed = any(feats[f]["internet"] for f in known)
         on = [f for f in known if feats[f]["on"]]
+        lab = lambda fs: " / ".join(FEATURE_LABELS.get(f, f) for f in fs)  # noqa: E731
         if exposed:
-            why["publicly_exposed"] = f"{', '.join(on)} is on an internet-facing interface"
+            why["publicly_exposed"] = f"{lab([f for f in known if feats[f]['internet']])} is reachable on an " \
+                                      "internet-facing interface"
         elif on:
-            why["publicly_exposed"] = f"{', '.join(on)} is on, but not on an internet-facing interface"
+            why["publicly_exposed"] = f"{lab(on)} is on, but not on an internet-facing interface"
         else:
             feature_off = True
-            why["publicly_exposed"] = f"the affected feature ({', '.join(known)}) looks off in the config"
+            why["publicly_exposed"] = f"the affected feature ({lab(known)}) looks off in the config"
     else:
         exposed = bool(dev.get("internet_facing"))
         why["publicly_exposed"] = dev.get("exposure_reason", "")
     return exposed, kev, auto, total, why, feature_off, named
+
+
+def cve_title(rec, cache):
+    """KEV name, else the vendor's title, else the first sentence of the description."""
+    kev = cache["kev"].get(rec["id"])
+    if kev:
+        return kev["vulnerabilityName"]
+    title = rec.get("title") or ""
+    if title and not title.startswith(rec.get("description", "")[:40]):
+        return title
+    return re.split(r"(?<=[a-z0-9)])\. ", rec.get("description", ""), maxsplit=1)[0][:160]
 
 
 def build(args):
@@ -214,7 +243,7 @@ def build(args):
                 epss = cache["epss"].get(cid, {})
                 s = scoring.score(exposed, kev, auto, total, epss.get("percentile", 0),
                                   cap="14d" if off else None)
-                g = cve_groups.setdefault(cid, {"type": "cve", "id": cid, "title": h["record"]["title"],
+                g = cve_groups.setdefault(cid, {"type": "cve", "id": cid, "title": cve_title(h["record"], cache),
                                                 "record": h["record"], "epss": epss,
                                                 "kev": cache["kev"].get(cid), "devices": []})
                 g["devices"].append({"device": d["name"], "version": d["version"], "model": d.get("model"),
@@ -235,8 +264,11 @@ def build(args):
     for d in facts:
         for f in d["findings"]:
             c = checks[f["check"]]
-            s = scoring.score(f["exposed"], c["known_exploited"], c["automatable"], c["total_control"],
-                              c["weight"])
+            # House rules (SCORING.md): the exploitation a config check cites happened against
+            # internet-reachable devices, so it only counts when this one is reachable too; and a
+            # misconfiguration alone is not evidence of compromise, so never "+ forensic triage".
+            s = scoring.score(f["exposed"], c["known_exploited"] and f["exposed"], c["automatable"],
+                              c["total_control"], c["weight"], cap="3d")
             findings.append({"type": "config", "id": f["check"], "title": c["title"], "device": d["name"],
                              "detail": f["detail"], "evidence": f["evidence"], "why_it_matters": c["why"],
                              "fix": c["fix"], "sources": c["sources"],
@@ -256,41 +288,58 @@ def build(args):
 
 
 def event_findings(summ, checks, cve_groups, by_name, cache):
+    """One finding per attack campaign. A signature tied to a CVE you are vulnerable to becomes
+    one EV-TARGETS-VULNERABLE finding that carries its spike and not-blocked counts; spikes
+    and not-blocked findings are only kept for what is left."""
     out = []
     ip_owner = {ip: n for n, d in by_name.items() for ip in d.get("interface_ips", [])}
+    kev = (cache or {}).get("kev", {})
 
-    def add(check, detail, exposed, kev, auto, total, tiebreak, cap=None, **extra):
+    def add(check, detail, exposed, kev_, auto, total, tiebreak, cap=None, **extra):
         c = checks[check]
-        s = scoring.score(exposed, kev, auto, total, tiebreak, cap)
+        s = scoring.score(exposed, kev_, auto, total, tiebreak, cap)
         out.append({"type": "event", "id": check, "title": c["title"], "detail": detail,
                     "why_it_matters": c["why"], "fix": c["fix"], "sources": c["sources"], **s, **extra})
 
+    covered_sigs = set()
     for cid, e in summ["cve_events"].items():
         g = cve_groups.get(cid)
         if not g:
             continue
+        covered_sigs |= set(e["signatures"])
         devs = [x["device"] for x in g["devices"]]
         hit_dev = sorted({ip_owner[t] for t, _ in e["targets"] if ip_owner.get(t) in devs})
+        spike = next((sp for sp in summ["signature_spikes"] if sp["key"] in e["signatures"]), None)
+        not_blocked = e["count"] - e["blocked"]
         add("EV-TARGETS-VULNERABLE",
-            f"{e['count']} event(s) for {cid} ({', '.join(e['signatures'][:2])}); vulnerable device(s): "
-            f"{', '.join(devs)}" + (f"; events aimed at {', '.join(hit_dev)} directly" if hit_dev else "")
-            + f"; {e['blocked']} of {e['count']} blocked",
-            e["public_source"], True, True, True, 1.0, cve=cid, targets=e["targets"], sources_seen=e["sources"])
+            f"{e['count']} attempt(s) at {cid} ({e['signatures'][0]}); vulnerable: {', '.join(devs)}"
+            + (f", aimed at {', '.join(hit_dev)} directly" if hit_dev else "")
+            + (f"; {not_blocked} NOT blocked" if not_blocked else "; all blocked"),
+            e["public_source"], True, True, True, 1.0, cve=cid, targets=e["targets"],
+            sources_seen=e["sources"], spike=spike)
+
+    campaign_srcs = {s for sp in summ["signature_spikes"] if sp["key"] in covered_sigs for s, _ in sp["sources"]}
     for sig, e in summ["not_blocked"].items():
-        kev = any(c in (cache or {}).get("kev", {}) for c in e["cves"])
+        if sig in covered_sigs:
+            continue
         add("EV-NOT-BLOCKED", f"'{sig}' ({e['severity']}) seen {e['count']} time(s), action "
-            f"{'/'.join(e['actions']) or 'none'}", e["public_source"], kev, True,
-            e["severity"] == "critical", min(e["count"] / 100, 1), signature=sig, targets=e["targets"],
-            sources_seen=e["sources"], cves=e["cves"])
+            f"{'/'.join(e['actions']) or 'none'}; targets {', '.join(t for t, _ in e['targets'])}",
+            e["public_source"], any(c in kev for c in e["cves"]), True, e["severity"] == "critical",
+            min(e["count"] / 100, 1), signature=sig, targets=e["targets"], sources_seen=e["sources"],
+            cves=e["cves"])
     for kind, key in (("signature_spikes", "EV-SPIKE-SIGNATURE"), ("source_spikes", "EV-SPIKE-SOURCE")):
         for sp in summ[kind]:
-            kev = any(c in (cache or {}).get("kev", {}) for c in sp["cves"])
-            what = f"'{sp['key']}'" if key == "EV-SPIKE-SIGNATURE" else f"source {sp['key']}"
-            add(key, f"{what}: {sp['count']} events in the hour from {sp['bucket_start']} (normal "
-                f"{sp['median']:g}, modified z {sp['z'] if sp['z'] is not None else 'n/a, flat baseline'})"
-                + ("; all blocked" if sp["all_blocked"] else "; NOT all blocked"),
-                sp["public_source"], kev, True, False, min(sp["count"] / 1000, 1),
-                cap="60d" if sp["all_blocked"] else None, spike=sp)
+            if (key == "EV-SPIKE-SIGNATURE" and sp["key"] in covered_sigs) or \
+                    (key == "EV-SPIKE-SOURCE" and sp["key"] in campaign_srcs):
+                continue
+            what = f"'{sp['key']}'" if key == "EV-SPIKE-SIGNATURE" else \
+                f"source {sp['key']} ({sp['distinct_signatures']} different signatures)"
+            base = (f"not seen in the {sp['history_buckets']} hour(s) before" if sp["new"] else
+                    f"normal {sp['median']:g} per hour, modified z {sp['z'] if sp['z'] is not None else 'n/a'}")
+            add(key, f"{what}: {sp['count']} events {sp['start'][5:16]} to {sp['end'][11:16]} ({base}); "
+                + ("all blocked" if sp["all_blocked"] else f"{sp['count'] - sp['blocked']} NOT blocked"),
+                sp["public_source"], any(c in kev for c in sp["cves"]), True, False,
+                min(sp["count"] / 1000, 1), cap="60d" if sp["all_blocked"] else None, spike=sp)
     return out
 
 

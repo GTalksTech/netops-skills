@@ -118,3 +118,114 @@ def test_every_check_is_sourced():
 def test_every_emitted_check_is_in_catalog(report):
     _, checks = seccheck.load_settings()
     assert {f["id"] for f in report["findings"] if f["type"] != "cve"} <= set(checks)
+
+
+# ---------- report: CVEs ----------
+def test_cves_hit_the_right_devices(report):
+    hits = {f["id"]: sorted(d["device"] for d in f["devices"]) for f in report["findings"] if f["type"] == "cve"}
+    assert hits["CVE-2023-20198"] == ["hq-edge-rtr-01"]          # 17.09.04; core switch runs the fix 17.09.04a
+    assert hits["CVE-2024-3400"] == ["pa-fw-01"]
+    assert hits["CVE-2024-21762"] == ["fw-01"]
+    assert hits["CVE-2023-36845"] == ["srx-01"]
+    assert "hq-acc-sw-01" not in str(hits)                        # 17.15.01 is past every fixture CVE
+
+
+def test_kev_on_exposed_feature_is_3_days_and_triage(report):
+    f = find(report, "CVE-2024-3400")[0]
+    assert f["deadline"] == "3d+triage"
+    assert "GlobalProtect" in f["why"]["publicly_exposed"]
+    assert f["why"]["automatable"] == "CISA Vulnrichment"
+
+
+def test_cve_titles_are_readable(report):
+    for f in report["findings"]:
+        if f["type"] == "cve":
+            assert not f["title"].lower().startswith("cisco is providing an update")
+
+
+# ---------- report: config ----------
+def test_outbound_lan_to_internet_is_not_any_any(report):
+    assert not [f for f in find(report, "FGT-ANY-ANY") if "LAN-to-Internet" in f["detail"]]
+
+
+def test_disabled_rules_are_ignored(report):
+    assert not [f for f in report["findings"] if "temp-troubleshoot" in str(f.get("detail"))
+                or "Allow All Temp" in str(f.get("detail"))]
+
+
+def test_segment_finding_replaces_any_any(report):
+    assert find(report, "FGT-SEGMENT", "fw-01") and find(report, "PAN-SEGMENT", "pa-fw-01")
+    assert not [f for f in find(report, "FGT-ANY-ANY") if "IoT" in f["detail"]]
+    assert not find(report, "PAN-ANY-ANY")
+
+
+def test_iot_svi_without_acl_is_flagged_but_guest_with_acl_is_not(report):
+    seg = find(report, "IOS-SEGMENT-ROUTED", "hq-core-sw-01")
+    assert len(seg) == 1 and "Vlan30" in seg[0]["detail"]
+
+
+def test_asa_inside_permit_any_is_not_flagged(report):
+    assert not find(report, "ASA-ANY-ANY")
+
+
+def test_clean_switch_has_no_findings(report):
+    assert not [f for f in report["findings"] if f.get("device") == "hq-acc-sw-01"]
+
+
+def test_vip_not_used_by_any_policy_is_not_flagged(report):
+    assert not [f for f in find(report, "FGT-VIP-RISKY") if "web-server" in f["detail"]]
+
+
+def test_config_findings_never_ask_for_forensic_triage(report):
+    assert all(f["deadline"] != "3d+triage" for f in report["findings"] if f["type"] == "config")
+
+
+def test_internal_known_exploited_config_is_not_3_days(report):
+    f = find(report, "JUNOS-HTTP", "srx-01")[0]     # http on, but untrust only allows https
+    assert f["inputs"]["publicly_exposed"] is False and f["deadline"] in ("60d", "upgrade")
+
+
+def test_smart_install_note_only_on_switches(report):
+    notes = {d["name"]: d["notes"] for d in report["devices"]}
+    assert not any("vstack" in n for n in notes["hq-edge-rtr-01"])
+
+
+def test_stale_ips_signatures(report):
+    assert find(report, "FGT-IPS-STALE", "fw-01")
+
+
+def test_snmp_community_is_not_printed(report):
+    assert "public" not in json.dumps(find(report, "IOS-SNMP-COMMUNITY")[0]["evidence"])
+
+
+# ---------- report: events ----------
+def test_one_finding_per_campaign(report):
+    gp = [f for f in report["findings"] if f["type"] == "event" and "95187" in json.dumps(f)]
+    assert [f["id"] for f in gp] == ["EV-TARGETS-VULNERABLE"]
+    assert "NOT blocked" in gp[0]["detail"] and "pa-fw-01 directly" in gp[0]["detail"]
+
+
+def test_attacks_seen_raise_the_cve(report):
+    assert find(report, "CVE-2023-20198")[0]["attacks_seen"] is True
+
+
+def test_scanner_spike_is_capped_when_all_blocked(report):
+    sp = find(report, "EV-SPIKE-SOURCE")
+    assert len(sp) == 1 and "198.51.100.99" in sp[0]["detail"] and sp[0]["deadline"] == "60d"
+
+
+def test_unblocked_critical_is_reported(report):
+    assert [f for f in find(report, "EV-NOT-BLOCKED") if "RDP" in f["detail"]]
+
+
+def test_event_formats_parse():
+    assert len(events.read_events(FX / "events/pan-threat.csv")) == 417
+    fg = events.read_events(FX / "events/fortigate-ips.log")
+    assert fg and all(e["sig_id"] for e in fg)
+    eve = events.read_events(FX / "events/eve.json")
+    assert len(eve) == 9 and eve[0]["cves"] == ["CVE-2023-20198"] and not eve[0]["blocked"]
+
+
+def test_modified_z_matches_nist_definition():
+    med, z = events.modified_z([1, 2, 3, 4, 100])
+    assert med == 3 and round(z[-1], 2) == round(0.6745 * 97 / 1, 2)

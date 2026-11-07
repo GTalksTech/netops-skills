@@ -129,9 +129,15 @@ def analyze(text, dev):
             inbound = (is_inet_zone(frm) or frm == ["any"]) and not is_inet_zone(to)
             any_app = app == ["any"]
             any_svc = svc == ["any"]
-            if src == ["any"] and dst == ["any"] and any_app:
-                found.append(finding("PAN-ANY-ANY", f"{label}: any -> any, application any", ev,
-                                     exposed=inbound, where=label))
+            seg_src = any(is_segmented(z) for z in frm)
+            reaches_internal = to == ["any"] or any(not is_inet_zone([z]) and not is_segmented(z) for z in to)
+            outbound = is_inet_zone(to) and not is_inet_zone(frm) and frm != ["any"]
+            if seg_src and reaches_internal and any_app and dst == ["any"]:
+                found.append(finding("PAN-SEGMENT", f"{label}: {', '.join(frm)} -> {', '.join(to)}, "
+                                     "any destination, any application", ev, exposed=False, where=label))
+            elif src == ["any"] and dst == ["any"] and any_app and not outbound:
+                found.append(finding("PAN-ANY-ANY", f"{label}: {', '.join(frm)} -> {', '.join(to)}, any "
+                                     "source and destination, application any", ev, exposed=inbound, where=label))
             elif is_inet_zone(frm) and not is_inet_zone(to) and any_app and any_svc:
                 found.append(finding("PAN-INBOUND-ANY-SERVICE",
                                      f"{label}: from {', '.join(frm)}, any application, any service", ev,
@@ -142,11 +148,6 @@ def analyze(text, dev):
             if is_inet_zone(frm) and not is_inet_zone(to) and not r.get("profile-setting"):
                 found.append(finding("PAN-INBOUND-NO-PROFILE", f"{label}: from {', '.join(frm)}, no "
                                      "security profiles", ev, exposed=True, where=label))
-            seg_src = any(is_segmented(z) for z in frm)
-            reaches_internal = to == ["any"] or any(not is_inet_zone([z]) and not is_segmented(z) for z in to)
-            if seg_src and reaches_internal and any_app and dst == ["any"]:
-                found.append(finding("PAN-SEGMENT", f"{label}: {', '.join(frm)} -> {', '.join(to)}, "
-                                         "any destination, any application", ev, exposed=False, where=label))
 
         for rname, r in (get(vs, "rulebase", "nat", "rules") or {}).items():
             if r.get("disabled") == "yes":

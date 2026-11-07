@@ -355,3 +355,14 @@ EV-SPIKE-SOURCE:
   total_control: false
   weight: 0.5
   sources: [nist-sematech-outliers, nist-800-94]
+
+# ---------- device status ----------
+FGT-IPS-STALE:
+  title: IPS signatures are out of date
+  why: The IPS database has not updated in over 30 days, usually because the FortiGuard license expired or the device can't reach FortiGuard. New exploits get through unseen.
+  fix: Check the FortiGuard license and "diagnose autoupdate status", then force an update ("execute update-now").
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.6
+  sources: [nist-800-94, fortinet-hardening]

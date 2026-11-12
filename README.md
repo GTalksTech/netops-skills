@@ -2,6 +2,8 @@
 
 AI skills for network engineers. Install once with Claude Code, then run real workflows against your network.
 
+Watch them in action: [How to Use Claude Code as a Network Engineer](https://youtu.be/njerxFIa974)
+
 Built and maintained by [Garrett Masters](https://gtalkstech.com) of **G Talks Tech · The AI-Augmented Engineer**.
 
 ## Install

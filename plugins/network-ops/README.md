@@ -20,7 +20,7 @@ throws away the lines that change on their own (clocks, timers, counters), and c
 Run it twice in a row on a quiet network and the second run shows no changes. So when something
 shows up, it really changed.
 
-Video: VIDEO_URL_PLACEHOLDER (Claude Code for network engineers). Built and tested on the
+Video: https://youtu.be/njerxFIa974 (How to Use Claude Code as a Network Engineer). Built and tested on the
 G Talks Tech lab v2 (Cisco IOS-XE campus, branch and ISP routers, plus a FortiGate).
 
 ## network-health-check

@@ -74,7 +74,7 @@ When the run's `commit` is null nothing changed: cite the current HEAD
 ```
 # Health check: <scope>, <YYYY-MM-DD HH:MM>
 
-Snapshot commit <hash> · <N> devices checked · <verdict: Healthy | N findings, worst: <one line>>
+Snapshot commit <hash, or "<HEAD hash> (no change)" when commit is null> · <N> devices checked · <verdict: Healthy | N findings, worst: <one line>>
 Compared with the previous run at <time> (<minutes> min) | First run: counters are totals only
 
 ## Findings

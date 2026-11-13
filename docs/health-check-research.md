@@ -75,3 +75,10 @@ against 27 ntc-templates fixtures (Arista, Junos, AOS-CX, ASA, Huawei, ArubaOS-S
 
 Still to do: a live run on lab v2 with the new profiles, and a first run on real hardware for
 each untested vendor.
+
+## Live rounds on lab v2 (2026-11-07, after the lab came up)
+
+| Round | State | Result | Fixed after |
+|---|---|---|---|
+| 4 | lab powered on minutes earlier | 12/12 reached; all new IOS health commands allowed for claude-ro; only hardware commands rejected (virtual); whole-lab restart reported as one finding | uptime "0 minutes" read as unknown, which hid 4 reboots (engine fix + test); just-booted rule; a reboot resets the counter baseline; virtual-NIC collisions are never a finding; empty list output means none; IOS-XE `show debugging` header is not a debug |
+| 5 | ~11 min after boot | one finding (restart, settling); collisions in Known exceptions; no noise | boot clock messages are settling; verdict slot for an unchanged commit |

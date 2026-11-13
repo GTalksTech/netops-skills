@@ -39,7 +39,8 @@ Within a level: closest to the core or the internet first.
   account)". Empty output, `(no output)`, or a feature that is not enabled is also not data. All
   of these go under Not checked, grouped by vendor, never one line per device. But a list
   command that ran and printed only headers or nothing (`show interfaces status err-disabled`,
-  `show spanning-tree inconsistentports`) is data: it means none.
+  `show spanning-tree inconsistentports`, FortiGate `get vpn ipsec tunnel summary`) is data: it
+  means none.
   A file vendors.md names that is neither in the health folder nor rejected was not collected
   (older profile or a custom one): Not checked, "not collected".
 - **Virtual platforms** (IOL, IOSv, CSR/Cat8kv, vEOS/cEOS, vJunos/vMX/vSRX, NX-OSv, FortiGate-VM,
@@ -55,6 +56,18 @@ Within a level: closest to the core or the internet first.
 - **Only this run's devices.** Check the devices in the report's `health` and `devices_ok`. For a
   device outside the run, use its committed snapshot files only, with their age (SKILL.md, Scoped
   runs).
+- **Just booted.** A device up less than 20 minutes is still converging: NTP unsynced, STP
+  topology changes, FHRP state changes, young adjacencies and route-count moves are expected.
+  So are clock messages logged before NTP syncs (`%PKI-2-NON_AUTHORITATIVE_CLOCK`) and the
+  first minutes of up/down and adjacency logs. A reboot that happened before P is not new: mark
+  the finding unchanged until the devices pass 24 h. List
+  them in one Healthy line ("settling after boot") and say "re-run after <time> to judge these".
+  Only a fault that boot does not explain (a neighbor or link still down, a hardware alarm, a crash
+  reason) is a finding. When most devices of a site or the whole run rebooted together it is one
+  finding (power event or planned restart), not one per device.
+- **A reboot resets the baseline.** If a device rebooted after P was taken (its uptime is shorter
+  than the time since P), its P counters are from the previous boot: compare nothing against them,
+  treat it as a first run for that device.
 - **Device time for log windows.** Log lines carry the device's clock; read windows against its
   `show clock` (or equivalent), not the run time, and say so if they differ by more than a minute.
 - **Sources disagree.** Snapshot and health commands run seconds apart. When two outputs disagree
@@ -184,9 +197,10 @@ On up interfaces only. Use P vs H growth (see the counter rule).
   and the internet link, **Medium** on access ports. With no P: total above 0.01% of input packets
   since `Last clearing of counters` is **Medium**, else history (put the totals in Healthy so the
   next run can compare).
-- Late collisions, or any collisions on a full-duplex port: duplex mismatch, **High** (on real
-  hardware). On a virtual lab node (IOL `%AMDP2_FE-6-EXCESSCOLL` and similar) it is the emulated
-  NIC: say so and suggest adding it to the known exceptions.
+- Late collisions, or any collisions on a full-duplex port, on real hardware: duplex mismatch,
+  **High**. On a virtual node (IOL `%AMDP2_FE-6-EXCESSCOLL` and similar) collisions come from the
+  emulated NIC, not a cable or a duplex setting, so they are never a finding: one Known exceptions
+  line with the counts, and suggest adding it to the workspace's documented exceptions.
 - Giants: only a finding if the interface MTU is 1500 (jumbo traffic on a jumbo link is normal).
 - Output drops / discards growing by more than 0.1% of output packets between P and H: **Medium**
   (congestion or microbursts); **High** with load ≥ 80% (check 10). Input queue drops, overruns,
@@ -281,7 +295,9 @@ Read the log from the previous health report's time, or the last 24 hours if the
   way; Junos uncommitted changes. Not a finding when the config changed in the last 30 minutes
   (a change still being worked): say so in Healthy. Otherwise **Low**, **Medium** if the device rebooted unexpectedly before
   (the change will be lost on the next one).
-- Debugging left on (`show debugging` lists anything): **Medium**, it loads the CPU.
+- Debugging left on (`show debugging` names a debug that is on): **Medium**, it loads the CPU.
+  IOS-XE always prints a `Packet Infra debugs:` header and an empty `Ip Address  Port` table:
+  that alone means nothing is on.
 - Logging buffer disabled or tiny (fewer than an hour of messages): **Low**, the next incident
   will have no evidence.
 - Fix: save through the change process; `undebug all` through a change.

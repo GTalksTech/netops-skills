@@ -411,6 +411,123 @@ IOS-BGP-INBOUND-PERMISSIVE:
   validated: lab-v2
   controls: [SC-7, AC-4]
   zt_pillar: networks
+IOS-L2-BPDUGUARD:
+  title: Access port without BPDU guard
+  why: An access port that accepts BPDUs lets a host or a rogue switch take part in spanning tree, become root and pull traffic its way or loop the network. DISA asks for BPDU guard on user-facing access ports; it is off by default. Per-port bpduguard enable passes, and so does the global portfast bpduguard default on a portfast port. Only access ports that are not shut down are graded.
+  fix: "spanning-tree portfast bpduguard default with spanning-tree portfast on each access port, or spanning-tree bpduguard enable per port."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.25
+  sources: [stig-l2-bpduguard]
+  plane: l2
+  validated: lab-v2
+  controls: [SC-5, SC-7]
+  zt_pillar: networks
+IOS-L2-DHCP-SNOOPING:
+  title: No DHCP snooping on the access VLANs
+  why: Without DHCP snooping any host on the VLAN can answer DHCP requests and hand out itself as the gateway or DNS server, which puts it in the path of the other hosts. DISA asks for it on user VLANs; it is off by default. The VLANs graded are the access VLANs of ports that are not shut down; VLANs named for servers, DMZ or printers are left out (the STIG marks them not applicable) and named in the detail. Trusted uplinks are not checked.
+  fix: "ip dhcp snooping, ip dhcp snooping vlan <user VLANs>, and ip dhcp snooping trust on the uplinks toward the DHCP server."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [stig-l2-dhcp-snoop]
+  plane: l2
+  validated: lab-v2
+  controls: [SC-7, AC-4]
+  zt_pillar: networks
+IOS-L2-DAI:
+  title: No Dynamic ARP Inspection on the access VLANs
+  why: Without DAI a host can send forged ARP replies and take over another host's or the gateway's address on the VLAN, then read or change its traffic. DISA asks for DAI on user VLANs; it is off by default and relies on the DHCP snooping table, so it is usually fixed together with DHCP snooping. Same VLAN selection as IOS-L2-DHCP-SNOOPING.
+  fix: "ip arp inspection vlan <user VLANs> (after DHCP snooping is on), and ip arp inspection trust on the uplinks."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.25
+  sources: [stig-l2-dai]
+  plane: l2
+  validated: lab-v2
+  controls: [SC-7, SC-8]
+  zt_pillar: networks
+IOS-L2-PORT-AUTH:
+  title: Access port with no port security, 802.1X or MAB
+  why: Any device plugged into the port gets on the VLAN. DISA asks for 802.1X (MAB for devices with no supplicant) on host-facing ports outside telecom rooms; port security limits the port to known MAC addresses. Weighted low because many networks control access another way (a NAC system, or ports only in locked rooms); record that as accepted risk. Graded on access ports that are not shut down.
+  fix: "authentication port-control auto with dot1x pae authenticator (and mab) on host ports, or switchport port-security with a maximum and a violation action."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-l2-8021x]
+  plane: l2
+  validated: lab-v2
+  controls: [IA-3, AC-3]
+  zt_pillar: devices
+IOS-L2-UNUSED-PORTS:
+  title: Unused switch port not shut down, in VLAN 1, or in a VLAN a trunk carries
+  why: An idle port that is up, or that sits in a VLAN the trunks carry, gives anyone who plugs in a working connection. DISA asks for unused ports to be shut down and placed in an unused VLAN that no trunk carries. Unused means shut down in the config, or notconnect / disabled in show interfaces status when the snapshot has it.
+  fix: "shutdown and switchport access vlan <parking VLAN> on each unused port, with the parking VLAN left off every trunk's allowed list."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.15
+  sources: [stig-l2-unused-ports]
+  plane: l2
+  validated: lab-v2
+  controls: [CM-7, AC-3]
+  zt_pillar: networks
+IOS-L2-DTP:
+  title: DTP trunk negotiation is on
+  why: A port that negotiates trunking (dynamic auto or desirable, or a trunk without nonegotiate) lets a device that speaks DTP form a trunk and reach every VLAN on it (switch spoofing). DISA asks for static trunks with negotiation off and access ports set to access; it says DTP is on by default. The saved show interfaces switchport "Negotiation of Trunking" field is used when present; otherwise the config, with no switchport mode line read as dynamic.
+  fix: "switchport mode trunk with switchport nonegotiate on trunks, switchport mode access on every other switchport."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-l2-dtp]
+  plane: l2
+  validated: lab-v2
+  controls: [CM-7, SC-7]
+  zt_pillar: networks
+IOS-L2-TRUNK-VLANS:
+  title: Trunk uses native VLAN 1 (or a user VLAN) untagged, or allows all VLANs
+  why: An untagged native VLAN that is also used for hosts allows double-tagging (VLAN hopping), and a trunk that allows every VLAN carries VLANs the far end does not need. DISA asks for a native VLAN other than 1 on every trunk and for VLAN 1 to be pruned. Native VLAN 1 still fails when VLAN 1 is not in the allowed list (the detail says so); a tagged native VLAN passes that part.
+  fix: "switchport trunk native vlan <unused VLAN> (or vlan dot1q tag native) and switchport trunk allowed vlan <only the VLANs needed>."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-l2-native-vlan]
+  plane: l2
+  validated: lab-v2
+  controls: [SC-7, AC-4]
+  zt_pillar: networks
+IOS-L2-VTP-AUTH:
+  title: VTP server or client mode without a VTP password
+  why: A switch in VTP server or client mode accepts VLAN database updates with a higher revision. Without a password a rogue or reused switch on a trunk can overwrite or delete the VLANs across the domain. Mode comes from show vtp status, else the vtp mode line, else server (no vtp line meant server on IOL IOS-XE 17.16.1a in lab v2). Transparent and off pass; DISA asks for a password in transparent mode too, and the detail says so. Without a vtp password line or show vtp password output the result is not-visible.
+  fix: "vtp mode transparent (or off) where VTP is not needed, else vtp password <secret> on every switch in the domain (VTP version 3 with a hidden password where supported)."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-l2-vtp-auth]
+  plane: l2
+  validated: lab-v2
+  controls: [IA-3, CM-6]
+  zt_pillar: networks
+IOS-FHRP-NO-AUTH:
+  title: HSRP, VRRP or GLBP group without MD5 authentication
+  why: A host on the VLAN can send hello packets with a higher priority, become the active gateway and see or drop the VLAN's outbound traffic. HSRP, VRRP and GLBP are unauthenticated by default; Cisco's FHRP hardening guide asks for MD5 authentication. Clear-text authentication is graded as none, as for routing protocols, since the string is in every hello. No DISA STIG rule covers FHRP authentication, so the Cisco page is the source. VRRPv3 groups (vrrp N address-family) are noted, not graded.
+  fix: "standby <group> authentication md5 key-chain <chain> (or key-string), and the vrrp / glbp <group> authentication md5 equivalents, on every member of the group."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [cisco-harden-fhrp]
+  plane: l2
+  validated: lab-v2
+  controls: [IA-3, SC-8]
+  zt_pillar: networks
 
 # ---------- FortiGate (FortiOS) ----------
 FGT-ANY-ANY:

@@ -1,0 +1,168 @@
+!
+!
+version 17.16
+service timestamps debug datetime msec
+service timestamps log datetime msec localtime show-timezone
+!
+hostname hq-acc-sw-01
+!
+boot-start-marker
+boot-end-marker
+!
+!
+vrf definition MGMT
+ !
+ address-family ipv4
+ exit-address-family
+!
+logging buffered 64000
+aaa new-model
+!
+!
+aaa authentication login default local
+aaa authentication login CONSOLE none
+aaa authorization exec default local
+!
+!
+aaa session-id common
+!
+!
+!
+clock timezone EST -5 0
+clock summer-time EDT recurring
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip audit notify log
+ip audit po max-events 100
+no ip domain lookup
+ip domain name gtt.lab
+ip cef
+login on-success log
+no ipv6 cef
+!
+!
+!
+!
+!
+!
+!
+vtp mode transparent
+!
+!
+!
+!
+memory free low-watermark processor 53283
+file privilege 5
+!
+!
+spanning-tree mode rapid-pvst
+spanning-tree portfast bpduguard default
+spanning-tree extend system-id
+!
+enable secret 9 <removed>
+!
+username admin privilege 15 secret 9 <removed>
+username claude-ro privilege 5 secret 9 <removed>
+!
+vlan internal allocation policy ascending
+!
+vlan 10
+ name USERS
+!
+vlan 20
+ name VOICE
+!
+vlan 30
+ name SERVERS
+!
+vlan 999
+ name PARKED
+!
+!
+!
+!
+!
+interface Ethernet0/0
+ description MGMT | lab LAN via external connector
+ no switchport
+ vrf forwarding MGMT
+ ip address 192.168.1.235 255.255.255.0
+ no cdp enable
+!
+interface Ethernet0/1
+ description TO hq-dist-sw-01 | uplink A
+ switchport trunk encapsulation dot1q
+ switchport trunk allowed vlan 10,20,30
+ switchport mode trunk
+!
+interface Ethernet0/2
+ description TO hq-dist-sw-02 | uplink B
+ switchport trunk encapsulation dot1q
+ switchport trunk allowed vlan 10,20,30
+ switchport mode trunk
+!
+interface Ethernet0/3
+ description hq-client-01 | user
+ switchport access vlan 10
+ switchport mode access
+ spanning-tree portfast
+!
+ip forward-protocol nd
+ip forward-protocol udp
+!
+!
+no ip http server
+no ip http secure-server
+ip ssh bulk-mode 131072
+ip ssh rsa keypair-name SSH
+ip route vrf MGMT 0.0.0.0 0.0.0.0 192.168.1.1
+!
+ip access-list standard MGMT-ONLY
+ 10 permit 192.168.1.0 0.0.0.255
+!
+no logging btrace
+logging host 192.168.1.230 vrf MGMT
+snmp-server community <removed> RO MGMT-ONLY
+snmp-server location gtt-lab-v2
+!
+!
+!
+!
+!
+control-plane
+!
+!
+privilege exec all level 5 ping
+privilege exec level 15 enable
+privilege exec level 5 show spanning-tree inconsistentports
+privilege exec level 5 show spanning-tree blockedports
+privilege exec level 5 show spanning-tree
+privilege exec level 5 show startup-config
+privilege exec level 5 show running-config view full
+privilege exec level 5 show running-config view
+privilege exec level 5 show running-config
+privilege exec level 5 show logging
+privilege exec level 5 show
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+ login authentication CONSOLE
+line aux 0
+line vty 0 4
+ access-class MGMT-ONLY in vrf-also
+ exec-timeout 30 0
+ transport input ssh
+!
+ntp server vrf MGMT 192.168.1.230
+!
+end

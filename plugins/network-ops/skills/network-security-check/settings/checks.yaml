@@ -683,3 +683,31 @@ FGT-IPS-STALE:
   validated: lab-v2
   controls: [SI-3, SI-4]
   zt_pillar: visibility
+
+# ---------- Lifecycle ----------
+LIFECYCLE-EOS:
+  title: Software is past the vendor's end of security fixes
+  why: The vendor no longer ships security fixes for this release train, so every new CVE stays open for good. CISA BOD 26-02 orders agencies to move edge devices off end-of-support software immediately and reports widespread exploitation campaigns against end-of-support edge devices.
+  fix: Upgrade to a release train the vendor still supports (the detail names the dates and the vendor page). If the hardware cannot run a supported train, plan its replacement.
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.9
+  sources: [cisa-bod-26-02, cisco-xe-17-16-eol, panw-eol-summary, juniper-junos-eol, fortinet-csb-260330-1]
+  plane: lifecycle
+  validated: lab-v2
+  controls: [SA-22, SI-2]
+  zt_pillar: devices
+LIFECYCLE-SOON:
+  title: Software reaches the vendor's end of security fixes within 12 months
+  why: A planning item. BOD 26-02 asks for an inventory of edge devices that will reach end of support within the next 12 months, so the upgrade is scheduled before the fixes stop.
+  fix: Schedule the upgrade to a supported release train before the date in the detail.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [cisa-bod-26-02]
+  plane: lifecycle
+  validated: fixture
+  controls: [SA-22]
+  zt_pillar: devices

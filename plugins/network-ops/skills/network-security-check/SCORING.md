@@ -110,6 +110,19 @@ disagree with it. They are in the code as named constants or caps.
    days means updates have stopped, not that they are slow.
 9. **No CISA answer and no CVSS vector: assume the worst** (automatable, total control), and say
    so in the finding.
+10. **End of support (LIFECYCLE-EOS) is scored as automatable with total control, not known
+    exploited, and capped at 3 days like any config finding.** Past the vendor's last security
+    fix date, every future CVE on the device stays open, and network OS CVEs that end up in KEV
+    are mostly remote code execution or auth bypass. CISA BOD 26-02 orders edge devices off
+    end-of-support software "immediately" and reports widespread campaigns against them, but
+    names no single exploit, so known exploited stays no. Result: an internet-facing device gets
+    3 days (score 80-89), which matches "immediately"; an internal device gets 60 days. No lower
+    cap: a "next upgrade" deadline would contradict the directive. The security end date is the
+    vendor's end of vulnerability support (Cisco), end of engineering (Juniper, Fortinet: no
+    more releases means no more fixes) or end of Extended Support+ (Palo Alto). LIFECYCLE-SOON
+    (end within 12 months, the BOD 26-02 planning window) is always the lowest band. Dates live
+    in `settings/lifecycle.yaml`, each with its vendor page; a train not in the table reports
+    n/a, and a table older than 180 days adds a report note. Hardware end of life is not checked.
 
 ## Passes, not applicable, not visible
 

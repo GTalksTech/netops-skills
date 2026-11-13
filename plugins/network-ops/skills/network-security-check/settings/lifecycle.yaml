@@ -1,0 +1,120 @@
+# Software end-of-support dates per platform and release train, for the LIFECYCLE-EOS and
+# LIFECYCLE-SOON checks (scripts/lifecycle.py). Basis: CISA BOD 26-02 (end-of-support edge
+# devices). Sources are keys in research/sources.md.
+#
+# Rules for this file:
+# - Only dates seen on a vendor page go in. A train with no vendor date is left out, and the
+#   check reports n/a for it ("lifecycle unknown for train X, check vendor page").
+# - as_of: the day the vendor page was read. A platform table older than 180 days at run time
+#   adds a report note asking for a re-read.
+# - security_end: the date fields, in order, that mark the last day the train gets security
+#   fixes. The first one a train has is used. Fixes ship in maintenance releases, so where a
+#   vendor names an "end of engineering" date (no more releases), that is the security end.
+# - train: the first two numbers of the running version (17.09.04a -> 17.9, v7.4.2 -> 7.4,
+#   10.2.7-h3 -> 10.2, 21.4R3-S5.4 -> 21.4). Special trains (Junos X releases) are not mapped.
+# - Hardware end of life is out of scope: it needs per-model tables and is not derivable from
+#   the software version.
+
+cisco_ios:
+  name: IOS-XE
+  vendor_page: https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-xe-16/bulletin-c25-741178.html
+  as_of: 2026-11-13
+  security_end: [end_of_vulnerability_support]
+  labels:
+    end_of_maintenance: end of SW maintenance releases
+    end_of_vulnerability_support: end of vulnerability/security support
+    end_of_support: last date of support
+  trains:
+    "17.9":
+      end_of_maintenance: 2025-03-30
+      end_of_vulnerability_support: 2026-09-30
+      end_of_support: 2027-03-31
+      source: cisco-xe-17-9-eol
+      url: https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-xe-17/ios-xe-17-9-x-eol.html
+    "17.12":
+      end_of_maintenance: 2026-03-30
+      end_of_vulnerability_support: 2027-09-30
+      end_of_support: 2028-03-31
+      source: cisco-xe-17-12-eol
+      url: https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-xe-17/ios-xe-17-12-x-eol.html
+    "17.15":
+      end_of_maintenance: 2027-03-30
+      end_of_vulnerability_support: 2028-09-30
+      end_of_support: 2029-03-31
+      source: cisco-xe-17-15-eol
+      url: https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-xe-17/ios-xe-17-15-x-eol.html
+    "17.16":
+      end_of_maintenance: 2026-01-13
+      end_of_vulnerability_support: 2026-01-13
+      end_of_support: 2028-06-30
+      source: cisco-xe-17-16-eol
+      url: https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-xe-17/ios-xe-17-16-x-eol.html
+      note: Cisco recommends 17.17.1 or later
+    "17.18":
+      end_of_maintenance: 2028-04-29
+      end_of_vulnerability_support: 2029-09-30
+      end_of_support: 2030-03-30
+      source: cisco-xe-17-18-eol
+      url: https://www.cisco.com/c/en/us/products/collateral/ios-nx-os-software/ios-xe-17/ios-xe-17-18-x-eol.html
+
+fortinet:
+  name: FortiOS
+  vendor_page: https://support.fortinet.com/welcome/#/lifecycle
+  as_of: 2026-11-13
+  security_end: [end_of_engineering_support]
+  labels:
+    end_of_engineering_support: end of engineering support
+    end_of_support: end of support
+  # 7.0, 7.2 and 8.0: the Fortinet lifecycle grid did not render, so no dates (n/a).
+  trains:
+    "7.4":
+      end_of_engineering_support: 2027-05-11
+      end_of_support: 2028-11-11
+      source: fortinet-csb-260330-1
+      url: https://community.fortinet.com/fortigate-3/technical-tip-fortios-end-of-support-change-for-fortios-v7-4-and-v7-6-224876
+      note: dates from a Fortinet staff post citing bulletin CSB-260330-1, not the lifecycle page
+    "7.6":
+      end_of_engineering_support: 2028-07-25
+      end_of_support: 2030-01-25
+      source: fortinet-csb-260330-1
+      url: https://community.fortinet.com/fortigate-3/technical-tip-fortios-end-of-support-change-for-fortios-v7-4-and-v7-6-224876
+      note: dates from a Fortinet staff post citing bulletin CSB-260330-1, not the lifecycle page
+
+paloalto_panos:
+  name: PAN-OS
+  vendor_page: https://www.paloaltonetworks.com/services/support/end-of-life-announcements/end-of-life-summary
+  as_of: 2026-11-13
+  # Palo Alto: Extended Support "begins automatically when Standard Support ends".
+  security_end: [extended_support_end, end_of_support]
+  labels:
+    end_of_support: end of life (standard support)
+    extended_support_end: end of Extended Support+
+  trains:
+    "10.1": {end_of_support: 2024-12-01, extended_support_end: 2026-03-31, source: panw-eol-summary}
+    "10.2": {end_of_support: 2025-08-27, extended_support_end: 2027-03-31, source: panw-eol-summary}
+    "11.0": {end_of_support: 2024-11-17, source: panw-eol-summary}
+    "11.1": {end_of_support: 2027-05-03, extended_support_end: 2027-08-31, source: panw-eol-summary}
+    "11.2": {end_of_support: 2027-05-02, extended_support_end: 2027-08-31, source: panw-eol-summary}
+    "12.1": {end_of_support: 2028-08-28, extended_support_end: 2029-08-28, source: panw-eol-summary}
+
+juniper_junos:
+  name: Junos OS
+  vendor_page: https://support.juniper.net/support/eol/software/junos/
+  as_of: 2026-11-13
+  security_end: [end_of_engineering]
+  labels:
+    end_of_engineering: end of engineering
+    end_of_support: end of support
+  # Juniper footnotes extend some trains on named platforms (SRX5k, EX4300, PTX, FIPS mode).
+  # The check names the default date and points at the page.
+  trains:
+    "21.4": {end_of_engineering: 2024-12-20, end_of_support: 2025-06-20, source: juniper-junos-eol}
+    "22.2": {end_of_engineering: 2025-06-23, end_of_support: 2025-12-23, source: juniper-junos-eol}
+    "22.4": {end_of_engineering: 2025-12-22, end_of_support: 2026-06-22, source: juniper-junos-eol}
+    "23.2": {end_of_engineering: 2028-06-23, end_of_support: 2028-12-23, source: juniper-junos-eol}
+    "23.4": {end_of_engineering: 2028-12-26, end_of_support: 2029-06-26, source: juniper-junos-eol}
+    "24.2": {end_of_engineering: 2029-07-19, end_of_support: 2030-01-19, source: juniper-junos-eol}
+    "24.4": {end_of_engineering: 2029-12-29, end_of_support: 2030-06-29, source: juniper-junos-eol}
+    "25.2": {end_of_engineering: 2030-06-30, end_of_support: 2030-12-30, source: juniper-junos-eol}
+    "25.4": {end_of_engineering: 2030-12-22, end_of_support: 2031-06-22, source: juniper-junos-eol}
+    "26.2": {end_of_engineering: 2031-06-29, end_of_support: 2031-12-29, source: juniper-junos-eol}

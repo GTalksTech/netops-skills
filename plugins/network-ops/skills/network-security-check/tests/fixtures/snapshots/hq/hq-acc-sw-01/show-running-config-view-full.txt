@@ -17,6 +17,12 @@ tacacs server ISE-1
 tacacs server ISE-2
  address ipv4 10.10.20.62
 !
+vtp mode transparent
+ip dhcp snooping vlan 10,30
+ip dhcp snooping
+ip arp inspection vlan 10,30
+spanning-tree portfast bpduguard default
+!
 vlan 10
  name USERS
 vlan 30
@@ -28,6 +34,8 @@ interface Vlan99
 interface GigabitEthernet1/0/1
  switchport access vlan 30
  switchport mode access
+ switchport port-security
+ spanning-tree portfast
 !
 no ip http server
 no ip http secure-server

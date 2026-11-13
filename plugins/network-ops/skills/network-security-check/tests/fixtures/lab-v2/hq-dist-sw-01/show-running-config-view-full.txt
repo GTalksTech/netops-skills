@@ -1,0 +1,229 @@
+!
+!
+version 17.16
+service timestamps debug datetime msec
+service timestamps log datetime msec localtime show-timezone
+!
+hostname hq-dist-sw-01
+!
+boot-start-marker
+boot-end-marker
+!
+!
+vrf definition MGMT
+ !
+ address-family ipv4
+ exit-address-family
+!
+logging buffered 64000
+aaa new-model
+!
+!
+aaa authentication login default local
+aaa authentication login CONSOLE none
+aaa authorization exec default local
+!
+!
+aaa session-id common
+!
+!
+!
+clock timezone EST -5 0
+clock summer-time EDT recurring
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip audit notify log
+ip audit po max-events 100
+no ip domain lookup
+ip domain name gtt.lab
+ip cef
+login on-success log
+no ipv6 cef
+!
+!
+!
+!
+!
+!
+!
+vtp mode transparent
+!
+!
+!
+!
+memory free low-watermark processor 53283
+file privilege 5
+!
+!
+spanning-tree mode rapid-pvst
+spanning-tree portfast bpduguard default
+spanning-tree extend system-id
+spanning-tree vlan 1-9,11-19,21-29,31-4094 priority 16384
+spanning-tree vlan 10,30 priority 4096
+spanning-tree vlan 20 priority 8192
+!
+enable secret 9 <removed>
+!
+username admin privilege 15 secret 9 <removed>
+username claude-ro privilege 5 secret 9 <removed>
+!
+vlan internal allocation policy ascending
+!
+vlan 10
+ name USERS
+!
+vlan 20
+ name VOICE
+!
+vlan 30
+ name SERVERS
+!
+vlan 999
+ name PARKED
+!
+!
+!
+!
+!
+interface Loopback0
+ ip address 10.255.0.3 255.255.255.255
+!
+interface Ethernet0/0
+ description MGMT | lab LAN via external connector
+ no switchport
+ vrf forwarding MGMT
+ ip address 192.168.1.233 255.255.255.0
+ no cdp enable
+!
+interface Ethernet0/1
+ description TO hq-core-sw-01
+ no switchport
+ ip address 10.0.0.6 255.255.255.252
+ ip ospf network point-to-point
+!
+interface Ethernet0/2
+ description TO hq-dist-sw-02 Eth0/2 | dist interlink
+ switchport trunk encapsulation dot1q
+ switchport trunk allowed vlan 10,20,30
+ switchport mode trunk
+!
+interface Ethernet0/3
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+!
+interface Ethernet1/0
+ description TO hq-acc-sw-01 Eth0/1
+ switchport trunk encapsulation dot1q
+ switchport trunk allowed vlan 10,20,30
+ switchport mode trunk
+!
+interface Ethernet1/1
+ description TO hq-acc-sw-02 Eth0/1
+ switchport trunk encapsulation dot1q
+ switchport trunk allowed vlan 10,20,30
+ switchport mode trunk
+!
+interface Ethernet1/2
+ description TO hq-acc-sw-03 Eth0/1
+ switchport trunk encapsulation dot1q
+ switchport trunk allowed vlan 10,20,30
+ switchport mode trunk
+!
+interface Ethernet1/3
+ description TO hq-acc-sw-04 Eth0/1
+ switchport trunk encapsulation dot1q
+ switchport trunk allowed vlan 10,20,30
+ switchport mode trunk
+!
+interface Vlan10
+ ip address 10.10.0.2 255.255.255.0
+ standby version 2
+ standby 10 ip 10.10.0.1
+ standby 10 priority 110
+ standby 10 preempt delay minimum 60
+!
+interface Vlan20
+ ip address 10.20.0.2 255.255.255.0
+ standby version 2
+ standby 20 ip 10.20.0.1
+ standby 20 priority 90
+ standby 20 preempt delay minimum 60
+!
+interface Vlan30
+ ip address 10.30.0.2 255.255.255.0
+ standby version 2
+ standby 30 ip 10.30.0.1
+ standby 30 priority 110
+ standby 30 preempt delay minimum 60
+!
+router ospf 1
+ router-id 10.255.0.3
+ passive-interface default
+ no passive-interface Ethernet0/1
+ network 10.0.0.0 0.0.0.255 area 0
+ network 10.10.0.0 0.0.0.255 area 0
+ network 10.20.0.0 0.0.0.255 area 0
+ network 10.30.0.0 0.0.0.255 area 0
+ network 10.255.0.3 0.0.0.0 area 0
+!
+ip forward-protocol nd
+ip forward-protocol udp
+!
+!
+no ip http server
+no ip http secure-server
+ip ssh bulk-mode 131072
+ip ssh rsa keypair-name SSH
+ip route vrf MGMT 0.0.0.0 0.0.0.0 192.168.1.1
+!
+ip access-list standard MGMT-ONLY
+ 10 permit 192.168.1.0 0.0.0.255
+!
+no logging btrace
+logging host 192.168.1.230 vrf MGMT
+snmp-server community <removed> RO MGMT-ONLY
+snmp-server location gtt-lab-v2
+!
+!
+!
+!
+!
+control-plane
+!
+!
+privilege exec all level 5 ping
+privilege exec level 15 enable
+privilege exec level 5 show spanning-tree inconsistentports
+privilege exec level 5 show spanning-tree blockedports
+privilege exec level 5 show spanning-tree
+privilege exec level 5 show startup-config
+privilege exec level 5 show running-config view full
+privilege exec level 5 show running-config view
+privilege exec level 5 show running-config
+privilege exec level 5 show logging
+privilege exec level 5 show
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+ login authentication CONSOLE
+line aux 0
+line vty 0 4
+ access-class MGMT-ONLY in vrf-also
+ exec-timeout 30 0
+ transport input ssh
+!
+ntp server vrf MGMT 192.168.1.230
+!
+end

@@ -1,0 +1,5 @@
+Port         Name               Status       Vlan       Duplex  Speed Type
+Et0/0        MGMT | lab LAN via connected    routed       full   auto 10/100/1000BaseTX
+Et0/1        TO hq-dist-sw-01 | connected    trunk        full   auto 10/100/1000BaseTX
+Et0/2        TO hq-dist-sw-02 | connected    trunk        full   auto 10/100/1000BaseTX
+Et0/3        hq-client-01 | use connected    10           full   auto 10/100/1000BaseTX

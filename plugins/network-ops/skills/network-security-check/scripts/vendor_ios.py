@@ -4,7 +4,8 @@
 #               config checks from a saved running config. Every check returns a result
 #               (pass, fail, n/a, not-visible); routing authentication is in ios_routing.py,
 #               AAA, timeouts, banner, NTP, syslog depth and SNMP version in ios_mgmt.py,
-#               CoPP and edge interface services in ios_cp.py, anti-spoofing and eBGP in ios_edge.py.
+#               CoPP and edge interface services in ios_cp.py, anti-spoofing and eBGP in ios_edge.py,
+#               layer 2 and HSRP/VRRP/GLBP in ios_l2.py.
 # Author:       G Talks Tech
 # Notes:        Read-only. Check IDs and sources live in settings/checks.yaml.
 # ============================================================
@@ -13,6 +14,7 @@ from pathlib import Path
 
 import ios_cp
 import ios_edge
+import ios_l2
 import ios_mgmt
 import ios_routing
 from common import feature, fails, is_public, is_segmented, mask_to_prefix, new_facts, result
@@ -21,7 +23,8 @@ from parsers import ios_acl_lines, ios_blocks
 
 CHECKS = ("IOS-HTTP-SERVER", "IOS-TELNET", "IOS-SSH-V1", "IOS-VTY-ACL", "IOS-SNMP-COMMUNITY",
           "IOS-PASSWORD-STORAGE", "IOS-SMART-INSTALL", "IOS-NO-REMOTE-LOG", "IOS-ROUTING-NO-AUTH",
-          "IOS-ROUTING-WEAK-AUTH", "IOS-SEGMENT-ROUTED") + ios_mgmt.CHECKS + ios_cp.CHECKS + ios_edge.CHECKS
+          "IOS-ROUTING-WEAK-AUTH", "IOS-SEGMENT-ROUTED") + ios_mgmt.CHECKS + ios_cp.CHECKS + ios_edge.CHECKS \
+    + ios_l2.CHECKS
 WEAK_COMMUNITIES = {"public", "private", "cisco", "community", "snmp", "admin", "secret"}
 
 
@@ -269,6 +272,9 @@ def analyze(text, dev):
 
     # --- edge anti-spoofing and eBGP session hygiene (ios_edge.py) ---
     res += ios_edge.check(blocks, external)
+
+    # --- layer 2 and first-hop redundancy (ios_l2.py) ---
+    res += ios_l2.check(blocks, top, dev)
 
     # --- segmentation: a segmented SVI routing to other SVIs in the same VRF with no ACL ---
     svis = [i for i in facts["interfaces"] if re.match(r"[Vv]lan\d+$", i["name"]) and i["ips"]

@@ -1,0 +1,16 @@
+VTP Version capable             : 1 to 3
+VTP version running             : 1
+VTP Domain Name                 :
+VTP Pruning Mode                : Disabled (Operationally Disabled)
+VTP Traps Generation            : Disabled
+Device ID                       : aabb.cc80.7700
+Configuration last modified by 0.0.0.0 at 0-0-00 --:--:--
+
+Feature VLAN:
+--------------
+VTP Operating Mode                : Transparent
+Maximum VLANs supported locally   : 1005
+Number of existing VLANs          : 9
+Configuration Revision            : 0
+MD5 digest                        : <removed>
+

@@ -157,5 +157,22 @@ and the fw-01 transit, eBGP to isp-rtr-01), isp-rtr-01 (eBGP), hq-core-sw-01 (th
 links), both distribution switches and branch1-rtr-01 (the one non-passive interface each).
 Access switches run no routing and are clean. 49 findings in total after this check.
 
-Not graded yet: MD5 vs HMAC-SHA (the STIG treats MD5-only as a permanent finding) and key
-lifetimes. OSPFv3, IS-IS and RIP are not read.
+Not graded in 4b: MD5 vs HMAC-SHA and key lifetimes (MD5 added in 4c). OSPFv3, IS-IS and RIP
+are not read.
+
+## Round 4c: MD5 vs HMAC-SHA grading (2026-11-13)
+
+Each adjacency is now graded by how it authenticates. Clear-text keys (OSPF `ip ospf
+authentication` or `area X authentication` without message-digest) join IOS-ROUTING-NO-AUTH,
+because anyone on the link can read the key. New IOS-ROUTING-WEAK-AUTH (DISA CISC-RT-000050:
+MD5 is not FIPS 198-1) covers OSPF message-digest, EIGRP md5 (classic and named mode), BGP
+`neighbor X password` (TCP MD5), and key chains whose cryptographic-algorithm is md5 or not set.
+HMAC-SHA-1/256/384/512 and AES-CMAC key chains, EIGRP named-mode hmac-sha-256 and BGP TCP-AO
+with such a chain pass.
+
+Scores lower than no authentication (weight 0.2, same exposure rule: only a public BGP neighbor
+is exposed). Cisco's hardening guide still shows MD5 as the recommended form; the STIG is the
+stricter bar and the one followed here.
+
+Lab v2 has no routing authentication at all, so this check doesn't fire there; it is covered by
+tests of every form. Key lifetimes (STIG: 180 days or less) are still not graded.

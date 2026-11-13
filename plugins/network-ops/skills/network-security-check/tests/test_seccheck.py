@@ -659,3 +659,72 @@ def test_bgp_auth_forms():
     hit = _rt(RT_BASE.format(e0="", e1="") + bgp)
     assert hit["detail"] == "No authentication: BGP neighbor 10.255.0.3 (AS 65010)"
     assert not hit["exposed"]          # private neighbor: not reachable from the internet
+
+
+# ---------- routing authentication algorithm (IOS-ROUTING-WEAK-AUTH) ----------
+def _grades(cfg):
+    blocks = parsers.ios_blocks(cfg)
+    facts, _ = vendor_ios.analyze(cfg, {})
+    return {a["what"].split(" on ")[-1] if " on " in a["what"] else a["what"]: a["grade"]
+            for a in vendor_ios._routing_auth(blocks, facts["interfaces"])}
+
+
+CHAINS = """key chain SHA
+ key 1
+  key-string 7 X
+  cryptographic-algorithm hmac-sha-256
+key chain OLD
+ key 1
+  key-string 7 X
+  cryptographic-algorithm md5
+key chain BARE
+ key 1
+  key-string 7 X
+key chain AO tcp
+ key 1
+  send-id 1
+  recv-id 1
+  key-string 7 X
+  cryptographic-algorithm hmac-sha-256
+"""
+
+
+@pytest.mark.parametrize("e0,e1,router,expect", [
+    ("", " ip ospf authentication message-digest\n ip ospf message-digest-key 1 md5 7 X",
+     "router ospf 1\n network 10.0.0.0 0.0.0.255 area 0", {"Ethernet0/0": "none", "Ethernet0/1": "md5"}),
+    (" ip ospf authentication\n ip ospf authentication-key 7 X", " ip ospf authentication key-chain SHA",
+     "router ospf 1\n network 10.0.0.0 0.0.0.255 area 0", {"Ethernet0/0": "clear", "Ethernet0/1": "strong"}),
+    (" ip ospf authentication key-chain OLD", " ip ospf authentication key-chain BARE",
+     "router ospf 1\n network 10.0.0.0 0.0.0.255 area 0", {"Ethernet0/0": "md5", "Ethernet0/1": "unset"}),
+    ("", "", "router ospf 1\n area 0 authentication\n network 10.0.0.0 0.0.0.255 area 0",
+     {"Ethernet0/0": "clear", "Ethernet0/1": "clear"}),
+    (" ip authentication mode eigrp 10 md5", "", "router eigrp 10\n network 10.0.0.0",
+     {"Ethernet0/0": "md5", "Ethernet0/1": "none"}),
+    ("", "", "router eigrp LAB\n address-family ipv4 unicast autonomous-system 10\n  af-interface default\n"
+     "   authentication mode hmac-sha-256 K\n  exit-af-interface\n  af-interface Ethernet0/1\n"
+     "   authentication mode md5\n  exit-af-interface\n  network 10.0.0.0 0.0.0.255",
+     {"Ethernet0/0": "strong", "Ethernet0/1": "md5"}),
+])
+def test_igp_auth_grades(e0, e1, router, expect):
+    assert _grades(CHAINS + RT_BASE.format(e0=e0, e1=e1) + router + "\n") == expect
+
+
+def test_bgp_auth_grades_and_findings():
+    bgp = ("router bgp 65010\n neighbor 198.51.100.1 remote-as 64500\n neighbor 198.51.100.1 password 7 X\n"
+           " neighbor 203.0.113.9 remote-as 64501\n neighbor 203.0.113.9 ao AO\n"
+           " neighbor 10.255.0.3 remote-as 65010\n")
+    cfg = CHAINS + RT_BASE.format(e0="", e1="") + bgp
+    g = _grades(cfg)
+    assert g == {"BGP neighbor 198.51.100.1 (AS 64500)": "md5", "BGP neighbor 203.0.113.9 (AS 64501)": "strong",
+                 "BGP neighbor 10.255.0.3 (AS 65010)": "none"}
+    _, found = vendor_ios.analyze(cfg, {})
+    by = {f["check"]: f for f in found}
+    assert by["IOS-ROUTING-WEAK-AUTH"]["detail"] == \
+        "MD5 or no algorithm set: BGP neighbor 198.51.100.1 (AS 64500) (TCP MD5 password)"
+    assert by["IOS-ROUTING-WEAK-AUTH"]["exposed"]          # public eBGP neighbor
+    assert "10.255.0.3" in by["IOS-ROUTING-NO-AUTH"]["detail"] and not by["IOS-ROUTING-NO-AUTH"]["exposed"]
+
+
+def test_lab_routing_has_no_weak_auth_finding():
+    _, found = _lab_ios()
+    assert "IOS-ROUTING-WEAK-AUTH" not in ids(found)     # lab has no auth at all, so NO-AUTH only

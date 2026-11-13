@@ -36,6 +36,28 @@ def _ports(spec):
     return out
 
 
+def _limited_sources(names, addrs, groups, depth=0):
+    """True when every source address is a named subnet that is private or no wider than a /24.
+    Such a policy admits a few known networks (a branch, a tunnel), not the internet.
+    'all', FQDN, geography, wildcard, ranges and unknown names count as not limited."""
+    if not names or depth > 5:
+        return False
+    for n in names:
+        if n in ANY_ADDR:
+            return False
+        if n in groups:
+            if not _limited_sources(groups[n], addrs, groups, depth + 1):
+                return False
+            continue
+        a = addrs.get(n)
+        if a is None or a.get("type", ["ipmask"]) != ["ipmask"] or len(a.get("subnet", [])) < 2:
+            return False
+        prefix = mask_to_prefix(a["subnet"][1])
+        if prefix is None or (is_public(a["subnet"][0]) and prefix < 24):
+            return False
+    return True
+
+
 def analyze(text, dev):
     tree = fortios_tree(text)
     facts = new_facts()
@@ -97,12 +119,21 @@ def analyze(text, dev):
     # --- admins ---
     wan_admin = any({"https", "http", "ssh", "telnet"} & set(i["allowaccess"])
                     for i in facts["interfaces"] if i["name"] in internet_if)
-    for name, cfg in _section(tree, "system admin").items():
+    admins = _section(tree, "system admin")
+    for name, cfg in admins.items():
         if not any(k.startswith("trusthost") or k.startswith("ip6-trusthost") for k in cfg):
             found.append(finding("FGT-ADMIN-NO-TRUSTHOST", f"admin '{name}' has no trusted hosts",
                                  [f'edit "{name}"'], exposed=wan_admin, where=name))
+    if list(admins) == [dev.get("username")]:
+        # A non-super-admin profile is shown only its own admin entry, so the other admins
+        # (including the built-in 'admin') were not checked.
+        facts["notes"].append(f"only the snapshot account '{dev.get('username')}' is visible under "
+                              "'config system admin': trusted hosts of the other admin accounts were not "
+                              "checked. Check them by hand with 'show system admin' as a super admin.")
 
     # --- policies ---
+    addrs = _section(tree, "firewall address")
+    addrgrp = {g: v.get("member", []) for g, v in _section(tree, "firewall addrgrp").items()}
     vips = _section(tree, "firewall vip")
     vipgrp = {g: v.get("member", []) for g, v in _section(tree, "firewall vipgrp").items()}
     for pid, p in _section(tree, "firewall policy").items():
@@ -117,6 +148,11 @@ def analyze(text, dev):
         any_svc = "ALL" in svc
         outbound = is_inet(dst) and not is_inet(src) and "any" not in src
         seg = segmented(src) and not is_inet(dst) and not segmented(dst) and any_svc and bool(da & ANY_ADDR)
+        # Inbound from the WAN side but only from named private or small subnets (a branch, a
+        # tunnel): still flagged, but not reachable from the internet at large.
+        limited = inbound and p.get("srcaddr-negate") != ["enable"] and _limited_sources(
+            p.get("srcaddr", []), addrs, addrgrp)
+        origin = f"from the WAN side, limited to {' '.join(sorted(sa))}" if limited else "from internet"
         if seg:
             found.append(finding("FGT-SEGMENT", f"{label}: {' '.join(src)} -> {' '.join(dst)}, "
                                  "all destinations, service ALL", ev, exposed=False, where=label))
@@ -125,14 +161,14 @@ def analyze(text, dev):
             found.append(finding("FGT-ANY-ANY", f"{label}: all -> all, service ALL", ev,
                                  exposed=inbound or "any" in src, where=label))
         elif inbound and any_svc:
-            found.append(finding("FGT-INBOUND-ANY-SERVICE", f"{label}: from internet, service ALL", ev,
-                                 exposed=True, where=label))
+            found.append(finding("FGT-INBOUND-ANY-SERVICE", f"{label}: {origin}, service ALL", ev,
+                                 exposed=not limited, where=label))
         if p.get("logtraffic") == ["disable"]:
             found.append(finding("FGT-NO-LOG", f"{label}: logtraffic disable", ev, exposed=inbound,
                                  where=label))
         if inbound and not p.get("ips-sensor") and not p.get("profile-group"):
-            found.append(finding("FGT-INBOUND-NO-IPS", f"{label}: inbound from internet, no IPS sensor",
-                                 ev, exposed=True, where=label))
+            found.append(finding("FGT-INBOUND-NO-IPS", f"{label}: inbound {origin}, no IPS sensor",
+                                 ev, exposed=not limited, where=label))
         if inbound:
             members = set(da) | {m for g in da & set(vipgrp) for m in vipgrp[g]}
             for vname in members & set(vips):

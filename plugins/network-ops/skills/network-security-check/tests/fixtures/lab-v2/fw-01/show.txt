@@ -1,0 +1,237 @@
+config system global
+    set alias "FGT-VM64-AZA3VW"
+    set gui-auto-upgrade-setup-warning disable
+    set hostname "fw-01"
+    set timezone "America/New_York"
+end
+config system interface
+    edit "port1"
+        set vdom "root"
+        set ip 192.168.1.242 255.255.255.0
+        set allowaccess ping https ssh
+        set type physical
+        set alias "mgmt"
+        set snmp-index 1
+    next
+    edit "port2"
+        set vdom "root"
+        set ip 198.51.100.10 255.255.255.252
+        set allowaccess ping
+        set type physical
+        set alias "outside"
+        set lldp-reception enable
+        set role wan
+        set snmp-index 2
+    next
+    edit "port3"
+        set vdom "root"
+        set ip 10.0.0.13 255.255.255.252
+        set allowaccess ping
+        set type physical
+        set alias "inside"
+        set device-identification enable
+        set lldp-transmission enable
+        set role lan
+        set snmp-index 3
+    next
+    edit "naf.root"
+        set vdom "root"
+        set type tunnel
+        set src-check disable
+        set snmp-index 4
+    next
+    edit "l2t.root"
+        set vdom "root"
+        set type tunnel
+        set snmp-index 5
+    next
+    edit "ssl.root"
+        set vdom "root"
+        set type tunnel
+        set alias "Agentless VPN interface"
+        set snmp-index 6
+    next
+    edit "fortilink"
+        set vdom "root"
+        set fortilink enable
+        set ip 10.255.1.1 255.255.255.0
+        set allowaccess ping fabric
+        set type aggregate
+        set lldp-reception enable
+        set lldp-transmission enable
+        set snmp-index 8
+    next
+    edit "default-mesh"
+        set vdom "root"
+        set type vap-switch
+        set role lan
+        set snmp-index 7
+    next
+end
+config system admin
+    edit "claude-ro-cli"
+        set vdom "root"
+        set trusthost1 192.168.1.0 255.255.255.0
+        set accprofile "cli-readonly"
+        set password <removed>
+    next
+end
+config firewall address
+    edit "EMS_ALL_UNKNOWN_CLIENTS"
+        set uuid <removed>
+        set type dynamic
+        set sub-type ems-tag
+    next
+    edit "EMS_ALL_UNMANAGEABLE_CLIENTS"
+        set uuid <removed>
+        set type dynamic
+        set sub-type ems-tag
+    next
+    edit "none"
+        set uuid <removed>
+        set subnet 0.0.0.0 255.255.255.255
+    next
+    edit "login.microsoftonline.com"
+        set uuid <removed>
+        set type fqdn
+        set fqdn "login.microsoftonline.com"
+    next
+    edit "login.microsoft.com"
+        set uuid <removed>
+        set type fqdn
+        set fqdn "login.microsoft.com"
+    next
+    edit "login.windows.net"
+        set uuid <removed>
+        set type fqdn
+        set fqdn "login.windows.net"
+    next
+    edit "gmail.com"
+        set uuid <removed>
+        set type fqdn
+        set fqdn "gmail.com"
+    next
+    edit "wildcard.google.com"
+        set uuid <removed>
+        set type fqdn
+        set fqdn "*.google.com"
+    next
+    edit "wildcard.dropbox.com"
+        set uuid <removed>
+        set type fqdn
+        set fqdn "*.dropbox.com"
+    next
+    edit "all"
+        set uuid <removed>
+    next
+    edit "FIREWALL_AUTH_PORTAL_ADDRESS"
+        set uuid <removed>
+    next
+    edit "FABRIC_DEVICE"
+        set uuid <removed>
+        set comment "IPv4 addresses of Fabric Devices."
+    next
+    edit "SSLVPN_TUNNEL_ADDR1"
+        set uuid <removed>
+        set type iprange
+        set start-ip 10.212.134.200
+        set end-ip 10.212.134.210
+    next
+    edit "port3 address"
+        set uuid <removed>
+        set type interface-subnet
+        set subnet 10.0.0.12 255.255.255.252
+        set interface "port3"
+    next
+    edit "branch1-lan"
+        set uuid <removed>
+        set subnet 10.110.0.0 255.255.255.0
+    next
+    edit "hq-edge-rtr-01-lo0"
+        set uuid <removed>
+        set subnet 10.255.0.1 255.255.255.255
+    next
+    edit "wan-transit"
+        set uuid <removed>
+        set subnet 198.51.100.8 255.255.255.252
+    next
+    edit "gre-tunnel"
+        set uuid <removed>
+        set subnet 10.0.1.0 255.255.255.252
+    next
+    edit "internal-10"
+        set uuid <removed>
+        set comment "All lab-internal 10.x: HQ campus, branch, tunnel, loopbacks (incl. future VLANs)"
+        set subnet 10.0.0.0 255.0.0.0
+    next
+    edit "branch1-lo0"
+        set uuid <removed>
+        set subnet 10.255.0.9 255.255.255.255
+    next
+end
+config firewall addrgrp
+    edit "G Suite"
+        set member "gmail.com" "wildcard.google.com"
+        set uuid <removed>
+    next
+    edit "Microsoft Office 365"
+        set member "login.microsoftonline.com" "login.microsoft.com" "login.windows.net"
+        set uuid <removed>
+    next
+    edit "wan-side-lab-sources"
+        set member "branch1-lan" "hq-edge-rtr-01-lo0" "wan-transit" "gre-tunnel" "branch1-lo0"
+        set uuid <removed>
+    next
+    edit "wan-side-lab-dests"
+        set member "branch1-lan" "hq-edge-rtr-01-lo0" "wan-transit" "gre-tunnel" "branch1-lo0"
+        set uuid <removed>
+    next
+end
+config vpn ssl settings
+    set banned-cipher SHA1 SHA256 SHA384
+    set servercert ''
+    set port 443
+end
+config firewall policy
+    edit 1
+        set name "campus-to-wan-sites"
+        set uuid <removed>
+        set srcintf "port3"
+        set dstintf "port2"
+        set action accept
+        set srcaddr "internal-10"
+        set dstaddr "wan-side-lab-dests"
+        set schedule "always"
+        set service "ALL"
+        set logtraffic all
+        set comments "Branch, edge router and tunnel. No NAT: internal addressing end to end."
+    next
+    edit 2
+        set name "campus-to-internet"
+        set uuid <removed>
+        set srcintf "port3"
+        set dstintf "port2"
+        set action accept
+        set srcaddr "internal-10"
+        set dstaddr "internal-10"
+        set schedule "always"
+        set service "internet-basic"
+        set logtraffic all
+        set nat enable
+        set comments "Internet only (anything NOT internal-10), basic services. NAT to port2 (198.51.100.10)."
+        set dstaddr-negate enable
+    next
+    edit 3
+        set name "wan-side-to-campus"
+        set uuid <removed>
+        set srcintf "port2"
+        set dstintf "port3"
+        set action accept
+        set srcaddr "wan-side-lab-sources"
+        set dstaddr "internal-10"
+        set schedule "always"
+        set service "ALL"
+        set logtraffic all
+        set comments "Branch users, branch and edge loopbacks, tunnel into campus. No NAT."
+    next
+end

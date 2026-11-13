@@ -89,3 +89,52 @@ Known gaps left (listed for the next round):
 - IOS vty with no `transport input` line gives a note, not a finding, because the default
   depends on the release.
 - Junos EVO version strings (`-EVO`) sort above the plain release.
+
+## Round 4: first run on real devices (lab v2, 2026-11-13)
+
+Ran on a machine that reaches lab v2: network-snapshot of all 12 devices (11 IOL IOS-XE
+17.16.1a, one FortiGate-VM 8.0.1), then `fetch` (1,022 Cisco and 299 FortiOS candidate CVEs)
+and `run`. First run: 54 findings (3 at 3 days, 15 at 14 days). Each finding checked by hand
+against the saved configs.
+
+Correct on the first run:
+- Version strings parse on both: IOL reports "Cisco IOS Software [IOSXE], Linux Software ...
+  Version 17.16.1a"; FortiOS "FortiGate-VM64 v8.0.1,build0245".
+- Edge detection: hq-edge-rtr-01, branch1-rtr-01 and fw-01 port2 (role wan) internet-facing,
+  switches internal. isp-rtr-01 also shows as edge; it plays the internet in the lab.
+- FGT-IPS-STALE: IPS-DB from 2015 because the eval VM has no FortiGuard license. A known lab
+  condition, reported correctly.
+- CVE-2025-20352 (SNMP, KEV) held at 14 days: SNMP is on but bound to ACL MGMT-ONLY.
+- IOS-NO-REMOTE-LOG only on isp-rtr-01, the one device with no `logging host`.
+- Quiet, correctly: telnet, VTY ACL, password storage (all type 9), web UI, FortiGate
+  management on WAN. Segmentation found nothing because lab v2 has no IoT or guest VLAN, so
+  that check is still covered by fixtures only.
+
+Fixed (fixtures in tests/fixtures/lab-v2, sanitized; tests named test_lab_*):
+- **False positive on all 11 Cisco devices:** IOS-SSH-V1. 17.x runs SSH v2 only and writes no
+  `ip ssh version 2` line. The check now also reads the saved `show ip ssh` ("version 2.0").
+- **False positives on CVE exposure:** CVEs whose feature is off still scored as reachable,
+  because the CVE text names the feature in words the matcher didn't know. Added, each with
+  the config condition from Cisco's advisory (sources.md, cisco-sa-feature-conditions):
+  "web services" (Remote Access SSL VPN), "HTTP API" (HTTP server), Web Authentication, NBAR
+  CAPWAP, BEEP, XMCP, Meraki. Seven CVEs on the edge routers moved from 14 days to next upgrade.
+- **Overstated firewall finding:** FGT-INBOUND-ANY-SERVICE (86) and FGT-INBOUND-NO-IPS (70) on
+  a WAN-side policy whose source is a named group of private and /30 subnets (branch LAN,
+  loopbacks, tunnel, transit). Sources are now resolved through address objects and groups:
+  when every source is private or no wider than a /24 the finding says "from the WAN side,
+  limited to ..." and is not marked internet-exposed (now 52 and 47).
+- **Silent gap:** a FortiOS read-only profile sees only its own entry under `config system
+  admin`, so the other admins' trusted hosts were never checked and the report didn't say so.
+  It now adds a note.
+
+After the fixes: 43 findings (2 at 3 days, 9 at 14 days). IOS-XE and FortiOS marked `tested`.
+
+Not changed, for the next round:
+- The handoff expected SNMP v2c, no routing auth and public lab passwords to show up. SNMP has
+  an ACL and passwords are type 9 hashes, so nothing to flag; there is no routing-protocol
+  authentication check in the catalog yet (a gap, needs a source).
+- The seven "Security Hardening Release" CVEs (CVE-2026-20267 to 20273) name no feature, so
+  they stay version-matched. Check Cisco's advisory for conditions before changing that.
+- A BEEP listener made with the exec command `bingd device` isn't in the config.
+- isp-rtr-01 could carry `exposure: internal` in the lab inventory so the ISP stand-in doesn't
+  add to the counts. Left for Garrett.

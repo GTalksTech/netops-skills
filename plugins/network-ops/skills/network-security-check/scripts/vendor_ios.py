@@ -6,6 +6,7 @@
 # Notes:        Read-only. Check IDs and sources live in settings/checks.yaml.
 # ============================================================
 import re
+from pathlib import Path
 
 from common import feature, finding, is_public, is_segmented, mask_to_prefix, new_facts
 from parsers import ios_blocks
@@ -33,6 +34,16 @@ def _acl_is_open(blocks, name):
         if re.match(r"permit\s+ip\s+any\s+any\b", l) or l == "permit any":
             return True
     return not lines  # ACL referenced but not defined: IOS permits all
+
+
+def _ssh_version(dev):
+    """'2.0', '1.99' or '1.5' from the snapshot's show ip ssh output, else None."""
+    folder = dev.get("_folder")
+    f = Path(folder) / "show-ip-ssh.txt" if folder else None
+    if not f or not f.exists():
+        return None
+    m = re.search(r"SSH Enabled - version (\d+\.\d+)", f.read_text(encoding="utf-8", errors="replace"))
+    return m.group(1) if m else None
 
 
 def analyze(text, dev):
@@ -118,9 +129,14 @@ def analyze(text, dev):
     if no_acl:
         found.append(finding("IOS-VTY-ACL", "No access-class on: " + ", ".join(no_acl), no_acl,
                              exposed=internet))
-    if vty and "ip ssh version 2" not in top and not all(
+    # IOS-XE 17.x runs SSH v2 only and writes no "ip ssh version 2" line, so the saved
+    # "show ip ssh" output decides when it is there ("version 2.0" = v2 only, "1.99" = both).
+    ssh_shown = _ssh_version(dev)
+    if vty and "ip ssh version 2" not in top and ssh_shown != "2.0" and not all(
             any(re.search(r"transport input (none|telnet)$", c) for c in ch) for _, ch in vty):
-        found.append(finding("IOS-SSH-V1", "No 'ip ssh version 2' line", [], exposed=False))
+        found.append(finding("IOS-SSH-V1", "No 'ip ssh version 2' line" + (
+            f" and 'show ip ssh' reports version {ssh_shown}" if ssh_shown else
+            " (no 'show ip ssh' output saved to confirm)"), [], exposed=False))
 
     snmp_bad = []
     for h in top:
@@ -150,6 +166,19 @@ def analyze(text, dev):
     ike = [h for h in top if re.match(r"crypto (isakmp|ikev2) ", h)]
     feature(facts, "ike", bool(ike), internet and bool(ike))
     feature(facts, "sdwan", any(h == "sdwan" or h.startswith("sdwan ") for h in top), internet)
+    # Conditions below are the "vulnerable products" config checks in Cisco's advisories
+    # (research/sources.md, cisco-sa-feature-conditions).
+    ssl_vpn = [h for h, ch in blocks if h.startswith("crypto ssl policy ") and "shutdown" not in ch]
+    feature(facts, "ssl_vpn", bool(ssl_vpn), internet, ssl_vpn[0] if ssl_vpn else None)
+    webauth = [h for h in top if re.match(r"ip admission name \S+ proxy http", h)
+               or h.startswith("parameter-map type webauth")]
+    feature(facts, "webauth", bool(http_lines and webauth), internet and not http_acl,
+            webauth[0] if webauth else None)
+    feature(facts, "nbar_capwap", "ip nbar classification tunneled-traffic capwap" in top, internet)
+    beep = [h for h in top if "beep listener" in h]
+    feature(facts, "beep", bool(beep), internet, beep[0] if beep else None)
+    feature(facts, "xmcp", any(h.startswith("service-routing xmcp listen") for h in top), internet)
+    feature(facts, "meraki", any(re.match(r"(service )?meraki\b", h) for h in top), internet)
     if snmp_bad:
         found.append(finding("IOS-SNMP-COMMUNITY",
                              "; ".join(f"community {n + 1}: {', '.join(w)}" for n, (_, w, _) in enumerate(snmp_bad)),

@@ -1,0 +1,216 @@
+!
+version 17.16
+service timestamps debug datetime msec
+service timestamps log datetime msec localtime show-timezone
+!
+hostname hq-edge-rtr-01
+!
+boot-start-marker
+boot-end-marker
+!
+!
+vrf definition MGMT
+ !
+ address-family ipv4
+ exit-address-family
+!
+logging buffered 64000
+aaa new-model
+!
+!
+aaa authentication login default local
+aaa authentication login CONSOLE none
+aaa authorization exec default local
+!
+aaa session-id common
+!
+!
+!
+clock timezone EST -5 0
+clock summer-time EDT recurring
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+no ip domain lookup
+ip domain name gtt.lab
+ip cef
+login on-success log
+no ipv6 cef
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+memory free low-watermark processor 53768
+file privilege 5
+!
+!
+spanning-tree mode rapid-pvst
+!
+enable secret 9 <removed>
+!
+username admin privilege 15 secret 9 <removed>
+username claude-ro privilege 5 secret 9 <removed>
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+interface Loopback0
+ ip address 10.255.0.1 255.255.255.255
+!
+interface Tunnel0
+ description GRE TO branch1-rtr-01 | branch WAN
+ ip address 10.0.1.1 255.255.255.252
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ ip ospf network point-to-point
+ tunnel source Ethernet0/2
+ tunnel destination 198.51.100.6
+!
+interface Ethernet0/0
+ description MGMT | lab LAN via external connector
+ vrf forwarding MGMT
+ ip address 192.168.1.231 255.255.255.0
+ no cdp enable
+!
+interface Ethernet0/1
+ description TO fw-01 port2 | HQ public transit
+ ip address 198.51.100.9 255.255.255.252
+ ip ospf network point-to-point
+!
+interface Ethernet0/2
+ description TO isp-rtr-01 Eth0/1 | internet
+ ip address 198.51.100.2 255.255.255.252
+ ip access-group EDGE-IN in
+!
+interface Ethernet0/3
+ no ip address
+ shutdown
+!
+router ospf 1
+ router-id 10.255.0.1
+ passive-interface Loopback0
+ network 10.0.1.0 0.0.0.3 area 0
+ network 10.255.0.1 0.0.0.0 area 0
+ network 198.51.100.8 0.0.0.3 area 0
+ default-information originate
+!
+router bgp 65010
+ bgp log-neighbor-changes
+ neighbor 198.51.100.1 remote-as 64500
+ neighbor 198.51.100.1 description isp-rtr-01
+ !
+ address-family ipv4
+  network 198.51.100.8 mask 255.255.255.252
+  neighbor 198.51.100.1 activate
+  neighbor 198.51.100.1 prefix-list ISP-IN in
+  neighbor 198.51.100.1 prefix-list HQ-OUT out
+  neighbor 198.51.100.1 maximum-prefix 100 80 restart 5
+ exit-address-family
+!
+ip forward-protocol nd
+ip forward-protocol udp
+!
+!
+no ip http server
+no ip http secure-server
+ip route vrf MGMT 0.0.0.0 0.0.0.0 192.168.1.1
+ip ssh bulk-mode 131072
+ip ssh rsa keypair-name SSH
+!
+ip access-list standard MGMT-ONLY
+ 10 permit 192.168.1.0 0.0.0.255
+!
+ip access-list extended EDGE-IN
+ 10 remark anti-spoof: our own and private space never arrives from the internet
+ 10 deny ip 10.0.0.0 0.255.255.255 any
+ 20 deny ip 172.16.0.0 0.15.255.255 any
+ 30 deny ip 192.168.0.0 0.0.255.255 any
+ 40 deny ip 198.51.100.8 0.0.0.3 any
+ 50 remark BGP with isp-rtr-01
+ 50 permit tcp host 198.51.100.1 host 198.51.100.2 eq bgp
+ 60 permit tcp host 198.51.100.1 eq bgp host 198.51.100.2
+ 70 remark GRE from branch1-rtr-01
+ 70 permit gre host 198.51.100.6 host 198.51.100.2
+ 80 permit icmp any any
+ 90 remark fw-01 outside (NAT return traffic); fw-01 polices it
+ 90 permit ip any host 198.51.100.10
+ 100 deny ip any any log
+!
+ip prefix-list HQ-OUT seq 5 permit 198.51.100.8/30
+!
+ip prefix-list ISP-IN seq 5 permit 0.0.0.0/0
+ip prefix-list ISP-IN seq 10 permit 198.51.100.4/30
+ip prefix-list ISP-IN seq 15 permit 203.0.113.0/24 le 32
+no logging btrace
+logging host 192.168.1.230 vrf MGMT
+!
+snmp-server community <removed> RO MGMT-ONLY
+snmp-server location gtt-lab-v2
+!
+!
+!
+!
+control-plane
+!
+!
+privilege exec all level 5 ping
+privilege exec level 15 enable
+privilege exec level 5 show spanning-tree inconsistentports
+privilege exec level 5 show spanning-tree blockedports
+privilege exec level 5 show spanning-tree
+privilege exec level 5 show startup-config
+privilege exec level 5 show running-config view full
+privilege exec level 5 show running-config view
+privilege exec level 5 show running-config
+privilege exec level 5 show logging
+privilege exec level 5 show
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+ login authentication CONSOLE
+line aux 0
+line vty 0 4
+ access-class MGMT-ONLY in vrf-also
+ exec-timeout 30 0
+ transport input ssh
+!
+ntp server vrf MGMT 192.168.1.230
+!
+!
+!
+end

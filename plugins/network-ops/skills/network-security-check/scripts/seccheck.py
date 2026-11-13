@@ -43,7 +43,10 @@ FEATURE_LABELS = {"http_server": "the web UI (ip http server)", "smart_install":
                   "snmp": "SNMP", "webvpn": "AnyConnect / WebVPN", "mgmt_http": "ASDM (http server)",
                   "sslvpn": "SSL VPN", "admin_web": "the admin web interface",
                   "globalprotect": "GlobalProtect", "sdwan": "SD-WAN mode", "dhcp_snooping": "DHCP snooping", "iox": "IOx app hosting", "ike": "IKE / IPsec VPN", "fgfm": "FortiManager access (fgfm)", "mgmt_web": "the management web interface",
-                  "jweb": "J-Web"}
+                  "jweb": "J-Web", "ssl_vpn": "Remote Access SSL VPN (crypto ssl policy)",
+                  "webauth": "Web Authentication", "nbar_capwap": "NBAR CAPWAP classification",
+                  "beep": "BEEP (netconf beep listener)", "xmcp": "XMCP (service-routing xmcp)",
+                  "meraki": "Meraki dashboard management"}
 PARSERS = {"ios": vendor_ios, "fortios": vendor_fortios, "panos": vendor_panos, "asa": vendor_asa,
            "junos_set": vendor_junos}
 
@@ -98,7 +101,7 @@ def device_facts(dev, repo, platforms):
     cfg = folder / pcfg["config"]["file"]
     mod = PARSERS.get(pcfg["config"]["parser"])
     facts = None
-    dev = {**dev, "_is_switch": bool(re.match(SWITCH_MODELS, out["model"] or ""))}
+    dev = {**dev, "_is_switch": bool(re.match(SWITCH_MODELS, out["model"] or "")), "_folder": folder}
     if mod and cfg.exists():
         try:
             facts, found = mod.analyze(cfg.read_text(encoding="utf-8", errors="replace"), dev)

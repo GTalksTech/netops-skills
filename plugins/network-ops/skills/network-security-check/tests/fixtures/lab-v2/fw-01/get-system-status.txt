@@ -1,0 +1,46 @@
+Version: FortiGate-VM64 v8.0.1,build0245,260909 (GA.F)
+First GA patch build date: 260421
+Current Security Level: High
+Firmware Signature: certified
+Virus-DB: 1.00001(2026-04-02 13:48)
+Extended DB: 1.00001(2026-04-02 13:48)
+Extreme DB: 1.00001(2026-04-02 13:48)
+OCR DB: 0.00000(2001-01-01 00:00)
+AV AI/ML Model: 0.00000(2001-01-01 00:00)
+IPS-DB: 6.00741(2015-12-01 02:30)
+IPS-ETDB: 6.00741(2015-12-01 02:30)
+IPS-MLDB: 0.00000(2001-01-01 00:00)
+APP-DB: 6.00741(2015-12-01 02:30)
+AIAP-DB: 0.00000(2001-01-01 00:00)
+Proxy-IPS-DB: 6.00741(2015-12-01 02:30)
+Proxy-IPS-ETDB: 6.00741(2015-12-01 02:30)
+Proxy-APP-DB: 6.00741(2015-12-01 02:30)
+Proxy-AIAP-DB: 0.00000(2001-01-01 00:00)
+FMWP-DB: 0.00000(2001-01-01 00:00)
+IMCL version: 0.00000(2001-01-01 00:00)
+IPS Malicious URL Database: 1.00001(2015-01-01 01:01)
+IoT-Detect: 0.00000(2022-08-17 17:31)
+OT-Detect-DB: 0.00000(2001-01-01 00:00)
+OT-Patch-DB: 0.00000(2001-01-01 00:00)
+OT-Threat-DB: 6.00741(2015-12-01 02:30)
+IPS-Engine: 8.00048(2026-08-18 18:55)
+Timezone DB Version: 1.003
+Timezone DB IANA Version: 2024a
+Serial-Number: <removed>
+License Status: <removed>
+VM Resources: <removed>
+Log hard disk: Available
+Log hard disk encryption: Disable
+Hostname: fw-01
+Private Encryption: Disable
+Operation Mode: NAT
+Current virtual domain: root
+Max number of virtual domains: 2
+Virtual domains status: 1 in NAT mode, 0 in TP mode
+Virtual domain configuration: disable
+FIPS-CC mode: disable
+Current HA mode: standalone
+Branch point: 0245
+Release Version Information: GA
+FortiOS x86-64: Yes
+Last reboot reason: power cycle

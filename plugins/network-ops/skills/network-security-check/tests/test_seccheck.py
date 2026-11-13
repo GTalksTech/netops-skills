@@ -495,3 +495,101 @@ def test_manual_vendors_get_a_note_not_a_guess(report):
 def test_models_from_other_files(report):
     d = {x["name"]: x for x in report["devices"]}
     assert d["exos-sw-01"]["model"] == "X465-48W" and d["dell-sw-01"]["model"] == "S5248F-ON"
+
+
+# ---------- round 4: real lab v2 output (IOL IOS-XE 17.16.1a, FortiGate-VM 8.0.1), sanitized ----------
+LAB = FX / "lab-v2"
+
+
+def _lab_ios(folder=LAB / "hq-edge-rtr-01"):
+    text = (LAB / "hq-edge-rtr-01/show-running-config-view-full.txt").read_text(encoding="utf-8")
+    return vendor_ios.analyze(text, {"_folder": folder})
+
+
+def test_lab_versions_parse():
+    platforms, _ = seccheck.load_settings()
+    import re
+    ios = re.search(platforms["cisco_ios"]["version"]["regex"],
+                    (LAB / "hq-edge-rtr-01/show-version.txt").read_text(encoding="utf-8"), re.M)
+    fgt = re.search(platforms["fortinet"]["version"]["regex"],
+                    (LAB / "fw-01/get-system-status.txt").read_text(encoding="utf-8"), re.M)
+    assert next(g for g in ios.groups() if g) == "17.16.1a"
+    assert next(g for g in fgt.groups() if g) == "8.0.1"
+
+
+def test_lab_ssh_v2_read_from_show_ip_ssh(tmp_path):
+    # 17.x writes no "ip ssh version 2" line; "show ip ssh" says version 2.0
+    _, found = _lab_ios()
+    assert "IOS-SSH-V1" not in ids(found)
+    # without the show output, the missing config line is still reported
+    _, found = _lab_ios(folder=tmp_path)
+    assert "IOS-SSH-V1" in ids(found)
+    (tmp_path / "show-ip-ssh.txt").write_text("SSH Enabled - version 1.99\n")
+    _, found = _lab_ios(folder=tmp_path)
+    assert "IOS-SSH-V1" in ids(found)
+
+
+def test_lab_feature_conditions_off():
+    facts, _ = _lab_ios()
+    for f in ("http_server", "ssl_vpn", "webauth", "nbar_capwap", "beep", "xmcp", "meraki"):
+        assert facts["features"][f]["on"] is False, f
+
+
+def test_feature_conditions_on():
+    text = (LAB / "hq-edge-rtr-01/show-running-config-view-full.txt").read_text(encoding="utf-8")
+    text = text.replace("no ip http server\n", "ip http server\n") + "\n".join([
+        "crypto ssl policy RA", " ip address local 198.51.100.9 port 443", "!",
+        "ip admission name WA proxy http", "ip nbar classification tunneled-traffic capwap",
+        "netconf beep listener 26 acl 101 sasl P1 encrypt 25", "service-routing xmcp listen",
+        "service meraki connect", "!"]) + "\n"
+    facts, _ = vendor_ios.analyze(text, {})
+    for f in ("http_server", "ssl_vpn", "webauth", "nbar_capwap", "beep", "xmcp", "meraki"):
+        assert facts["features"][f]["on"] is True, f
+    # crypto ssl policy with shutdown is off; webauth needs the HTTP server too
+    off = text.replace(" ip address local 198.51.100.9 port 443", " shutdown").replace(
+        "ip http server\n", "no ip http server\n")
+    facts, _ = vendor_ios.analyze(off, {})
+    assert not facts["features"]["ssl_vpn"]["on"] and not facts["features"]["webauth"]["on"]
+
+
+@pytest.mark.parametrize("text,feat", [
+    ("A vulnerability in the web services of Cisco Secure Firewall ASA, Cisco IOS XE Software", "ssl_vpn"),
+    ("A vulnerability in the HTTP API subsystem of Cisco IOS XE Software", "http_server"),
+    ("A vulnerability in the Web Authentication feature of Cisco IOS XE Software", "webauth"),
+    ("A vulnerability in Cisco IOS XE Software for Cisco Meraki could allow", "meraki"),
+    ("the Network-Based Application Recognition (NBAR) feature ... malformed CAPWAP packets", "nbar_capwap"),
+    ("the Blocks Extensible Exchange Protocol (BEEP) feature of Cisco IOS XE", "beep"),
+    ("the Extensible Messaging Client Protocol (XMCP) of Cisco IOS Software", "xmcp")])
+def test_cve_text_names_the_feature(text, feat):
+    import re
+    platforms, _ = seccheck.load_settings()
+    assert re.search(platforms["cisco_ios"]["features"][feat], text, re.I)
+
+
+def _lab_fgt(text=None, user="claude-ro-cli"):
+    text = text or (LAB / "fw-01/show.txt").read_text(encoding="utf-8")
+    return vendor_fortios.analyze(text, {"username": user})
+
+
+def test_lab_inbound_from_named_sources_is_not_internet():
+    facts, found = _lab_fgt()
+    hits = [f for f in found if f["check"] in ("FGT-INBOUND-ANY-SERVICE", "FGT-INBOUND-NO-IPS")]
+    assert len(hits) == 2 and not any(f["exposed"] for f in hits)
+    assert all("WAN side, limited to wan-side-lab-sources" in f["detail"] for f in hits)
+    assert facts["internet_interfaces"] == ["port2"]
+
+
+def test_lab_inbound_from_all_is_internet():
+    text = (LAB / "fw-01/show.txt").read_text(encoding="utf-8").replace(
+        'set srcaddr "wan-side-lab-sources"', 'set srcaddr "all"')
+    _, found = _lab_fgt(text)
+    hit = [f for f in found if f["check"] == "FGT-INBOUND-ANY-SERVICE"]
+    assert hit and hit[0]["exposed"] and "from internet" in hit[0]["detail"]
+
+
+def test_lab_admin_list_partial_gets_a_note():
+    facts, found = _lab_fgt()
+    assert any("trusted hosts of the other admin accounts were not checked" in n for n in facts["notes"])
+    assert "FGT-ADMIN-NO-TRUSTHOST" not in ids(found)
+    facts, _ = _lab_fgt(user="someone-else")
+    assert not any("were not checked" in n for n in facts["notes"])

@@ -86,14 +86,16 @@ The score comes from four inputs. Find the one that is wrong:
 
 | Vendor | CVE matching | Config checks |
 |---|---|---|
-| Cisco IOS / IOS-XE | yes | 9 checks, untested on real devices |
+| Cisco IOS / IOS-XE | yes | 9 checks, tested (IOS-XE 17.16) |
 | Cisco ASA | yes | 6 checks, untested |
-| FortiGate (FortiOS) | yes | 9 checks, untested |
+| FortiGate (FortiOS) | yes | 9 checks, tested (FortiOS 8.0) |
 | Palo Alto PAN-OS | yes | 7 checks, untested |
 | Juniper Junos | yes | 3 management checks, untested (no SRX policy checks yet) |
 | Arista EOS, Cisco NX-OS, HPE Aruba AOS-CX, Dell OS10, Extreme EXOS, HPE ArubaOS-Switch (ProCurve) | yes | none yet |
 | Huawei VRP, Nokia SR OS | version only: their CVE records are free text, so the report says to check by hand and links the PSIRT | none yet |
 
+"Tested" means run against real devices in the G Talks Tech lab and the results checked by hand.
+Checks that found nothing there (segmentation, VIPs, telnet) are covered by sample configs.
 "Untested" means written from vendor docs and tested on sample configs, not yet run on real
 devices. If the output looks wrong for a device, say so and suggest the parser fix. Other
 vendors (Check Point, SonicWall, Sophos, pfSense/OPNsense, Ubiquiti) are not covered yet. Say

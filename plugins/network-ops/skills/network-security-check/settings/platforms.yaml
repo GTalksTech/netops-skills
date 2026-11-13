@@ -30,15 +30,23 @@ cisco_ios:
   nvd_keyword: 'Cisco IOS XE'
   kev: 'Cisco:IOS'
   features:
-    http_server: 'web ui|web user interface|http server|web-based (management|user)|webui'
+    http_server: 'web ui|web user interface|http server|web-based (management|user)|webui|http api'
     smart_install: 'smart install'
     snmp: '\bsnmp\b'
     sdwan: 'sd-wan|sdwan'
     dhcp_snooping: 'dhcp snooping'
     iox: '\biox\b'
     ike: '\bike(v2)?\b|internet key exchange|ipsec vpn'
+    # Cisco names these in the CVE text; the advisory's "vulnerable products" section gives the
+    # config line that turns each on (research/sources.md, cisco-sa-feature-conditions).
+    ssl_vpn: 'web services|remote access ssl vpn|\bssl vpn\b'
+    webauth: 'web authentication|\bwebauth\b'
+    nbar_capwap: '\bnbar\b[\s\S]*\bcapwap\b|network-based application recognition[\s\S]*\bcapwap\b'
+    beep: '\bbeep\b|blocks extensible exchange protocol'
+    xmcp: '\bxmcp\b|extensible messaging client protocol'
+    meraki: '\bfor cisco meraki\b|meraki dashboard'
   psirt: https://sec.cloudapps.cisco.com/security/center/softwarechecker.x
-  checks: untested
+  checks: tested
 
 cisco_asa:
   vendor: Cisco
@@ -76,7 +84,7 @@ fortinet:
     fgfm: 'fgfm'
     admin_web: 'administrative interface|management interface|admin(istrative)? (gui|ui|web)|node\.?js websocket|https? (admin|management)|authentication bypass using an alternate path'
   psirt: https://www.fortiguard.com/psirt
-  checks: untested
+  checks: tested
 
 paloalto_panos:
   vendor: Palo Alto Networks

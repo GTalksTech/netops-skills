@@ -214,7 +214,8 @@ public advisory data, and firewall event exports you give it. It never logs in t
 - **CVEs:** matches each device's software version against the vendor's own CVE records, then
   checks CISA KEV, FIRST EPSS and whether the affected feature faces the internet.
 - **Config:** exposed management, any-any rules, risky port forwards, IoT or guest segments that
-  route into the LAN, weak SNMP and passwords, missing logging. Every check names its source.
+  route into the LAN, weak SNMP and passwords, routing neighbors with no authentication, missing
+  logging. Every check names its source.
 - **Events:** attacks on a CVE you are vulnerable to, critical hits that were not blocked, and
   spikes per signature or per source.
 - **Score:** one 0-100 score and a deadline per finding, from CISA BOD 26-04's four questions

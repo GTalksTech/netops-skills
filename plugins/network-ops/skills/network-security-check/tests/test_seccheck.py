@@ -593,3 +593,69 @@ def test_lab_admin_list_partial_gets_a_note():
     assert "FGT-ADMIN-NO-TRUSTHOST" not in ids(found)
     facts, _ = _lab_fgt(user="someone-else")
     assert not any("were not checked" in n for n in facts["notes"])
+
+
+# ---------- routing protocol authentication (IOS-ROUTING-NO-AUTH) ----------
+def _rt(cfg):
+    _, found = vendor_ios.analyze(cfg, {})
+    hit = [f for f in found if f["check"] == "IOS-ROUTING-NO-AUTH"]
+    return hit[0] if hit else None
+
+
+RT_BASE = """hostname r1
+interface Loopback0
+ ip address 10.255.0.1 255.255.255.255
+interface Ethernet0/0
+ ip address 10.0.0.1 255.255.255.252
+{e0}
+interface Ethernet0/1
+ ip address 10.0.0.5 255.255.255.252
+{e1}
+line vty 0 4
+ transport input ssh
+logging host 10.9.9.9
+"""
+
+
+def test_lab_routing_auth():
+    _, found = _lab_ios()
+    hit = [f for f in found if f["check"] == "IOS-ROUTING-NO-AUTH"][0]
+    assert "OSPF 1 on Tunnel0" in hit["detail"] and "OSPF 1 on Ethernet0/1" in hit["detail"]
+    assert "BGP neighbor 198.51.100.1 (AS 64500)" in hit["detail"] and hit["exposed"]
+    assert "Loopback0" not in hit["detail"] and "Ethernet0/0" not in hit["detail"]   # loopback, mgmt
+
+
+@pytest.mark.parametrize("e0,e1,router,flagged", [
+    # OSPF, no auth anywhere
+    ("", "", "router ospf 1\n network 10.0.0.0 0.0.0.255 area 0", ["Ethernet0/0", "Ethernet0/1"]),
+    # area authentication covers both; null on one interface turns it off there
+    ("", " ip ospf authentication null",
+     "router ospf 1\n area 0 authentication message-digest\n network 10.0.0.0 0.0.0.255 area 0", ["Ethernet0/1"]),
+    # interface key chain; the other interface is passive
+    (" ip ospf authentication key-chain K", "",
+     "router ospf 1\n passive-interface Ethernet0/1\n network 10.0.0.0 0.0.0.255 area 0", []),
+    # ip ospf <pid> area <a> on the interface, passive-interface default + no passive
+    (" ip ospf 1 area 0", "", "router ospf 1\n passive-interface default\n no passive-interface Ethernet0/0",
+     ["Ethernet0/0"]),
+    # EIGRP classic: classful network, auth on one interface
+    (" ip authentication mode eigrp 10 md5\n ip authentication key-chain eigrp 10 K", "",
+     "router eigrp 10\n network 10.0.0.0", ["Ethernet0/1"]),
+    # EIGRP named mode, af-interface default
+    ("", "", "router eigrp LAB\n address-family ipv4 unicast autonomous-system 10\n  af-interface default\n"
+     "   authentication mode hmac-sha-256 K\n  exit-af-interface\n  network 10.0.0.0 0.0.0.255", []),
+])
+def test_igp_auth_forms(e0, e1, router, flagged):
+    hit = _rt(RT_BASE.format(e0=e0, e1=e1) + router + "\n")
+    got = sorted(i for i in ("Ethernet0/0", "Ethernet0/1") if hit and f"on {i}" in hit["detail"])
+    assert got == flagged
+    assert not hit or "Loopback0" not in hit["detail"]
+
+
+def test_bgp_auth_forms():
+    bgp = ("router bgp 65010\n neighbor 198.51.100.1 remote-as 64500\n neighbor 198.51.100.1 password 7 X\n"
+           " neighbor IBGP peer-group\n neighbor IBGP password 7 Y\n neighbor 10.255.0.2 remote-as 65010\n"
+           " neighbor 10.255.0.2 peer-group IBGP\n neighbor 203.0.113.9 remote-as 64501\n"
+           " neighbor 203.0.113.9 ao TCP-KEYS\n neighbor 10.255.0.3 remote-as 65010\n")
+    hit = _rt(RT_BASE.format(e0="", e1="") + bgp)
+    assert hit["detail"] == "No authentication: BGP neighbor 10.255.0.3 (AS 65010)"
+    assert not hit["exposed"]          # private neighbor: not reachable from the internet

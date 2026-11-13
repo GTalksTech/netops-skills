@@ -86,7 +86,7 @@ The score comes from four inputs. Find the one that is wrong:
 
 | Vendor | CVE matching | Config checks |
 |---|---|---|
-| Cisco IOS / IOS-XE | yes | 9 checks, tested (IOS-XE 17.16) |
+| Cisco IOS / IOS-XE | yes | 10 checks, tested (IOS-XE 17.16) |
 | Cisco ASA | yes | 6 checks, untested |
 | FortiGate (FortiOS) | yes | 9 checks, tested (FortiOS 8.0) |
 | Palo Alto PAN-OS | yes | 7 checks, untested |

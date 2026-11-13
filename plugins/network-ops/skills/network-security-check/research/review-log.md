@@ -131,10 +131,31 @@ After the fixes: 43 findings (2 at 3 days, 9 at 14 days). IOS-XE and FortiOS mar
 
 Not changed, for the next round:
 - The handoff expected SNMP v2c, no routing auth and public lab passwords to show up. SNMP has
-  an ACL and passwords are type 9 hashes, so nothing to flag; there is no routing-protocol
-  authentication check in the catalog yet (a gap, needs a source).
+  an ACL and passwords are type 9 hashes, so nothing to flag. Routing auth had no check; added
+  below as round 4b.
 - The seven "Security Hardening Release" CVEs (CVE-2026-20267 to 20273) name no feature, so
   they stay version-matched. Check Cisco's advisory for conditions before changing that.
 - A BEEP listener made with the exec command `bingd device` isn't in the config.
 - isp-rtr-01 could carry `exposure: internal` in the lab inventory so the ISP stand-in doesn't
   add to the counts. Left for Garrett.
+
+## Round 4b: routing protocol authentication (2026-11-13)
+
+New check IOS-ROUTING-NO-AUTH, sourced to DISA CISC-RT-000050 (V-216645) and Cisco's "Harden
+IOS Devices" guide. Finds OSPF and EIGRP interfaces that form adjacencies without
+authentication (interface or area auth for OSPF, classic or named mode for EIGRP; loopbacks
+and passive interfaces skipped) and BGP neighbors with no `password` or `ao`, on the neighbor or
+its peer-group.
+
+Exposure: OSPF and EIGRP use link-local packets, so only a device on the link can inject routes:
+never internet-exposed. BGP to a public neighbor address is. Not known exploited, not
+automatable, partial impact, so it scores low: 60 days for the eBGP routers, next upgrade for
+internal OSPF.
+
+Lab v2 result, checked by hand against every router config: hq-edge-rtr-01 (OSPF on Tunnel0
+and the fw-01 transit, eBGP to isp-rtr-01), isp-rtr-01 (eBGP), hq-core-sw-01 (three p2p
+links), both distribution switches and branch1-rtr-01 (the one non-passive interface each).
+Access switches run no routing and are clean. 49 findings in total after this check.
+
+Not graded yet: MD5 vs HMAC-SHA (the STIG treats MD5-only as a permanent finding) and key
+lifetimes. OSPFv3, IS-IS and RIP are not read.

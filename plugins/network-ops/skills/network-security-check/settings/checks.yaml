@@ -84,6 +84,15 @@ IOS-NO-REMOTE-LOG:
   total_control: false
   weight: 0.1
   sources: [stig-ios-logging, nist-800-92]
+IOS-ROUTING-NO-AUTH:
+  title: Routing protocol neighbors without authentication
+  why: Without neighbor authentication, a device that can reach the routing protocol can form an adjacency and advertise false routes to pull traffic its way. For BGP, that is anyone who can reach TCP 179 on the neighbor address.
+  fix: "Authenticate every OSPF, EIGRP and BGP neighbor with a key chain, HMAC-SHA-256 where the release supports it: ip ospf authentication key-chain, authentication mode hmac-sha-256 (EIGRP named mode), and neighbor <ip> ao <key-chain> or neighbor <ip> password for BGP."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.4
+  sources: [stig-ios-rtr-auth, cisco-harden-ios]
 IOS-SEGMENT-ROUTED:
   title: Segmented VLAN routes freely on this switch (no ACL on its SVI)
   why: The VLAN's name says it is meant to be kept apart (IoT, cameras, guest, OT). It has a routed SVI with no inbound ACL, in the same VRF as user or server VLANs, so the switch routes between them and the firewall never sees that traffic.

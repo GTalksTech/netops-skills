@@ -5,6 +5,7 @@
 # Author:       G Talks Tech
 # Notes:        Read-only. Check IDs and sources live in settings/checks.yaml.
 # ============================================================
+import ipaddress
 import re
 from pathlib import Path
 
@@ -34,6 +35,88 @@ def _acl_is_open(blocks, name):
         if re.match(r"permit\s+ip\s+any\s+any\b", l) or l == "permit any":
             return True
     return not lines  # ACL referenced but not defined: IOS permits all
+
+
+def _in_network(ip, net, wild):
+    """IOS 'network <net> <wildcard>' match for one interface address."""
+    try:
+        a, n, w = (int(ipaddress.IPv4Address(x)) for x in (ip, net, wild))
+    except ValueError:
+        return False
+    return (a & ~w) == (n & ~w)
+
+
+def _classful_wild(net):
+    first = int(net.split(".")[0])
+    return "0.255.255.255" if first < 128 else "0.0.255.255" if first < 192 else "0.0.0.255"
+
+
+def _routing_auth(blocks, interfaces):
+    """Routing protocol neighbors with no authentication: (OSPF/EIGRP interfaces, BGP neighbors).
+    OSPF: 'ip ospf authentication ...' on the interface, else 'area X authentication' (null = none).
+    EIGRP: 'ip authentication mode eigrp N', or 'authentication mode' under a named-mode
+    af-interface (or af-interface default). BGP: 'neighbor X password' or 'neighbor X ao', on the
+    neighbor or its peer-group. Loopbacks and passive interfaces form no adjacency: skipped."""
+    itf_cfg = {h.split()[1]: ch for h, ch in blocks if h.startswith("interface ")}
+    addrs = {i["name"]: [ip.split("/")[0] for ip in i["ips"] if ip != "dhcp"]
+             for i in interfaces if not i["shutdown"] and not i["name"].lower().startswith("loopback")}
+    igp_open, bgp_open = [], []
+    for h, ch in blocks:
+        m = re.match(r"router (ospf|eigrp) (\S+)", h)
+        if m:
+            proto, pid = m.groups()
+            passive_default = "passive-interface default" in ch
+            passive = {c.split()[1] for c in ch if c.startswith("passive-interface ") and c != "passive-interface default"}
+            active = {c.split()[2] for c in ch if c.startswith("no passive-interface ")}
+            nets = []
+            for c in ch:
+                mn = re.match(r"network (\S+)(?: (\d+\.\d+\.\d+\.\d+))?(?: area (\S+))?", c)
+                if mn:
+                    nets.append((mn.group(1), mn.group(2) or _classful_wild(mn.group(1)), mn.group(3)))
+            area_auth = {c.split()[1] for c in ch if re.match(r"area \S+ authentication", c)}
+            asn, named_auth, af_itf = pid, set(), None
+            for c in ch:   # named EIGRP: address-family ... autonomous-system N / af-interface X
+                ma = re.search(r"autonomous-system (\d+)", c)
+                if ma:
+                    asn = ma.group(1)
+                if c.startswith("af-interface "):
+                    af_itf = c.split()[1]
+                elif c == "exit-af-interface":
+                    af_itf = None
+                elif af_itf and c.startswith("authentication mode "):
+                    named_auth.add(af_itf)
+            for name, ips in addrs.items():
+                icfg = itf_cfg.get(name, [])
+                area = None
+                if proto == "ospf":
+                    ia = [c for c in icfg if re.match(rf"ip ospf {re.escape(pid)} area (\S+)", c)]
+                    if ia:
+                        area = ia[0].split()[-1]
+                runs = bool(area) or any(_in_network(ip, n, w) for ip in ips for n, w, _ in nets)
+                if not runs:
+                    continue
+                if (passive_default and name not in active) or name in passive:
+                    continue
+                if proto == "ospf":
+                    area = area or next((a for ip in ips for n, w, a in nets if _in_network(ip, n, w)), None)
+                    iauth = [c for c in icfg if c.startswith("ip ospf authentication")
+                             and not c.startswith("ip ospf authentication-key")]
+                    ok = (iauth[0] != "ip ospf authentication null") if iauth else area in area_auth
+                else:
+                    ok = any(c.startswith(f"ip authentication mode eigrp {asn} ") for c in icfg) or \
+                        name in named_auth or "default" in named_auth
+                if not ok:
+                    igp_open.append(f"{proto.upper()} {pid} on {name}")
+        mb = re.match(r"router bgp (\S+)", h)
+        if mb:
+            peers = {c.split()[1]: c.split()[3] for c in ch if re.match(r"neighbor \S+ remote-as \S+", c)}
+            group = {c.split()[1]: c.split()[3] for c in ch if re.match(r"neighbor \S+ peer-group \S+$", c)}
+            authed = {c.split()[1] for c in ch if re.match(r"neighbor \S+ (password|ao) ", c)}
+            for n, ras in peers.items():
+                if n in authed or group.get(n) in authed or not re.match(r"[\d.:a-fA-F]+$", n):
+                    continue
+                bgp_open.append((n, ras))
+    return igp_open, bgp_open
 
 
 def _ssh_version(dev):
@@ -204,6 +287,17 @@ def analyze(text, dev):
     elif "no vstack" not in top and dev.get("_is_switch"):
         facts["notes"].append("Smart Install state is not in the config. Run 'show vstack config' "
                               "on switches to confirm it is disabled.")
+
+    # --- routing protocol authentication ---
+    # OSPF and EIGRP use link-local packets (TTL 1): only a device on the link can inject
+    # routes, so they are never internet-exposed. BGP is TCP to the neighbor's address, so an
+    # unauthenticated session to a public address is.
+    igp_open, bgp_open = _routing_auth(blocks, facts["interfaces"])
+    if igp_open or bgp_open:
+        parts = igp_open + [f"BGP neighbor {n} (AS {a})" for n, a in bgp_open]
+        found.append(finding("IOS-ROUTING-NO-AUTH", "No authentication: " + "; ".join(parts[:8])
+                             + (f"; and {len(parts) - 8} more" if len(parts) > 8 else ""), [],
+                             exposed=any(is_public(n) for n, _ in bgp_open)))
 
     if not any(re.match(r"logging (host \S|\d)", h) for h in top):
         found.append(finding("IOS-NO-REMOTE-LOG", "No 'logging host' line", [], exposed=False))

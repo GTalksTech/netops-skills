@@ -10,7 +10,7 @@
 #   weight: 0..1, position inside the score band, ordering findings that share a deadline.
 #   plane: management | control | data | l2 | visibility | lifecycle. The part of the device
 #                    the check looks at, used to group results in the report.
-#   validated: lab-v2 = run on the real G Talks Tech lab (round 4/4b) and the result checked by
+#   validated: lab-v2 = run on the real G Talks Tech lab (round 4 onward) and the result checked by
 #                    hand; fixture = tested only on sample configs in tests/fixtures.
 #   controls: NIST SP 800-53 Rev 5 control IDs the check gives evidence for (nist-800-53r5).
 #                    Kept to the 1-3 closest controls. A mapping, not a compliance claim.
@@ -163,6 +163,137 @@ IOS-SEGMENT-ROUTED:
   validated: fixture
   controls: [SC-7, AC-4]
   zt_pillar: networks
+
+IOS-EXEC-TIMEOUT:
+  title: Console or vty sessions stay open longer than 5 minutes idle (or never time out)
+  why: An idle session left logged in can be used by whoever reaches the terminal or the session next. DISA's STIG ends every management session after 5 minutes idle. A line with no exec-timeout line uses the IOS default of 10 minutes (Cisco Doc 13608), which is over that value; exec-timeout 0 0 never ends the session.
+  fix: exec-timeout 5 0 on line con 0 and every line vty.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.15
+  sources: [stig-ios-exec-timeout, cisco-harden-ios]
+  plane: management
+  validated: lab-v2
+  controls: [AC-12, SC-10]
+  zt_pillar: identity
+IOS-LOGIN-BLOCK:
+  title: No login lockout (login block-for) for failed logins
+  why: Without a limit, password guessing against SSH runs as fast as the attacker likes. DISA's STIG asks for a lockout after three failed attempts. IOS has no lockout unless login block-for is configured.
+  fix: login block-for 900 attempts 3 within 120 (and login quiet-mode access-class <mgmt-acl> so the management subnet is not locked out).
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.25
+  sources: [stig-ios-login-block]
+  plane: management
+  validated: lab-v2
+  controls: [AC-7]
+  zt_pillar: identity
+IOS-AAA-CENTRAL:
+  title: Remote logins use local accounts only (no TACACS+ or RADIUS), or fewer than two AAA servers
+  why: Local accounts live on every device, so they are rarely rotated or removed when someone leaves, and logins are not logged centrally. DISA's STIG asks for at least two authentication servers with the local account as the last resort. IOS has no AAA server by default; with aaa new-model and no default login list, IOS checks local users only.
+  fix: "Define two TACACS+ or RADIUS servers in a server group, then aaa authentication login default group <group> local, and keep one local emergency account."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-ios-aaa-servers, cisa-comms-hardening]
+  plane: management
+  validated: lab-v2
+  controls: [IA-2, AC-2]
+  zt_pillar: identity
+IOS-LOGIN-NONE:
+  title: A console or vty line lets users in without authentication
+  why: The line's login method list is or ends in "none", or it has "no login". Anyone at the console (or, for a vty, anyone who reaches the device) gets a session without a password, at the line's privilege level. Without aaa new-model, the IOS console default is no login at all. The STIG example applies an authenticating list to line con 0 as well as the vty lines.
+  fix: "Apply a login list that authenticates (group <servers> local, or local) to line con 0 and every line vty. Remove 'none' from the method list and 'no login' from the lines."
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.5
+  sources: [stig-ios-aaa-servers, cisa-comms-hardening]
+  plane: management
+  validated: lab-v2
+  controls: [IA-2, AC-14]
+  zt_pillar: identity
+IOS-AAA-ACCOUNTING:
+  title: Admin commands are not recorded (no AAA command accounting, no archive log config)
+  why: Without a record of who changed what, an unauthorised or mistaken change can't be traced. DISA's STIG checks archive log config with logging enable; Cisco's hardening guide uses AAA command accounting to TACACS+. Neither is on by default.
+  fix: "archive / log config / logging enable / notify syslog contenttype plaintext / hidekeys, or aaa accounting commands 15 default start-stop group <tacacs-group> (plus exec accounting)."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-ios-audit-admin, cisco-harden-aaa-acct]
+  plane: visibility
+  validated: lab-v2
+  controls: [AU-2, AU-12]
+  zt_pillar: visibility
+IOS-BANNER:
+  title: No login banner
+  why: A banner shown before login states that access is restricted and monitored, which supports legal action against misuse. DISA's STIG and Cisco's hardening guide both ask for one. IOS shows no banner by default.
+  fix: "banner login with a short notice (no device name, model or other detail)."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.05
+  sources: [stig-ios-banner, cisco-harden-banner]
+  plane: management
+  validated: lab-v2
+  controls: [AC-8]
+  zt_pillar: identity
+IOS-NTP-AUTH:
+  title: NTP is not authenticated
+  why: An unauthenticated NTP source can be spoofed to shift the device clock, which breaks log correlation and certificate checks. DISA's STIG asks for ntp authenticate, a trusted key and a key on every server. IOS has no NTP authentication by default.
+  fix: "ntp authentication-key 1 hmac-sha2-256 <key> (md5 where the server supports nothing else), ntp authenticate, ntp trusted-key 1, and key 1 on every ntp server line."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-ios-ntp-auth, rfc8633-ntp-bcp]
+  plane: management
+  validated: lab-v2
+  controls: [SC-45, AU-8]
+  zt_pillar: devices
+IOS-NTP-REDUNDANT:
+  title: Fewer than two NTP servers
+  why: With one source (or none) the clock drifts or follows a single bad server with nothing to compare against, and log timestamps stop lining up across devices. DISA's STIG asks for two; RFC 8633 recommends four. IOS has no NTP server by default.
+  fix: Add a second ntp server (ideally from a different source).
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-ios-ntp-two, rfc8633-ntp-bcp]
+  plane: visibility
+  validated: lab-v2
+  controls: [SC-45(1), AU-8]
+  zt_pillar: visibility
+IOS-LOG-DEPTH:
+  title: Remote syslog has one server only, or the trap level sends almost nothing
+  why: One syslog server is a single point of loss for the device's logs. DISA's STIG asks for at least two, and for logging trap at critical or a lower severity (informational, the IOS default when no logging trap line is shown, passes). 'no logging trap' or a trap level of emergencies or alerts sends almost nothing to the servers.
+  fix: Add a second logging host and remove any 'logging trap' line set to emergencies or alerts (logging trap informational).
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-ios-logging, stig-ios-logging-level, cisco-harden-logging]
+  plane: visibility
+  validated: lab-v2
+  controls: [AU-9(2), AU-4]
+  zt_pillar: visibility
+IOS-SNMP-V2C:
+  title: SNMP v1/v2c in use (community strings in clear text)
+  why: SNMP v1 and v2c send the community string, and every value read, in clear text, so anyone on the path can capture it; an ACL limits who can use the string, not who can read it. DISA's STIG and CISA's communications hardening guidance ask for SNMPv3 with authentication and privacy. IOS has no SNMP by default. Weak or read-write communities are scored separately (IOS-SNMP-COMMUNITY).
+  fix: Move pollers and trap hosts to SNMPv3 (snmp-server group <g> v3 priv, users with auth sha and priv aes), then remove the snmp-server community lines.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-ios-snmp, cisa-comms-hardening, cisa-ta18-106a]
+  plane: management
+  validated: lab-v2
+  controls: [SC-8, SC-13]
+  zt_pillar: devices
 
 # ---------- FortiGate (FortiOS) ----------
 FGT-ANY-ANY:

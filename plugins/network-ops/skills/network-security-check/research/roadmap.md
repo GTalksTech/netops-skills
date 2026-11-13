@@ -47,3 +47,4 @@ before a check that uses it ships.
 (updated as items land)
 
 - R1 done 2026-11-13: result model (pass/fail/n-a/not-visible, masked evidence), checks.yaml plane/validated/controls/zt_pillar, exceptions.yaml waivers, ios_routing.py split, maintenance-window label. See review-log Round 5.
+- R2 and R3 done 2026-11-13: ten IOS checks in ios_mgmt.py (timeouts, lockout, central AAA, lines with no authentication, accounting, banner, NTP auth and redundancy, syslog depth, SNMP v1/v2c). IOS-VTY-RANGES dropped (covered per range by existing checks). See review-log Round 6.

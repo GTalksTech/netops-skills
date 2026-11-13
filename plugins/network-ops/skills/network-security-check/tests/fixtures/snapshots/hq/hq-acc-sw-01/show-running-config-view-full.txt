@@ -3,6 +3,20 @@ hostname hq-acc-sw-01
 enable algorithm-type scrypt secret 9 $9$abc$def
 username admin privilege 15 algorithm-type scrypt secret 9 $9$abc$def
 !
+aaa new-model
+aaa group server tacacs+ ISE
+ server name ISE-1
+ server name ISE-2
+aaa authentication login default group ISE local
+aaa accounting exec default start-stop group ISE
+aaa accounting commands 15 default start-stop group ISE
+login block-for 900 attempts 3 within 120
+!
+tacacs server ISE-1
+ address ipv4 10.10.20.61
+tacacs server ISE-2
+ address ipv4 10.10.20.62
+!
 vlan 10
  name USERS
 vlan 30
@@ -19,11 +33,23 @@ no ip http server
 no ip http secure-server
 ip ssh version 2
 logging host 10.10.20.50
+logging host 10.10.20.51
 no vstack
-snmp-server community Xk29!mon RO MGMT-ONLY
+snmp-server group NMS v3 priv access MGMT-ONLY
+ntp authentication-key 1 hmac-sha2-256 7 0822455D0A16
+ntp authenticate
+ntp trusted-key 1
+ntp server 10.10.20.40 key 1
+ntp server 10.10.20.41 key 1
+banner login ^C
+Authorized access only. Activity is logged.
+^C
 !
+line con 0
+ exec-timeout 5 0
 line vty 0 15
  access-class MGMT-ONLY in
+ exec-timeout 5 0
  transport input ssh
 !
 end

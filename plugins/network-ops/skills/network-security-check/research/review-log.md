@@ -210,3 +210,49 @@ taken"). Results: 79 pass, 10 fail, 40 n/a, 1 not-visible (fw-01 FGT-ADMIN-NO-TR
 read-only profile sees only its own admin entry). Smart Install is n/a on the lab switches
 because IOL L2 models don't match the Catalyst model pattern; on a real Catalyst with no
 `no vstack` line it is not-visible. 120 tests.
+
+## Round 6 (R2+R3): IOS-XE management plane, NTP, syslog depth, SNMP version (2026-11-13)
+
+Ten new IOS checks in `scripts/ios_mgmt.py`, called from `vendor_ios.analyze`. Each reports
+pass, fail or n/a with masked evidence. Sources are DISA IOS XE Router NDM STIG V3R7 rules,
+Cisco Doc 13608, RFC 8633 and CISA's communications hardening guidance (rows in sources.md).
+
+| Check | Fails when | Absent line |
+|---|---|---|
+| IOS-EXEC-TIMEOUT | con or vty idle timeout over 5 min, or 0 0 / no exec-timeout | default 10 min (Cisco 13608), over the STIG value: fails |
+| IOS-LOGIN-BLOCK | no `login block-for`, or more than 3 attempts | no lockout by default |
+| IOS-AAA-CENTRAL | vty login list has no server group first, no aaa new-model, or fewer than two TACACS+/RADIUS servers | aaa new-model with no default list = local users only |
+| IOS-LOGIN-NONE | a con or vty list is or falls back to `none`, or `no login` | without aaa new-model the console has no login |
+| IOS-AAA-ACCOUNTING | no `aaa accounting commands` to a group and no `archive / log config / logging enable` | nothing recorded by default |
+| IOS-BANNER | no `banner login` or `banner motd` | no banner |
+| IOS-NTP-AUTH | no `ntp authenticate`, no trusted key, or a server without a trusted, defined key | n/a with no NTP server |
+| IOS-NTP-REDUNDANT | fewer than two `ntp server`/`peer` lines (zero included) | no NTP by default |
+| IOS-LOG-DEPTH | one syslog host, `no logging trap`, or trap emergencies/alerts | trap default informational passes; n/a with no host (IOS-NO-REMOTE-LOG) |
+| IOS-SNMP-V2C | any v1/v2c community (ACL or not), v1/v2c trap host, or v3 group without priv | n/a with no SNMP |
+
+All are known_exploited false, automatable false. Only IOS-LOGIN-NONE is total control
+(weight 0.5); it becomes exposed (14 days) when a vty without an access-class has no
+authentication on an internet-facing device. The rest sit in the maintenance-window band,
+weights 0.05 (banner) to 0.25 (lockout).
+
+Dropped: IOS-VTY-RANGES. IOS-VTY-ACL and IOS-TELNET already judge every vty range on its own,
+and the new timeout and login checks do too, so a `line vty 5 15` missing what `0 4` has is
+already a finding under the right check. Not checked: `logging source-interface` (no STIG
+rule found), `ip http timeout-policy` (the web UI has its own check), aux lines (not in the
+STIG check text; most platforms have no aux modem), local-account count and method order
+(CISC-ND-000490).
+
+Lab v2 run, read by hand against every running config: all 11 IOS devices (hq-edge-rtr-01,
+hq-core-sw-01, hq-dist-sw-01/02, hq-acc-sw-01..04, branch1-rtr-01, branch1-sw-01, isp-rtr-01)
+fail all ten, except isp-rtr-01 where IOS-LOG-DEPTH is n/a (no syslog host; IOS-NO-REMOTE-LOG
+already fails). Configs confirm: `line con 0` has `exec-timeout 0 0`, `privilege level 15` and
+`login authentication CONSOLE` with `aaa authentication login CONSOLE none`; vty 0 4 has
+`exec-timeout 30 0` and the default list `local`; no login block-for, archive, accounting,
+banner, TACACS/RADIUS, NTP auth or SNMPv3; one `ntp server` and one `logging host`; one v2c
+community with an ACL (known lab exception, correctly reported). 109 new findings, all in the
+maintenance-window band; the 49 earlier findings keep their IDs, devices and scores. Results:
+79 pass, 119 fail, 41 n/a, 1 not-visible.
+
+The clean-switch fixture (snapshots/hq/hq-acc-sw-01) gained AAA, accounting, lockout, NTP auth,
+a second syslog host, SNMPv3 and a banner so it stays clean. New tests in
+tests/test_ios_mgmt.py; 152 tests in the suite.

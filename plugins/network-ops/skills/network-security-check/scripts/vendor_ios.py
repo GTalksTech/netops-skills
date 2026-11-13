@@ -2,13 +2,15 @@
 # Script:       vendor_ios.py
 # Purpose:      Cisco IOS / IOS-XE: facts (interfaces, internet exposure, features) and
 #               config checks from a saved running config. Every check returns a result
-#               (pass, fail, n/a, not-visible); routing authentication is in ios_routing.py.
+#               (pass, fail, n/a, not-visible); routing authentication is in ios_routing.py,
+#               AAA, timeouts, banner, NTP, syslog depth and SNMP version in ios_mgmt.py.
 # Author:       G Talks Tech
 # Notes:        Read-only. Check IDs and sources live in settings/checks.yaml.
 # ============================================================
 import re
 from pathlib import Path
 
+import ios_mgmt
 import ios_routing
 from common import feature, fails, is_public, is_segmented, mask_to_prefix, new_facts, result
 from ios_routing import _routing_auth  # noqa: F401  (kept importable here for the tests)
@@ -16,7 +18,7 @@ from parsers import ios_blocks
 
 CHECKS = ("IOS-HTTP-SERVER", "IOS-TELNET", "IOS-SSH-V1", "IOS-VTY-ACL", "IOS-SNMP-COMMUNITY",
           "IOS-PASSWORD-STORAGE", "IOS-SMART-INSTALL", "IOS-NO-REMOTE-LOG", "IOS-ROUTING-NO-AUTH",
-          "IOS-ROUTING-WEAK-AUTH", "IOS-SEGMENT-ROUTED")
+          "IOS-ROUTING-WEAK-AUTH", "IOS-SEGMENT-ROUTED") + ios_mgmt.CHECKS
 WEAK_COMMUNITIES = {"public", "private", "cisco", "community", "snmp", "admin", "secret"}
 
 
@@ -260,6 +262,9 @@ def analyze(text, dev):
         res.append(result("IOS-NO-REMOTE-LOG", "pass", "remote syslog configured", log_hosts))
     else:
         res.append(result("IOS-NO-REMOTE-LOG", "fail", "No 'logging host' line", [], exposed=False))
+
+    # --- AAA, timeouts, banner, NTP, syslog depth, SNMP version (ios_mgmt.py) ---
+    res += ios_mgmt.check(blocks, top, internet)
 
     # --- segmentation: a segmented SVI routing to other SVIs in the same VRF with no ACL ---
     svis = [i for i in facts["interfaces"] if re.match(r"[Vv]lan\d+$", i["name"]) and i["ips"]

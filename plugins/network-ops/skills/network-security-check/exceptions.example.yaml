@@ -1,0 +1,27 @@
+# Accepted risk for network-security-check. Copy to exceptions.yaml in the snapshot repo
+# (next to inventory.yaml) and edit. Optional: without the file nothing is waived.
+#
+# A waiver moves a matching config finding to the "Accepted risk" section of the report. It is
+# still listed there with its reason and expiry, but it is not counted against a deadline.
+# NIST SP 800-53 Rev. 5 CA-5 (plan of action and milestones) and RA-7 (risk response): an
+# accepted risk is written down, has an owner and gets looked at again.
+#
+# Rules:
+#   - check: a check ID from settings/checks.yaml (config checks only; CVEs and firewall
+#     events are not waived, they are cleared by patching or blocking).
+#   - device: a device name from inventory.yaml, or "*" for every device.
+#   - reason, expires (YYYY-MM-DD): required. An expired waiver stops applying and the report
+#     says so. Keep expiry dates close: 90 days or less is a good default.
+#   - owner: optional, who accepted the risk.
+#   - An entry with a missing field or a bad date is ignored, with a note in the report.
+
+- check: IOS-ROUTING-NO-AUTH
+  device: isp-rtr-01
+  reason: Lab router that stands in for the ISP. Its BGP session is not a real peering.
+  expires: 2027-02-01
+  owner: network team
+
+- check: IOS-NO-REMOTE-LOG
+  device: isp-rtr-01
+  reason: ISP stand-in, not managed by us. No syslog server on its side of the lab.
+  expires: 2027-02-01

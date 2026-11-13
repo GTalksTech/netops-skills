@@ -69,6 +69,10 @@ Interfaces in a management VRF or a management-only interface never count as int
 Source: CISA BOD 26-04 Appendix A, Table 1, transcribed 2026-11-07. The bands never overlap,
 so a higher score always means a shorter deadline.
 
+The lowest band is worded by finding type. A CVE says "Fix at the next planned upgrade", as in
+the table. A config or event finding has no upgrade to wait for, so it says "Fix in the next
+maintenance window". Same band, same score.
+
 ## Position inside the band
 
 - **CVEs:** the EPSS percentile (FIRST's estimate of how likely exploitation is in the next 30
@@ -106,6 +110,23 @@ disagree with it. They are in the code as named constants or caps.
    days means updates have stopped, not that they are slow.
 9. **No CISA answer and no CVSS vector: assume the worst** (automatable, total control), and say
    so in the finding.
+
+## Passes, not applicable, not visible
+
+Every config check reports a result per device: pass, fail, n/a (it doesn't apply: no routing,
+no vty lines, no VIPs) or not-visible (the config section it needs is missing, for example the
+admin list under a FortiOS read-only profile). Only fails are scored. The others are listed per
+device in the JSON report so a quiet check can be told apart from one that never ran. For
+PAN-OS, ASA and Junos a pass only means the search found nothing.
+
+## Accepted risk
+
+A finding the owner decides to accept goes in `exceptions.yaml` in the snapshot repo (check,
+device or "*", reason, expiry date, owner). It moves to the report's "Accepted risk" section
+with its reason and expiry and leaves the deadline counts. Its score is unchanged. An expired
+waiver stops applying and the report says so. Only config findings can be waived: a CVE is
+cleared by patching, an event by blocking. Basis: NIST SP 800-53 Rev. 5 CA-5 (plan of action
+and milestones) and RA-7 (risk response).
 
 ## Reading a finding
 

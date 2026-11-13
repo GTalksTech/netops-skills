@@ -35,9 +35,13 @@ import vendor_fortios  # noqa: E402
 import vendor_ios  # noqa: E402
 import vendor_junos  # noqa: E402
 import vendor_panos  # noqa: E402
+from common import STATUSES, result  # noqa: E402
 
 SETTINGS = HERE.parent / "settings"
 SWITCH_MODELS = r"(?i)^(C9[2-6]\d\d|WS-C|C[1-3]\d{3}|IE-|C1000|CBS)"
+PLANES = ("management", "control", "data", "l2", "visibility", "lifecycle")
+VALIDATED = ("lab-v2", "fixture")
+ZT_PILLARS = ("identity", "devices", "networks", "applications", "data", "visibility")
 STALE_SIGNATURE_DAYS = 30   # house rule, SCORING.md: FortiGuard pushes IPS updates daily
 FEATURE_LABELS = {"http_server": "the web UI (ip http server)", "smart_install": "Smart Install",
                   "snmp": "SNMP", "webvpn": "AnyConnect / WebVPN", "mgmt_http": "ASDM (http server)",
@@ -72,7 +76,7 @@ def device_facts(dev, repo, platforms):
     """Version, model, kind, exposure and config findings for one device, from its snapshot."""
     p = dev.get("device_type", "")
     out = {"name": dev["name"], "site": dev.get("site", "unassigned"), "platform": p,
-           "version": None, "model": None, "findings": [], "features": {}, "notes": [],
+           "version": None, "model": None, "findings": [], "results": [], "features": {}, "notes": [],
            "interface_ips": []}
     pcfg = platforms.get(p)
     folder = repo / out["site"] / dev["name"]
@@ -111,10 +115,15 @@ def device_facts(dev, repo, platforms):
                                 "skipped. Please report this with a sanitized copy of the config.")
     if facts is not None:
         out["findings"] = found
+        out["results"] = facts.get("results") or found
         out["features"] = facts["features"] if facts["interfaces"] else {}
         out["notes"] += facts["notes"]
         out["interface_ips"] = [ip.split("/")[0] for i in facts["interfaces"] for ip in i.get("ips", [])]
         if not facts["interfaces"]:
+            # Nothing the parser read can be trusted as a pass when it found no interfaces.
+            out["results"] = [r if r["status"] == "fail" else
+                              {**r, "status": "not-visible", "detail": "config parsed to no interfaces"}
+                              for r in out["results"]]
             out["notes"].append(f"config in {cfg.name} parsed to no interfaces: the format may be one this "
                                 "parser doesn't read (for PAN-OS, the default brace format is needed, not "
                                 "'set cli config-output-format set/json/xml'). Config checks are unreliable "
@@ -148,9 +157,15 @@ def device_facts(dev, repo, platforms):
         if when:
             taken = dt.date.fromtimestamp(vf.stat().st_mtime)   # the snapshot run, not today
             age = (taken - when).days
-            if age > STALE_SIGNATURE_DAYS:
-                out["findings"].append({"check": "FGT-IPS-STALE", "detail": f"IPS-DB dated {m.group(1)}, "
-                                        f"{age} days old", "evidence": [m.group(0)], "exposed": out["internet_facing"], "where": None})
+            stale = age > STALE_SIGNATURE_DAYS
+            r = result("FGT-IPS-STALE", "fail" if stale else "pass", f"IPS-DB dated {m.group(1)}, {age} days old "
+                       "when the snapshot was taken", [m.group(0)], exposed=out["internet_facing"])
+            if stale:
+                out["findings"].append(r)
+        else:
+            r = result("FGT-IPS-STALE", "not-visible", f"no IPS-DB date in {vf.name}")
+        out["results"].append(r)
+    out["result_counts"] = {st: sum(1 for r in out["results"] if r["status"] == st) for st in STATUSES}
 
     return out
 
@@ -307,10 +322,12 @@ def build(args):
             # internet-reachable devices, so it only counts when this one is reachable too; and a
             # misconfiguration alone is not evidence of compromise, so never "+ forensic triage".
             s = scoring.score(f["exposed"], c["known_exploited"] and f["exposed"], c["automatable"],
-                              c["total_control"], c["weight"], cap="3d")
+                              c["total_control"], c["weight"], cap="3d", cve=False)
             findings.append({"type": "config", "id": f["check"], "title": c["title"], "device": d["name"],
-                             "detail": f["detail"], "evidence": f["evidence"], "why_it_matters": c["why"],
-                             "fix": c["fix"], "sources": c["sources"],
+                             "detail": f["detail"], "evidence": f["evidence"], "where": f.get("where"),
+                             "why_it_matters": c["why"], "fix": c["fix"], "sources": c["sources"],
+                             "plane": c.get("plane"), "controls": c.get("controls", []),
+                             "validated": c.get("validated"),
                              "why": {"publicly_exposed": d.get("exposure_reason") if f["exposed"] else
                                      "not reachable from a public network per this config"}, **s})
 
@@ -319,6 +336,7 @@ def build(args):
         findings += event_findings(ev_summary, checks, cve_groups, by_name, cache)
 
     findings.sort(key=lambda f: (-f["score"], f["id"]))
+    findings, accepted = apply_waivers(findings, load_waivers(repo, notes), notes)
     rollup = []
     for d in facts:
         mine = [(f, x) for f in findings if f["type"] == "cve" for x in f["devices"] if x["device"] == d["name"]]
@@ -335,8 +353,66 @@ def build(args):
             "advisory_cache": {"fetched": cache["fetched"], "kev_version": cache["kev_version"]} if cache else None,
             "devices": [{k: v for k, v in d.items() if k != "findings"} for d in facts],
             "counts": {b: sum(1 for f in findings if f["deadline"] == b) for b in scoring.ORDER},
+            "result_counts": {st: sum(d.get("result_counts", {}).get(st, 0) for d in facts) for st in STATUSES},
             "upgrade_plan": rollup,
-            "findings": findings, "events": _ev_light(ev_summary), "notes": notes}
+            "findings": findings, "accepted_risk": accepted, "events": _ev_light(ev_summary), "notes": notes}
+
+
+# ---------- accepted risk (exceptions.yaml) ----------
+# NIST SP 800-53r5 CA-5 (plan of action and milestones) and RA-7 (risk response): a finding the
+# owner decides to accept is recorded with a reason and a date to look at it again. It is never
+# dropped: the report lists it under "Accepted risk", outside the deadline counts.
+def load_waivers(repo, notes, today=None):
+    """Active waivers from <repo>/exceptions.yaml. Bad and expired entries are skipped with a note."""
+    f = repo / "exceptions.yaml"
+    if not f.exists():
+        return []
+    today = today or dt.date.today()
+    try:
+        raw = yaml.safe_load(f.read_text(encoding="utf-8")) or []
+    except yaml.YAMLError as e:
+        notes.append(f"exceptions.yaml could not be read ({type(e).__name__}): no waivers applied")
+        return []
+    if isinstance(raw, dict):
+        raw = raw.get("exceptions") or []
+    out = []
+    for n, w in enumerate(raw if isinstance(raw, list) else [], 1):
+        if not isinstance(w, dict):
+            notes.append(f"exceptions.yaml entry {n} is not a mapping: ignored")
+            continue
+        missing = [k for k in ("check", "device", "reason", "expires") if not w.get(k)]
+        if missing:
+            notes.append(f"exceptions.yaml entry {n} is missing {', '.join(missing)}: ignored")
+            continue
+        try:
+            exp = w["expires"] if isinstance(w["expires"], dt.date) else dt.date.fromisoformat(str(w["expires"]))
+        except ValueError:
+            notes.append(f"exceptions.yaml entry {n}: expires '{w['expires']}' is not YYYY-MM-DD: ignored")
+            continue
+        label = f"{w['check']} on {w['device']}"
+        if exp < today:
+            notes.append(f"waiver for {label} expired on {exp}: no longer applied, the finding counts again")
+            continue
+        out.append({"check": str(w["check"]), "device": str(w["device"]), "reason": str(w["reason"]),
+                    "expires": exp.isoformat(), "owner": w.get("owner"), "label": label})
+    return out
+
+
+def apply_waivers(findings, waivers, notes):
+    """Split config findings matched by an active waiver into the accepted list. CVE and event
+    findings are never waived: they are cleared by patching or by blocking the attack."""
+    kept, accepted, used = [], [], set()
+    for f in findings:
+        w = next((w for w in waivers if f["type"] == "config" and w["check"] == f["id"]
+                  and w["device"] in ("*", f["device"])), None)
+        if w:
+            used.add(w["label"])
+            accepted.append({**f, "accepted": {k: w[k] for k in ("reason", "expires", "owner")}})
+        else:
+            kept.append(f)
+    notes += [f"waiver for {w['label']} matches no finding in this run: remove it from exceptions.yaml"
+              for w in waivers if w["label"] not in used]
+    return kept, accepted
 
 
 def event_findings(summ, checks, cve_groups, by_name, cache):
@@ -349,7 +425,7 @@ def event_findings(summ, checks, cve_groups, by_name, cache):
 
     def add(check, detail, exposed, kev_, auto, total, tiebreak, cap=None, **extra):
         c = checks[check]
-        s = scoring.score(exposed, kev_, auto, total, tiebreak, cap)
+        s = scoring.score(exposed, kev_, auto, total, tiebreak, cap, cve=False)
         out.append({"type": "event", "id": check, "title": c["title"], "detail": detail,
                     "why_it_matters": c["why"], "fix": c["fix"], "sources": c["sources"], **s, **extra})
 
@@ -409,8 +485,18 @@ def markdown(rep, checks):
     c = rep["counts"]
     L.append("| Deadline (CISA BOD 26-04) | Findings |\n|---|---|")
     for b in scoring.ORDER:
-        L.append(f"| {scoring.BANDS[b][2]} | {c.get(b, 0)} |")
+        label = scoring.BANDS[b][2] + (" (CVEs) / in the next maintenance window (config)" if b == "upgrade" else "")
+        L.append(f"| {label} | {c.get(b, 0)} |")
     L.append("")
+    rc = rep.get("result_counts") or {}
+    if any(rc.values()):
+        L.append(f"Config checks run: {rc.get('pass', 0)} pass, {rc.get('fail', 0)} fail, {rc.get('n/a', 0)} not "
+                 f"applicable, {rc.get('not-visible', 0)} not visible in the snapshot. Per-device results are in "
+                 "the JSON report (devices[].results).")
+        if rep.get("accepted_risk"):
+            L.append(f"{len(rep['accepted_risk'])} finding(s) accepted as risk (see Accepted risk): not in the "
+                     "counts above.")
+        L.append("")
     if rep["upgrade_plan"]:
         L.append("## Upgrade plan (one upgrade clears every CVE listed for a device)\n")
         L.append("| Device | Version | CVEs | In KEV | 3d+triage | 3d | 14d | 60d | Upgrade | Feature off |")
@@ -442,6 +528,21 @@ def markdown(rep, checks):
         if rest:
             L.append(f"- ...and {rest} more CVEs at 60 days or next upgrade: see the JSON report.")
         L.append("")
+    if rep.get("accepted_risk"):
+        L.append(f"## Accepted risk ({len(rep['accepted_risk'])})\n")
+        L.append("Waived in exceptions.yaml (NIST SP 800-53 CA-5, RA-7). Still open: not counted against "
+                 "a deadline until the waiver expires.\n")
+        for f in rep["accepted_risk"]:
+            a = f["accepted"]
+            L.append(f"- **{f['score']}** {f['id']} on {f['device']}: {f['detail']}. Accepted: {a['reason']}"
+                     + (f" (owner {a['owner']})" if a.get("owner") else "") + f". Expires {a['expires']}.")
+        L.append("")
+    hidden = [f"{d['name']}: {r['check']}" for d in rep["devices"] for r in d.get("results", [])
+              if r["status"] == "not-visible"]
+    if hidden:
+        L.append("## Not visible in the snapshot\n")
+        L.append("These checks could not run because the config section they need is missing or unreadable: "
+                 + "; ".join(hidden) + ".\n")
     if rep["notes"] or any(d["notes"] for d in rep["devices"]):
         L.append("## Coverage notes\n")
         L += [f"- {n}" for n in rep["notes"]]
@@ -496,9 +597,18 @@ def check_settings(platforms, checks):
         encoding="utf-8"), re.M))
     bad = []
     for cid, c in checks.items():
-        for k in ("title", "why", "fix", "known_exploited", "automatable", "total_control", "weight", "sources"):
+        for k in ("title", "why", "fix", "known_exploited", "automatable", "total_control", "weight", "sources",
+                  "plane", "validated"):
             if k not in c:
                 bad.append(f"{cid}: missing {k}")
+        if "plane" in c and c["plane"] not in PLANES:
+            bad.append(f"{cid}: plane '{c['plane']}' is not one of {', '.join(PLANES)}")
+        if "validated" in c and c["validated"] not in VALIDATED:
+            bad.append(f"{cid}: validated '{c['validated']}' is not one of {', '.join(VALIDATED)}")
+        bad += [f"{cid}: control '{x}' is not an 800-53 ID like AC-17 or SC-7(5)"
+                for x in c.get("controls", []) if not re.match(r"^[A-Z]{2}-\d{1,2}(\(\d{1,2}\))?$", str(x))]
+        if c.get("zt_pillar") not in (None, *ZT_PILLARS):
+            bad.append(f"{cid}: zt_pillar '{c['zt_pillar']}' is not one of {', '.join(ZT_PILLARS)}")
         bad += [f"{cid}: source '{s}' not in research/sources.md" for s in c.get("sources", []) if s not in keys]
     for p, cfg in platforms.items():
         for k in ("vendor", "kind", "version", "config", "cpe", "cna_product"):

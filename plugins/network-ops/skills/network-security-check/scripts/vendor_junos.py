@@ -7,10 +7,11 @@
 # ============================================================
 import re
 
-from common import feature, finding, is_public, looks_internet, new_facts
+from common import feature, fill_passes, finding, is_public, looks_internet, new_facts
 from parsers import junos_set
 
 WEAK = {"public", "private"}
+CHECKS = ("JUNOS-TELNET", "JUNOS-HTTP", "JUNOS-SNMP-COMMUNITY")
 
 
 def analyze(text, dev):
@@ -76,4 +77,6 @@ def analyze(text, dev):
     facts["internet_facing"] = bool(inet)
     facts["exposure_reason"] = ("internet-facing: " + ", ".join(sorted(inet))) if inet else \
         "no public or untrust interface found"
+    # Fail-only checks: a pass here means the search found nothing, not a positive check.
+    facts["results"] = fill_passes(found, CHECKS)
     return facts, found

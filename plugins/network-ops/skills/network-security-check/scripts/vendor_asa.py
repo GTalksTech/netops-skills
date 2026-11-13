@@ -6,12 +6,14 @@
 # ============================================================
 import re
 
-from common import (RISKY_PORTS, feature, finding, is_public, looks_internet, mask_to_prefix,
+from common import (RISKY_PORTS, feature, fill_passes, finding, is_public, looks_internet, mask_to_prefix,
                     new_facts)
 from parsers import ios_blocks
 
 WEAK = {"public", "private", "cisco"}
 NAMED_PORTS = {"ssh": 22, "telnet": 23, "smb": 445, "rdp": 3389, "sqlnet": 1521, "netbios-ssn": 139}
+CHECKS = ("ASA-ANY-ANY", "ASA-MGMT-ON-OUTSIDE", "ASA-TELNET", "ASA-NAT-RISKY", "ASA-SNMP-COMMUNITY",
+          "ASA-NO-REMOTE-LOG")
 
 
 def _port(tok):
@@ -141,4 +143,6 @@ def analyze(text, dev):
     facts["internet_facing"] = bool(inet)
     facts["exposure_reason"] = ("internet-facing: " + ", ".join(sorted(inet))) if inet else \
         "no outside/public interface found"
+    # Fail-only checks: a pass here means the search found nothing, not a positive check.
+    facts["results"] = fill_passes(found, CHECKS)
     return facts, found

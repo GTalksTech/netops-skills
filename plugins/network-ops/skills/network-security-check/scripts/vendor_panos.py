@@ -8,11 +8,13 @@
 # ============================================================
 import re
 
-from common import (RISKY_PORTS, feature, finding, is_public, is_segmented, looks_internet,
+from common import (RISKY_PORTS, feature, fill_passes, finding, is_public, is_segmented, looks_internet,
                     new_facts)
 from parsers import as_list, get, panos_tree
 
 MGMT = ("https", "http", "ssh", "telnet", "snmp")
+CHECKS = ("PAN-ANY-ANY", "PAN-INBOUND-ANY-SERVICE", "PAN-MGMT-ON-UNTRUST", "PAN-NO-LOG",
+          "PAN-INBOUND-NO-PROFILE", "PAN-NAT-RISKY", "PAN-SEGMENT")
 
 
 def _device(tree):
@@ -188,4 +190,6 @@ def analyze(text, dev):
     facts["internet_facing"] = bool(facts["internet_interfaces"])
     facts["exposure_reason"] = ("internet-facing: " + ", ".join(facts["internet_interfaces"])) \
         if facts["internet_interfaces"] else "no untrust/public interface found"
+    # Fail-only checks: a pass here means the search found nothing, not a positive check.
+    facts["results"] = fill_passes(found, CHECKS)
     return facts, found

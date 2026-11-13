@@ -1,7 +1,7 @@
 # ============================================================
 # Script:       common.py
 # Purpose:      Helpers shared by the vendor modules: public vs private addresses,
-#               segment names, risky ports, and the finding record.
+#               segment names, risky ports, and the check result record.
 # Author:       G Talks Tech
 # ============================================================
 import ipaddress
@@ -47,9 +47,49 @@ def looks_internet(name):
     return bool(name and INTERNET_NAMES.search(str(name)))
 
 
+# Result statuses. Only "fail" is scored; the others go into the report as coverage.
+#   pass         the check ran and found nothing wrong
+#   fail         a finding (scored with BOD 26-04 Table 1)
+#   n/a          the check does not apply to this device (no routing, no vty lines, no SNMP)
+#   not-visible  the config section the check needs is missing or could not be read
+STATUSES = ("pass", "fail", "n/a", "not-visible")
+
+# Secret values that may sit on a config line. The value after the keyword (and after a type
+# digit or ENC) is replaced, so evidence can quote the line without the secret.
+_SECRET = re.compile(r"(?<![\w-])(community|secret|password|passwd|psksecret|key-string|authentication-key|"
+                     r"encrypted-password|md5|sha|aes|key|auth-password|priv-password)"
+                     r"(\s+(?:\d{1,3}|ENC|encrypted)\b)?\s+(?!<hidden>|chain\b|generate\b)\S+", re.I)
+
+
+def mask(line):
+    """A config line with any secret value replaced by <hidden>."""
+    return _SECRET.sub(lambda m: f"{m.group(1)}{m.group(2) or ''} <hidden>", str(line))
+
+
+def result(check, status, detail, evidence=None, exposed=False, where=None, **extra):
+    """One check outcome on one device. Evidence lines are masked here, so a module can pass
+    config lines as they are."""
+    if status not in STATUSES:
+        raise ValueError(f"unknown status {status}")
+    return {"check": check, "status": status, "detail": detail,
+            "evidence": [mask(e) for e in list(evidence or [])[:6]],
+            "exposed": bool(exposed) and status == "fail", "where": where, **extra}
+
+
 def finding(check, detail, evidence=None, exposed=False, where=None, **extra):
-    return {"check": check, "detail": detail, "evidence": list(evidence or [])[:6],
-            "exposed": bool(exposed), "where": where, **extra}
+    """A failed check (kept for the modules that only report failures)."""
+    return result(check, "fail", detail, evidence, exposed, where, **extra)
+
+
+def fill_passes(results, checks, detail="no failing config found"):
+    """Add a pass for every check in `checks` that produced no result. For modules that only
+    look for failures: the pass means "searched and found nothing", not a positive check."""
+    seen = {r["check"] for r in results}
+    return results + [result(c, "pass", detail) for c in checks if c not in seen]
+
+
+def fails(results):
+    return [r for r in results if r["status"] == "fail"]
 
 
 def new_facts():

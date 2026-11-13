@@ -176,3 +176,37 @@ stricter bar and the one followed here.
 
 Lab v2 has no routing authentication at all, so this check doesn't fire there; it is covered by
 tests of every form. Key lifetimes (STIG: 180 days or less) are still not graded.
+
+## Round 5 (R1): result model, accepted risk, catalog fields (2026-11-13)
+
+Every config check now returns a result per device: pass, fail, n/a or not-visible, with
+`check`, `status`, `detail`, `evidence`, `exposed`, `where` (`common.result()`). Evidence lines
+go through `common.mask()`, which hides the value after community, secret, password, key-string,
+ENC and similar keywords. Fails are still the scored findings; nothing about scoring changed.
+The JSON report carries `devices[].results`, `devices[].result_counts` and a total
+`result_counts`; the markdown has one count line and a "Not visible" list. IOS and FortiOS
+checks report each status explicitly. PAN-OS, ASA and Junos still only look for failures, so
+their passes mean "searched, found nothing" (`common.fill_passes`). A config that parses to no
+interfaces turns every non-fail result into not-visible. Routing authentication moved to
+`scripts/ios_routing.py`; `vendor_ios._routing_auth` is still importable.
+
+checks.yaml gained `plane`, `validated`, `controls` (NIST SP 800-53r5) and `zt_pillar` (CISA
+ZTMM v2) on all 40 checks; check-settings requires plane and validated and checks the formats.
+Marked fixture although IOS/FGT: IOS-ROUTING-WEAK-AUTH, IOS-SEGMENT-ROUTED, FGT-SEGMENT and
+FGT-VIP-RISKY (lab v2 has no auth, no segmented VLAN and no VIP, so they never ran on a real
+object).
+
+Accepted risk: optional `exceptions.yaml` next to inventory.yaml (format in
+exceptions.example.yaml). A matching config finding moves to `accepted_risk` and an "Accepted
+risk" section with reason and expiry, out of the deadline counts. Expired, malformed and
+unused waivers each produce a note. CVE and event findings are not waivable. Basis: 800-53
+CA-5 and RA-7.
+
+Config and event findings in the lowest band now read "Fix in the next maintenance window".
+
+Lab v2 run after the change: 49 findings, 2 / 9 / 6 / 32 (3d / 14d / 60d / lowest band), same
+IDs, devices and scores as before (only the FGT-IPS-STALE detail gained "when the snapshot was
+taken"). Results: 79 pass, 10 fail, 40 n/a, 1 not-visible (fw-01 FGT-ADMIN-NO-TRUSTHOST: the
+read-only profile sees only its own admin entry). Smart Install is n/a on the lab switches
+because IOL L2 models don't match the Catalyst model pattern; on a real Catalyst with no
+`no vstack` line it is not-visible. 120 tests.

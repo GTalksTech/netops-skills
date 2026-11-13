@@ -7,12 +7,15 @@
 # ============================================================
 import re
 
-from common import (RISKY_PORTS, feature, finding, is_public, is_segmented, looks_internet,
-                    mask_to_prefix, new_facts)
+from common import (RISKY_PORTS, fails, feature, finding, is_public, is_segmented, looks_internet,
+                    mask_to_prefix, new_facts, result)
 from parsers import fortios_tree
 
 MGMT = {"http", "https", "ssh", "telnet", "snmp"}
 ANY_ADDR = {"all", "any", "all6", "any6"}
+CHECKS = ("FGT-MGMT-ON-WAN", "FGT-ADMIN-NO-TRUSTHOST", "FGT-ANY-ANY", "FGT-INBOUND-ANY-SERVICE",
+          "FGT-NO-LOG", "FGT-INBOUND-NO-IPS", "FGT-VIP-RISKY", "FGT-SEGMENT")
+POLICY_CHECKS = CHECKS[2:]
 
 
 def _section(tree, name):
@@ -106,6 +109,15 @@ def analyze(text, dev):
                                  + " ".join(sorted(bad)),
                                  [f"set allowaccess {' '.join(itf['allowaccess'])}"], exposed=True,
                                  where=itf["name"]))
+    if not facts["interfaces"]:
+        found.append(result("FGT-MGMT-ON-WAN", "not-visible", "no interfaces in the saved config"))
+    elif not internet_if:
+        found.append(result("FGT-MGMT-ON-WAN", "n/a", "no internet-facing interface"))
+    elif not any(r["check"] == "FGT-MGMT-ON-WAN" for r in found):
+        found.append(result("FGT-MGMT-ON-WAN", "pass", "no HTTP, HTTPS, SSH, Telnet or SNMP admin access on "
+                            + ", ".join(sorted(internet_if)),
+                            [f"{i['name']}: set allowaccess {' '.join(i['allowaccess']) or '(none)'}"
+                             for i in facts["interfaces"] if i["name"] in internet_if]))
     feature(facts, "fgfm", any("fgfm" in i["allowaccess"] for i in facts["interfaces"]),
             any("fgfm" in i["allowaccess"] for i in facts["interfaces"] if i["name"] in internet_if))
     any_admin_web = any({"http", "https"} & set(i["allowaccess"]) for i in facts["interfaces"])
@@ -124,7 +136,16 @@ def analyze(text, dev):
         if not any(k.startswith("trusthost") or k.startswith("ip6-trusthost") for k in cfg):
             found.append(finding("FGT-ADMIN-NO-TRUSTHOST", f"admin '{name}' has no trusted hosts",
                                  [f'edit "{name}"'], exposed=wan_admin, where=name))
-    if list(admins) == [dev.get("username")]:
+    partial = list(admins) == [dev.get("username")]
+    if not admins:
+        found.append(result("FGT-ADMIN-NO-TRUSTHOST", "not-visible", "'config system admin' is not in the "
+                            "saved config"))
+    elif not any(r["check"] == "FGT-ADMIN-NO-TRUSTHOST" for r in found):
+        found.append(result("FGT-ADMIN-NO-TRUSTHOST", "not-visible" if partial else "pass",
+                            f"only the snapshot account is visible (it has trusted hosts): the other admins "
+                            "were not checked" if partial else f"all {len(admins)} admin accounts have trusted hosts",
+                            [f'edit "{n}"' for n in admins]))
+    if partial:
         # A non-super-admin profile is shown only its own admin entry, so the other admins
         # (including the built-in 'admin') were not checked.
         facts["notes"].append(f"only the snapshot account '{dev.get('username')}' is visible under "
@@ -136,7 +157,8 @@ def analyze(text, dev):
     addrgrp = {g: v.get("member", []) for g, v in _section(tree, "firewall addrgrp").items()}
     vips = _section(tree, "firewall vip")
     vipgrp = {g: v.get("member", []) for g, v in _section(tree, "firewall vipgrp").items()}
-    for pid, p in _section(tree, "firewall policy").items():
+    policies = _section(tree, "firewall policy")
+    for pid, p in policies.items():
         if p.get("action") != ["accept"] or p.get("status") == ["disable"]:
             continue
         src, dst = p.get("srcintf", []), p.get("dstintf", [])
@@ -189,7 +211,22 @@ def analyze(text, dev):
                                          f"VIP '{vname}' publishes {', '.join(risky)} ({mapped}) to the "
                                          f"internet, used by {label}", ev, exposed=True, where=vname))
 
+    # Every policy check that found nothing: pass, or n/a when there is nothing for it to look at.
+    for c in POLICY_CHECKS:
+        if any(r["check"] == c for r in found):
+            continue
+        if not policies:
+            found.append(result(c, "not-visible", "'config firewall policy' is not in the saved config"))
+        elif c == "FGT-VIP-RISKY" and not vips:
+            found.append(result(c, "n/a", "no VIP (destination NAT) objects"))
+        elif c == "FGT-SEGMENT" and not segmented(list(ifaces)):
+            found.append(result(c, "n/a", "no interface with an IoT, guest or OT name"))
+        else:
+            n = sum(1 for p in policies.values() if p.get("action") == ["accept"] and p.get("status") != ["disable"])
+            found.append(result(c, "pass", f"{n} active accept policies checked, none match"))
+
     facts["internet_facing"] = bool(internet_if)
     facts["exposure_reason"] = ("internet-facing: " + ", ".join(sorted(internet_if))) if internet_if \
         else "no WAN-role or public interface found"
-    return facts, found
+    facts["results"] = found
+    return facts, fails(found)

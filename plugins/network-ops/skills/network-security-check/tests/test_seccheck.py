@@ -728,3 +728,167 @@ def test_bgp_auth_grades_and_findings():
 def test_lab_routing_has_no_weak_auth_finding():
     _, found = _lab_ios()
     assert "IOS-ROUTING-WEAK-AUTH" not in ids(found)     # lab has no auth at all, so NO-AUTH only
+
+
+# ---------- round 5 (R1): result model, accepted risk, catalog fields ----------
+import re  # noqa: E402
+
+import common  # noqa: E402
+
+
+def _status(results, check):
+    return sorted({r["status"] for r in results if r["check"] == check})
+
+
+def test_lab_ios_result_statuses():
+    facts, found = _lab_ios()
+    res = facts["results"]
+    assert {r["check"] for r in res} == set(vendor_ios.CHECKS)       # every check reports
+    assert found == common.fails(res)                                # fails are the findings
+    expect = {"IOS-HTTP-SERVER": "pass", "IOS-TELNET": "pass", "IOS-VTY-ACL": "pass", "IOS-SSH-V1": "pass",
+              "IOS-SNMP-COMMUNITY": "pass", "IOS-PASSWORD-STORAGE": "pass", "IOS-NO-REMOTE-LOG": "pass",
+              "IOS-ROUTING-NO-AUTH": "fail", "IOS-ROUTING-WEAK-AUTH": "n/a", "IOS-SEGMENT-ROUTED": "n/a",
+              "IOS-SMART-INSTALL": "n/a"}
+    for c, st in expect.items():
+        assert _status(res, c) == [st], c
+    assert all(r["status"] in common.STATUSES for r in res)
+
+
+def test_lab_fgt_result_statuses():
+    facts, found = _lab_fgt()
+    res = facts["results"]
+    assert {r["check"] for r in res} == set(vendor_fortios.CHECKS)
+    assert _status(res, "FGT-ADMIN-NO-TRUSTHOST") == ["not-visible"]   # read-only profile sees itself only
+    assert _status(res, "FGT-MGMT-ON-WAN") == ["pass"]
+    assert _status(res, "FGT-INBOUND-ANY-SERVICE") == ["fail"]
+    assert _status(res, "FGT-VIP-RISKY") == ["n/a"] and _status(res, "FGT-SEGMENT") == ["n/a"]
+    assert found == common.fails(res)
+    facts, _ = _lab_fgt(user="someone-else")     # full admin list visible: a real pass
+    assert _status(facts["results"], "FGT-ADMIN-NO-TRUSTHOST") == ["pass"]
+
+
+def test_ios_vty_and_routing_n_a_and_empty_config_not_visible():
+    facts, _ = vendor_ios.analyze("hostname r1\ninterface Ethernet0/0\n ip address 10.0.0.1 255.255.255.0\n"
+                                  "logging host 10.9.9.9\nno ip http server\nno vstack\n", {})
+    res = facts["results"]
+    assert _status(res, "IOS-TELNET") == ["n/a"] and _status(res, "IOS-ROUTING-NO-AUTH") == ["n/a"]
+    assert _status(res, "IOS-SMART-INSTALL") == ["pass"]
+    facts, _ = vendor_ios.analyze("hostname r1\n", {})
+    assert {r["status"] for r in facts["results"]} == {"not-visible"}
+
+
+def test_report_carries_results_per_device(report):
+    for d in report["devices"]:
+        if not d.get("results"):
+            continue
+        assert d["result_counts"]["fail"] == sum(1 for r in d["results"] if r["status"] == "fail")
+        assert d["result_counts"]["fail"] == len([f for f in report["findings"] + report["accepted_risk"]
+                                                  if f["type"] == "config" and f["device"] == d["name"]])
+    devs = {d["name"]: d for d in report["devices"]}
+    assert devs["asa-01"]["results"] and devs["srx-01"]["results"]        # fail-only modules fill passes
+    assert sum(report["result_counts"].values()) == sum(len(d["results"]) for d in report["devices"])
+
+
+def test_unparsed_config_results_are_not_visible(tmp_path):
+    repo = tmp_path / "snap"
+    shutil.copytree(FX / "snapshots", repo)
+    (repo / "dc/pa-fw-01/show-config-running.txt").write_text("set deviceconfig system hostname pa-fw-01\n")
+    platforms, _ = seccheck.load_settings()
+    dev = next(d for d in seccheck.load_devices(repo) if d["name"] == "pa-fw-01")
+    facts = seccheck.device_facts(dev, repo, platforms)
+    assert facts["results"] and all(r["status"] in ("fail", "not-visible") for r in facts["results"])
+
+
+def test_config_upgrade_band_says_maintenance_window(report):
+    low = [f for f in report["findings"] if f["deadline"] == "upgrade"]
+    assert low
+    for f in low:
+        if f["type"] == "cve":
+            assert f["action"] == "Fix at the next planned upgrade"
+        else:
+            assert f["action"] == scoring.MAINTENANCE_WINDOW
+    same = scoring.score(False, False, False, False, 0.3, cve=False)
+    assert same["score"] == scoring.score(False, False, False, False, 0.3)["score"]
+
+
+def _waiver_run(tmp_path, text):
+    repo = tmp_path / "snap"
+    shutil.copytree(FX / "snapshots", repo)
+    (repo / "exceptions.yaml").write_text(text)
+    args = type("A", (), {"repo": str(repo), "out": str(tmp_path / "out"), "site": None, "device": None,
+                          "events": None, "bucket_minutes": 60, "no_cves": True})()
+    return seccheck.build(args)
+
+
+WAIVERS = """
+- check: {check}
+  device: {device}
+  reason: lab exception
+  expires: 2999-01-01
+  owner: net team
+- check: IOS-TELNET
+  device: "*"
+  reason: old
+  expires: 2020-01-01
+- check: IOS-HTTP-SERVER
+  device: nowhere
+  reason: nothing matches
+  expires: 2999-01-01
+- check: IOS-VTY-ACL
+  device: x
+  expires: 2999-01-01
+"""
+
+
+def test_waiver_applied_expired_and_bad(tmp_path):
+    base = _waiver_run(tmp_path / "a", "[]\n")
+    target = next(f for f in base["findings"] if f["type"] == "config")
+    rep = _waiver_run(tmp_path / "b", WAIVERS.format(check=target["id"], device=target["device"]))
+    acc = [f for f in rep["accepted_risk"] if f["id"] == target["id"] and f["device"] == target["device"]]
+    assert acc and acc[0]["accepted"] == {"reason": "lab exception", "expires": "2999-01-01", "owner": "net team"}
+    assert not [f for f in rep["findings"] if f["id"] == target["id"] and f.get("device") == target["device"]]
+    assert sum(rep["counts"].values()) == sum(base["counts"].values()) - len(acc)
+    notes = " ".join(rep["notes"])
+    assert "IOS-TELNET on * expired on 2020-01-01" in notes
+    assert "matches no finding" in notes and "missing reason" in notes
+    md = seccheck.markdown(rep, seccheck.load_settings()[1])
+    assert "## Accepted risk" in md and "lab exception" in md and "2999-01-01" in md
+
+
+def test_check_settings_requires_plane_and_validated(capsys):
+    platforms, checks = seccheck.load_settings()
+    for field in ("plane", "validated"):
+        bad = {k: dict(v) for k, v in checks.items()}
+        del bad["IOS-TELNET"][field]
+        assert seccheck.check_settings(platforms, bad) == 1
+        assert f"IOS-TELNET: missing {field}" in capsys.readouterr().out
+    bad = {k: dict(v) for k, v in checks.items()}
+    bad["IOS-TELNET"]["plane"], bad["IOS-TELNET"]["controls"] = "mgmt", ["AC17"]
+    assert seccheck.check_settings(platforms, bad) == 1
+    assert all(c["validated"] in seccheck.VALIDATED and c["controls"] for c in checks.values())
+
+
+SECRET_VALUES = re.compile(r"(secret|password) \d+ (?!<hidden>)\S|ENC (?!<hidden>)\S|community (?!<hidden>)\S",
+                           re.I)
+
+
+def test_evidence_never_contains_a_secret(report):
+    texts = [p.read_text(encoding="utf-8", errors="replace") for p in (FX / "snapshots").rglob("*.txt")]
+    texts += [p.read_text(encoding="utf-8", errors="replace") for p in (FX / "lab-v2").rglob("*.txt")]
+    communities = {m.strip('"') for t in texts for m in re.findall(r"community (\S+)", t)} - {"<hidden>", "<removed>"}
+    secrets = {v for t in texts for pair in re.findall(r"(?:secret|password) \d+ (\S+)|ENC (\S+)", t)
+               for v in pair if v and v != "<removed>"}
+    results = [r for d in report["devices"] for r in d.get("results", [])]
+    results += _lab_ios()[0]["results"] + _lab_fgt(user="x")[0]["results"]
+    # secrets on lines that pass, so pass evidence is covered too
+    cfg = (LAB / "hq-edge-rtr-01/show-running-config-view-full.txt").read_text(encoding="utf-8")
+    cfg += "\nsnmp-server community Zz9-secret-comm RO MGMT-ONLY\nusername bob secret 9 $9$leakme$xyz\n"
+    results += vendor_ios.analyze(cfg, {})[0]["results"]
+    evidence = [e for r in results for e in r["evidence"]]
+    assert any("<hidden>" in e for e in evidence)
+    for e in evidence:
+        assert not SECRET_VALUES.search(e), e
+    # details are prose ("community 1: read-write"), so check them for the values themselves
+    for e in evidence + [r["detail"] for r in results]:
+        assert not any(c in e for c in communities | {"Zz9-secret-comm"}), e
+        assert not any(s in e for s in secrets | {"$9$leakme$xyz"}), e

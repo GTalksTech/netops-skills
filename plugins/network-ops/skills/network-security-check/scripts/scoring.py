@@ -39,19 +39,25 @@ BANDS = {
     "upgrade": (0, 34, "Fix at the next planned upgrade"),
 }
 ORDER = ["3d+triage", "3d", "14d", "60d", "upgrade"]
+# A config or event finding has no software upgrade to wait for: the lowest band is a change in
+# the next maintenance window. Same band and score, different words (SCORING.md).
+MAINTENANCE_WINDOW = "Fix in the next maintenance window"
 
 
 def deadline(exposed, kev, automatable, total):
     return BOD_26_04[(bool(exposed), bool(kev), bool(automatable), bool(total))]
 
 
-def score(exposed, kev, automatable, total, tiebreak=0.0, cap=None):
+def score(exposed, kev, automatable, total, tiebreak=0.0, cap=None, cve=True):
     """tiebreak: 0..1 position inside the band (EPSS percentile for CVEs, check weight for
-    config findings, volume for events). cap: never above this deadline band (house rule)."""
+    config findings, volume for events). cap: never above this deadline band (house rule).
+    cve=False (config and event findings) words the lowest band as a maintenance window."""
     d = deadline(exposed, kev, automatable, total)
     if cap and ORDER.index(d) < ORDER.index(cap):
         d = cap
     lo, hi, words = BANDS[d]
+    if d == "upgrade" and not cve:
+        words = MAINTENANCE_WINDOW
     t = min(max(float(tiebreak or 0), 0.0), 1.0)
     return {"score": round(lo + (hi - lo) * t), "deadline": d, "action": words,
             "inputs": {"publicly_exposed": bool(exposed), "known_exploited": bool(kev),

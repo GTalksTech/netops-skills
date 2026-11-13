@@ -517,6 +517,138 @@ FGT-SEGMENT:
   validated: fixture
   controls: [SC-7, AC-4]
   zt_pillar: networks
+# FortiGate hardening (R7, scripts/fgt_hardening.py). FortiOS "show" leaves out lines at their
+# default, so an absent line is graded as the default in the FortiOS 7.6.6 / 8.0.0 CLI reference.
+FGT-ADMIN-LOCKOUT:
+  title: Admin lockout is weaker than the STIG (threshold above 3 or lockout under 900 s)
+  why: "The lockout slows password guessing against admin logins. DISA FGFW-ND-000045 asks for lockout after 3 failures for 900 s. FortiOS defaults are threshold 3 (passes) and duration 60 s, so a FortiGate left at defaults fails on duration only: 3 guesses a minute instead of 3 per 15 minutes. Low weight for that reason; exposed only when admin access is on an internet-facing interface."
+  fix: "config system global: set admin-lockout-threshold 3, set admin-lockout-duration 900."
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.15
+  sources: [stig-fgt-lockout, fortinet-cli-global-80]
+  plane: management
+  validated: lab-v2
+  controls: [AC-7]
+  zt_pillar: identity
+FGT-ADMIN-TIMEOUT:
+  title: Idle admin sessions stay open longer than 10 minutes
+  why: "An unattended logged-in session can be used by whoever reaches the workstation. DISA FGFW-ND-000275 sets admintimeout to 10 minutes; Fortinet's best practice is under 10. The FortiOS default is 5 minutes, so only an explicit higher value fails."
+  fix: "config system global: set admintimeout 10 (or lower)."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.15
+  sources: [stig-fgt-timeout, fortinet-bp-76-admin, fortinet-cli-global-80]
+  plane: management
+  validated: lab-v2
+  controls: [AC-12, SC-10]
+  zt_pillar: identity
+FGT-WEAK-ADMIN-TLS:
+  title: Weak crypto allowed for admin access (strong-crypto off, TLS below 1.2 or SSH v1)
+  why: "Old TLS versions and weak ciphers let an attacker on the path downgrade and read the admin session. DISA FGFW-ND-000205 asks for TLS 1.2/1.3 only and SSH v1 off; Fortinet says keep strong-crypto on. FortiOS defaults (strong-crypto enable, admin TLS 1.2 and 1.3, ssl-min-proto-version TLSv1-2, admin-ssh-v1 disable) all pass, so only an explicit weakening fails."
+  fix: "config system global: set strong-crypto enable, set admin-https-ssl-versions tlsv1-2 tlsv1-3, set ssl-min-proto-version TLSv1-2, set admin-ssh-v1 disable."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [stig-fgt-tls, fortinet-bp-76-hardening, fortinet-cli-global-80]
+  plane: management
+  validated: lab-v2
+  controls: [SC-8, SC-13]
+  zt_pillar: devices
+FGT-ADMIN-CLEARTEXT:
+  title: Telnet or HTTP admin access on an internal interface
+  why: "Telnet sends the admin password in clear text. HTTP is redirected to HTTPS by default (admin-https-redirect enable), but the listener still answers and a man in the middle can strip the redirect. DISA FGFW-ND-000260/-000265 (CAT I) and Fortinet both say never allow HTTP or Telnet admin access. Internet-facing interfaces are reported by FGT-MGMT-ON-WAN instead, so nothing is counted twice."
+  fix: "Remove telnet and http from allowaccess (set allowaccess ping https ssh) on the interface."
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.3
+  sources: [stig-fgt-mgmt-proto, fortinet-hardening, fortinet-cli-global-80]
+  plane: management
+  validated: lab-v2
+  controls: [AC-17, SC-8]
+  zt_pillar: devices
+FGT-ADMIN-NO-2FA:
+  title: Local administrator logs in with a password only
+  why: "A stolen or guessed password is enough to take over the firewall. Fortinet's best practice is two-factor (FortiToken, email or SMS) for administrator logins. No DISA FortiGate rule covers it. Checked only when the whole admin list is visible: a read-only snapshot account sees only itself, which is reported as not-visible. Remote (RADIUS/LDAP/SAML) admins are skipped: their MFA lives on the server."
+  fix: "set two-factor fortitoken (or email/sms) on each local admin, or move admins to remote authentication with MFA and keep one local emergency account."
+  known_exploited: false
+  automatable: false
+  total_control: true
+  weight: 0.4
+  sources: [fortinet-bp-76-admin]
+  plane: management
+  validated: fixture
+  controls: [IA-2(1), IA-2(2)]
+  zt_pillar: identity
+FGT-PASSWORD-POLICY:
+  title: Admin password policy is off or allows passwords shorter than 15 characters
+  why: "DISA FGFW-ND-000220 and following ask for an enabled policy with a 15-character minimum. FortiOS defaults depend on the release: up to 7.6.4 the policy is off with an 8-character minimum; from 7.6.5 it is turned on at upgrade with a 12-character minimum. Both fall short of 15, so most FortiGates fail this at a low weight."
+  fix: "config system password-policy: set status enable, set apply-to admin-password, set minimum-length 15."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-fgt-password, fortinet-cli-password-policy, fortinet-pwpolicy-765]
+  plane: management
+  validated: lab-v2
+  controls: [IA-5(1)]
+  zt_pillar: identity
+FGT-NO-REMOTE-LOG:
+  title: No remote log target (syslog, FortiAnalyzer or FortiCloud)
+  why: "Logs kept only on the firewall can be wiped by an attacker and are lost with the disk. DISA FGFW-ND-000295 (CAT I) asks for a syslog or FortiAnalyzer target with status enable. Every target is off by default (syslogd status default disable)."
+  fix: "config log syslogd setting (or log fortianalyzer setting): set status enable, set server <collector>."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-fgt-remote-log, fortinet-cli-syslogd, nist-800-92]
+  plane: visibility
+  validated: lab-v2
+  controls: [AU-4, AU-9]
+  zt_pillar: visibility
+FGT-WAN-NO-LOCAL-IN:
+  title: Internet-facing interface answers extra services with no local-in policy
+  why: "Services such as fabric, fgfm, ftm, speed-test or probe-response on a WAN interface accept connections from any address unless a local-in policy limits them. Fortinet recommends local-in policies to restrict access to the FortiGate itself. Admin protocols on WAN are FGT-MGMT-ON-WAN; this check covers the rest, so nothing is counted twice."
+  fix: "Remove the service from allowaccess on the WAN interface, or add a config firewall local-in-policy for that interface that allows only the known peers."
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.2
+  sources: [fortinet-bp-76-hardening, fortinet-trusthost]
+  plane: management
+  validated: fixture
+  controls: [SC-7, CM-7]
+  zt_pillar: networks
+FGT-VIP-UNUSED:
+  title: Virtual IP not used by any policy
+  why: "A VIP with no policy passes no traffic, so the risk is small. It is left-over config that misleads the next review and can be published by mistake when a policy is added. NIST SP 800-41 asks for regular reviews that remove rules no longer needed. Not graded with central NAT on, where VIPs apply without a policy."
+  fix: Delete the VIP if the service is gone, or record why it stays.
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.05
+  sources: [nist-800-41-review]
+  plane: data
+  validated: fixture
+  controls: [CM-7]
+  zt_pillar: networks
+FGT-AV-STALE:
+  title: Antivirus definitions are out of date while an AV profile is in use
+  why: "Virus definitions older than 30 days on the snapshot day mean updates have stopped (license or reachability), so new malware passes the AV profile. Same bar as FGT-IPS-STALE, which covers IPS and application definitions. Not applicable when no policy uses an AV profile."
+  fix: Check the FortiGuard AV license and "diagnose autoupdate status", then "execute update-now".
+  known_exploited: false
+  automatable: true
+  total_control: false
+  weight: 0.4
+  sources: [fortinet-hardening, nist-800-94]
+  plane: lifecycle
+  validated: fixture
+  controls: [SI-3]
+  zt_pillar: visibility
 
 # ---------- Palo Alto (PAN-OS) ----------
 PAN-ANY-ANY:

@@ -1,3 +1,4 @@
+#config-version=FGVM64-8.0.1-FW-build0245-260909:opmode=1:vdom=0:user=claude-ro-cli
 config system global
     set alias "FGT-VM64-AZA3VW"
     set gui-auto-upgrade-setup-warning disable
@@ -68,6 +69,9 @@ config system interface
         set snmp-index 7
     next
 end
+config system password-policy
+    set status enable
+end
 config system admin
     edit "claude-ro-cli"
         set vdom "root"
@@ -75,6 +79,18 @@ config system admin
         set accprofile "cli-readonly"
         set password <removed>
     next
+end
+config log syslogd setting
+    set status enable
+    set server "192.168.1.230"
+    set interface-select-method specify
+    set interface "port1"
+end
+config log memory setting
+    set status enable
+end
+config log disk setting
+    set status enable
 end
 config firewall address
     edit "EMS_ALL_UNKNOWN_CLIENTS"
@@ -233,5 +249,16 @@ config firewall policy
         set service "ALL"
         set logtraffic all
         set comments "Branch users, branch and edge loopbacks, tunnel into campus. No NAT."
+    next
+end
+config firewall local-in-policy
+    edit 1
+        set uuid <removed>
+        set intf "any"
+        set dstaddr "all"
+        set internet-service-src enable
+        set internet-service-src-name "Malicious-Malicious.Server" "Tor-Exit.Node" "Tor-Relay.Node"
+        set service "ALL"
+        set schedule "always"
     next
 end

@@ -3,19 +3,21 @@
 # Purpose:      FortiGate (FortiOS): facts and config checks from the saved "show" output.
 # Author:       G Talks Tech
 # Notes:        Read-only. Multi-VDOM configs ("config global" + "config vdom / edit X")
-#               are flattened: policies of every VDOM are checked together.
+#               are flattened: policies of every VDOM are checked together. Management-plane
+#               hardening checks (lockout, timeout, TLS, 2FA, logging...) are in fgt_hardening.py.
 # ============================================================
 import re
 
 from common import (RISKY_PORTS, fails, feature, finding, is_public, is_segmented, looks_internet,
                     mask_to_prefix, new_facts, result)
+import fgt_hardening
 from parsers import fortios_tree
 
 MGMT = {"http", "https", "ssh", "telnet", "snmp"}
 ANY_ADDR = {"all", "any", "all6", "any6"}
-CHECKS = ("FGT-MGMT-ON-WAN", "FGT-ADMIN-NO-TRUSTHOST", "FGT-ANY-ANY", "FGT-INBOUND-ANY-SERVICE",
-          "FGT-NO-LOG", "FGT-INBOUND-NO-IPS", "FGT-VIP-RISKY", "FGT-SEGMENT")
-POLICY_CHECKS = CHECKS[2:]
+POLICY_CHECKS = ("FGT-ANY-ANY", "FGT-INBOUND-ANY-SERVICE", "FGT-NO-LOG", "FGT-INBOUND-NO-IPS",
+                 "FGT-VIP-RISKY", "FGT-SEGMENT")
+CHECKS = ("FGT-MGMT-ON-WAN", "FGT-ADMIN-NO-TRUSTHOST") + POLICY_CHECKS + fgt_hardening.CHECKS
 
 
 def _section(tree, name):
@@ -224,6 +226,9 @@ def analyze(text, dev):
         else:
             n = sum(1 for p in policies.values() if p.get("action") == ["accept"] and p.get("status") != ["disable"])
             found.append(result(c, "pass", f"{n} active accept policies checked, none match"))
+
+    # --- management-plane hardening (R7): fgt_hardening.py ---
+    found += fgt_hardening.analyze(tree, text, dev, _section, ifaces, zones, internet_if, policies, vips, vipgrp)
 
     facts["internet_facing"] = bool(internet_if)
     facts["exposure_reason"] = ("internet-facing: " + ", ".join(sorted(internet_if))) if internet_if \

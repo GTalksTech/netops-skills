@@ -1,0 +1,25 @@
+NAME                                         VERSION       LAST UPDATE           METHOD     EXPIRE
+AV Engine                                    8.018 signed  2026-07-23 --:--:--   manual     n/a
+Virus Definitions                            1.001 signed  2026-04-02 --:--:--   manual     n/a
+Extended set                                 1.001 signed  2026-04-02 --:--:--   manual     n/a
+Extreme set                                  1.001 signed  2026-04-02 --:--:--   manual     n/a
+OCR DB                                       0.000         2001-01-01 --:--:--   manual     n/a
+AI/Machine Learning Malware Detection Model  0.000         2001-01-01 --:--:--   manual     n/a
+Flow-based Virus Definitions                 1.001 signed  2026-04-02 --:--:--   manual     n/a
+Attack Definitions                           6.741 signed  2015-12-01 --:--:--   manual     n/a
+Attack Extended Definitions                  6.741 signed  2015-12-01 --:--:--   manual     n/a
+AI/Machine Learning IPS Definitions          0.000         2001-01-01 --:--:--   manual     n/a
+IPS Malicious URL Database                   1.001 signed  2015-01-01 --:--:--   manual     n/a
+IPS/FlowAV Engine                            8.048 signed  2026-08-18 --:--:--   manual     n/a
+Application Definitions                      6.741 signed  2015-12-01 --:--:--   manual     n/a
+GenAI Application Definitions                0.000         2001-01-01 --:--:--   manual     n/a
+FMWP Definitions                             0.000         2001-01-01 --:--:--   manual     n/a
+OT Threat Definitions                        6.741 signed  2015-12-01 --:--:--   manual     n/a
+IoT Detect Definitions                       0.000 signed  2022-08-17 --:--:--   manual     n/a
+OT Detect Definitions                        0.000         2001-01-01 --:--:--   manual     n/a
+OT Patch Definitions                         0.000         2001-01-01 --:--:--   manual     n/a
+Proxy Attack Definitions                     6.741 signed  2015-12-01 --:--:--   manual     n/a
+Proxy Attack Extended Definitions            6.741 signed  2015-12-01 --:--:--   manual     n/a
+Proxy Application Definitions                6.741 signed  2015-12-01 --:--:--   manual     n/a
+Proxy GenAI Application Definitions          0.000         2001-01-01 --:--:--   manual     n/a
+FortiGuard Image Classification Categories   1.000         2025-10-01 --:--:--   manual     n/a

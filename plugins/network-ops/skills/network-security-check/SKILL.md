@@ -111,7 +111,7 @@ Config findings in the lowest band say "Fix in the next maintenance window"; CVE
 
 | Vendor | CVE matching | Config checks |
 |---|---|---|
-| Cisco IOS / IOS-XE | yes | 30 checks, tested (IOS-XE 17.16) |
+| Cisco IOS / IOS-XE | yes | 39 checks, tested (IOS-XE 17.16) |
 | Cisco ASA | yes | 6 checks, untested |
 | FortiGate (FortiOS) | yes | 19 checks, tested (FortiOS 8.0) |
 | Palo Alto PAN-OS | yes | 7 checks, untested |

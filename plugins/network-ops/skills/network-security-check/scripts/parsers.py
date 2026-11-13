@@ -39,6 +39,20 @@ def ios_blocks(text):
     return blocks
 
 
+def ios_acl_lines(blocks, name):
+    """Entries of an IOS ACL in order (named or numbered), sequence numbers and remarks dropped.
+    None when the ACL is not defined (IOS then permits all traffic on an access-group)."""
+    lines, found = [], False
+    for h, ch in blocks:
+        if h in (f"ip access-list extended {name}", f"ip access-list standard {name}"):
+            lines, found = list(ch), True
+        elif h.startswith(f"access-list {name} "):
+            lines.append(h.split(" ", 2)[2])
+            found = True
+    out = [re.sub(r"^\d+\s+", "", l) for l in lines]
+    return [l for l in out if not l.startswith("remark")] if found else None
+
+
 def ios_find(blocks, pattern):
     rx = re.compile(pattern)
     return [(h, ch) for h, ch in blocks if rx.search(h)]

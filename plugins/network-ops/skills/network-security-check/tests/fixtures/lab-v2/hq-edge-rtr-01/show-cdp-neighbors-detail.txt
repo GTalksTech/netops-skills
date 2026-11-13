@@ -1,0 +1,21 @@
+-------------------------
+Device ID: isp-rtr-01.gtt.lab
+Entry address(es):
+  IP address: 198.51.100.1
+Platform: Linux Unix,  Capabilities: Router
+Interface: Ethernet0/2,  Port ID (outgoing port): Ethernet0/1
+
+Version :
+Cisco IOS Software [IOSXE], Linux Software (X86_64BI_LINUX-ADVENTERPRISEK9-M), Version 17.16.1a, RELEASE SOFTWARE (fc1)
+Technical Support: http://www.cisco.com/techsupport
+Copyright (c) 1986-2024 by Cisco Systems, Inc.
+Compiled Thu 19-Dec-24 17:54 by mcpre
+
+advertisement version: 2
+Peer Source MAC: aabb.cc00.7910
+Duplex: full
+Management address(es):
+  IP address: 198.51.100.1
+
+
+Total cdp entries displayed : 1

@@ -294,6 +294,123 @@ IOS-SNMP-V2C:
   validated: lab-v2
   controls: [SC-8, SC-13]
   zt_pillar: devices
+IOS-NO-COPP:
+  title: No control plane policing (CoPP)
+  why: Without a service-policy under control-plane, every packet sent to the router itself (routing protocols, SSH, SNMP, ICMP, floods) reaches the CPU unfiltered and unlimited, so a flood can take down routing and management. DISA rates it CAT I for routers; RFC 6192 describes the policy. IOS has no CoPP policy by default. Scored as exposed only when the device has an internet-facing interface; on internal routers it is a maintenance item, and on switches with no routing and no internet interface it does not apply.
+  fix: "Build class-maps by importance (routing, management, monitoring, default), a policy-map that permits and rate-limits each, then control-plane / service-policy input <policy>. Start with conform/exceed counters, then tighten."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.35
+  sources: [stig-ios-copp, rfc6192-control-plane, cisco-harden-ios]
+  plane: control
+  validated: lab-v2
+  controls: [SC-5, SC-7]
+  zt_pillar: devices
+IOS-EDGE-IP-SERVICES:
+  title: Proxy ARP, ICMP redirects or unreachables on, or directed broadcast, on an external interface
+  why: IOS XE turns on proxy ARP, ICMP redirects and ICMP unreachables by default, so an external interface without "no ip ..." lines has them. Unreachables help remote mapping and add CPU load; directed broadcast enables smurf amplification. Proxy ARP and redirects only reach the device on the other end of the link. DISA asks for all four to be off on external interfaces. Exposed when unreachables or directed broadcast are on (reachable from beyond the link).
+  fix: "On each external interface: no ip proxy-arp, no ip redirects, no ip unreachables, no ip directed-broadcast. (A global ip icmp rate-limit unreachable is accepted instead of no ip unreachables.)"
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.15
+  sources: [stig-ios-redirects, stig-ios-unreachables, stig-ios-proxy-arp, stig-ios-directed-bcast, cisco-xe17-ipservices, cisco-harden-ios]
+  plane: control
+  validated: lab-v2
+  controls: [CM-7, SC-7]
+  zt_pillar: networks
+IOS-EDGE-CDP-LLDP:
+  title: CDP or LLDP sent on an external interface
+  why: CDP and LLDP advertise the hostname, model, software version and addresses to whatever sits on the other end of the link, the ISP or anyone who taps it. Both are link-local (not routed), so this is never scored as internet-exposed. IOS-XE 17.16 ran CDP with no "cdp run" line in the lab; LLDP is off unless "lldp run". The CDP state is read from the saved show cdp neighbors output when it is there.
+  fix: "no cdp enable and no lldp transmit (plus no lldp receive) on each external interface, or no cdp run if CDP is not used anywhere."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [stig-ios-cdp-ext, stig-ios-lldp-ext, cisco-harden-ios]
+  plane: control
+  validated: lab-v2
+  controls: [CM-7, SC-7]
+  zt_pillar: networks
+IOS-LEGACY-SERVICES:
+  title: Legacy services enabled (small servers, finger, BOOTP, PAD, source routing and similar)
+  why: DISA lists services that must not be in an IOS XE configuration (TCP/UDP small servers, finger, identd, BOOTP and DNS server, rcmd, PAD, service config, boot network). They are off by default on current IOS, so the check looks for the line. IP source routing is off by default from IOS XE 17.1.1 and on before it, so an older release without "no ip source-route" also fails. Exposed when a listening service is on and an external interface has no inbound ACL (or one that permits ip any any).
+  fix: "Remove each line (no service tcp-small-servers, no ip finger, no ip bootp server, no service pad, ...). On releases before IOS XE 17.1.1 add no ip source-route."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [stig-ios-http, cisco-harden-ios, cisco-xe17-ipservices]
+  plane: control
+  validated: fixture
+  controls: [CM-7]
+  zt_pillar: devices
+IOS-EDGE-NO-ANTISPOOF:
+  title: No anti-spoofing on an external interface (no uRPF, no ACL dropping private sources)
+  why: BCP 38/84 ask every edge to drop inbound packets whose source address cannot be legitimate there. Without uRPF or an inbound ACL that denies private (RFC 1918) sources first, spoofed traffic enters the network and the edge can be used in reflection attacks. IOS XE has no uRPF by default. Either control passes; loose uRPF is credited but noted (it drops only sources with no route).
+  fix: "ip verify unicast source reachable-via rx on a single-homed external interface (loose 'any' where routing is asymmetric), or an inbound ACL that denies 10/8, 172.16/12, 192.168/16 and your own prefixes as sources before any permit."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.45
+  sources: [rfc2827-bcp38, rfc3704-bcp84, rfc8704-bcp84, stig-ios-urpf, stig-ios-bogon-acl]
+  plane: data
+  validated: lab-v2
+  controls: [SC-7, SC-5]
+  zt_pillar: networks
+IOS-BGP-NO-POLICY:
+  title: eBGP neighbor with no inbound or no outbound route filter
+  why: RFC 8212 says routes from an eBGP peer must not be used, and none sent, without an explicit policy. With no inbound filter the router accepts whatever the peer sends (route leaks, hijacks); with no outbound filter it can leak every route it knows. Whether IOS XE applies RFC 8212 by default was not verified, so a missing filter is a finding on every release. Peer-groups and peer templates are resolved; iBGP is not graded. Exposed when the neighbor address is public.
+  fix: "neighbor <ip> prefix-list <in-list> in and neighbor <ip> prefix-list <out-list> out (or route-maps) on every eBGP neighbor."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.5
+  sources: [rfc8212-ebgp-policy, rfc7454-bgp-ops]
+  plane: control
+  validated: lab-v2
+  controls: [SC-7, AC-4]
+  zt_pillar: networks
+IOS-BGP-MAX-PREFIX:
+  title: eBGP neighbor with no maximum-prefix limit
+  why: Without a limit a peer that leaks a full table (or a mistake upstream) can fill the routing table and memory. DISA asks for maximum-prefix on each eBGP neighbor; RFC 7454 section 8 recommends it. IOS has no default limit.
+  fix: "neighbor <ip> maximum-prefix <n> <warning-%> [restart <min>], sized a little above what the peer normally sends."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [stig-ios-bgp-maxpfx, rfc7454-bgp-ops]
+  plane: control
+  validated: lab-v2
+  controls: [SC-5, SC-7]
+  zt_pillar: networks
+IOS-BGP-NO-GTSM:
+  title: Directly connected eBGP session without GTSM (ttl-security)
+  why: GTSM (RFC 5082) makes the router drop BGP packets that did not come from the next hop (TTL below 255), which stops remote spoofed TCP attacks on the session. RFC 7454 says to use it on directly connected peerings and DISA asks for it on every eBGP peer. Multihop sessions are not graded. IOS has no GTSM by default; both ends must turn it on together.
+  fix: "neighbor <ip> ttl-security hops 1 on both routers at the same time (it replaces ebgp-multihop)."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-ios-bgp-gtsm, rfc5082-gtsm, rfc7454-bgp-ops]
+  plane: control
+  validated: lab-v2
+  controls: [SC-5, SC-7]
+  zt_pillar: networks
+IOS-BGP-INBOUND-PERMISSIVE:
+  title: Inbound eBGP prefix-list accepts bogons or prefixes longer than /24
+  why: DISA asks the inbound filter from an internet peer to reject bogon space (private, loopback, link-local, CGNAT, multicast, reserved) and IPv4 prefixes longer than /24 (RFC 7454 6.1). The check reads the prefix-list in order and fails only when it can show a route that the list permits. Exact one-prefix entries are not graded for length (a deliberate exception); private-address eBGP neighbors (MPLS VPN and similar) are not graded; route-maps are not read.
+  fix: "Add deny entries for the bogon ranges before the permits, and replace 'le 32' ranges with 'le 24' (or list the long prefixes you really need one by one)."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.35
+  sources: [stig-ios-bgp-bogons, rfc7454-bgp-ops]
+  plane: control
+  validated: lab-v2
+  controls: [SC-7, AC-4]
+  zt_pillar: networks
 
 # ---------- FortiGate (FortiOS) ----------
 FGT-ANY-ANY:

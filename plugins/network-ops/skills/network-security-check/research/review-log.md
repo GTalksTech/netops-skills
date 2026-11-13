@@ -256,3 +256,71 @@ maintenance-window band; the 49 earlier findings keep their IDs, devices and sco
 The clean-switch fixture (snapshots/hq/hq-acc-sw-01) gained AAA, accounting, lockout, NTP auth,
 a second syslog host, SNMPv3 and a banner so it stays clean. New tests in
 tests/test_ios_mgmt.py; 152 tests in the suite.
+
+## Round 7 (R4+R5): control plane, edge anti-spoofing, eBGP hygiene (2026-11-13)
+
+Nine new IOS checks: four in `scripts/ios_cp.py` (control plane) and five in
+`scripts/ios_edge.py` (anti-spoofing and eBGP), both called from `vendor_ios.analyze`. Sources
+are DISA IOS XE Router RTR STIG V3R5 rules, RFC 6192, 2827, 3704, 8704, 7454, 8212 and 5082,
+Cisco Doc 13608 and the IOS XE 17 IP services guide (rows in sources.md). ACL entry reading moved
+to `parsers.ios_acl_lines`, shared by `vendor_ios._acl_is_open` and the anti-spoofing check.
+
+"External interface" here means internet-facing (public IP or NAT outside, not management VRF,
+not shut), not a loopback or Null, and not forming an OSPF or EIGRP adjacency. An IGP link talks
+to your own router: on hq-edge-rtr-01 that leaves out Ethernet0/1, the public transit to fw-01.
+
+| Check | Fails when | Absent line | Exposed when |
+|---|---|---|---|
+| IOS-NO-COPP | no `service-policy input` under control-plane, or it names an undefined policy-map | no CoPP by default | device has an external interface; internal routers fail unexposed; no routing and no external interface = n/a |
+| IOS-EDGE-IP-SERVICES | external interface without `no ip proxy-arp`, `no ip redirects`, `no ip unreachables` (or global `ip icmp rate-limit unreachable`), or with `ip directed-broadcast` | proxy ARP, redirects, unreachables ON | unreachables or directed broadcast on (reach beyond the link) |
+| IOS-EDGE-CDP-LLDP | CDP on and no `no cdp enable`, or `lldp run` and no `no lldp transmit`, on an external interface | CDP read from show cdp neighbors, else assumed on; LLDP off unless `lldp run` | never (link-local) |
+| IOS-LEGACY-SERVICES | any STIG CISC-ND-000470 service line (small servers, finger, identd, BOOTP/DNS server, rcmd, PAD, service config, boot network); `ip source-route`; or release before 17.1 without `no ip source-route` | present-line test; source routing off from IOS XE 17.1.1 | a listening service is on and an external interface has no inbound ACL or an open one |
+| IOS-EDGE-NO-ANTISPOOF | external interface with no uRPF and no inbound ACL that denies 10/8, 172.16/12 and 192.168/16 as sources before any permit that could match them | no uRPF by default | always (external) |
+| IOS-BGP-NO-POLICY | eBGP neighbor without an inbound or an outbound prefix-list, route-map, filter-list or distribute-list | RFC 8212 default in IOS XE not verified: missing = finding | public neighbor |
+| IOS-BGP-MAX-PREFIX | eBGP neighbor without maximum-prefix | no limit by default | public neighbor |
+| IOS-BGP-NO-GTSM | single-hop eBGP without `ttl-security hops`; multihop is n/a | no GTSM by default | public neighbor |
+| IOS-BGP-INBOUND-PERMISSIVE | the inbound prefix-list of a public eBGP neighbor provably permits a bogon or (via ge/le) an IPv4 prefix longer than /24 | n/a with a route-map or no readable list | always (public neighbors only) |
+
+eBGP neighbors are resolved through peer-groups (session and per-AF settings) and peer
+templates (`inherit peer-session`, `inherit peer-policy`, with template-to-template
+inheritance). Each neighbor is graded in every unicast AF it is active in (`no bgp default
+ipv4-unicast` respected). iBGP and confederation peers are not graded.
+
+All nine are known_exploited false, automatable false, partial impact: exposed ones land in the
+60-day band, the rest in the maintenance window. Weights 0.1 (CDP/LLDP) to 0.5 (no policy).
+
+Judgment calls:
+- CoPP is a CAT I router rule, but on a switch with no routing protocol and no internet
+  interface only the management network reaches the CPU, so it is n/a there.
+- Proxy ARP, redirects, unreachables and directed broadcast are one check: one interface, one
+  change. An edge ACL ending in `permit ip any any` is folded into IOS-EDGE-NO-ANTISPOOF (the
+  fix is the same deny lines); with strict uRPF on the interface it passes.
+- Loose uRPF (`reachable-via any`) is credited with a note (RFC 8704 3.7 recommends it on
+  transit and peer links); `allow-default` is not credited.
+- Exact one-prefix entries (`permit 198.51.100.4/30`) are not graded for length: a deliberate
+  exception. Private-address eBGP (MPLS VPN and similar) is not graded for content. The
+  documentation ranges are not treated as bogons, matching `common.is_public`.
+- CDP: the STIG says CDP is not on by default on the router, but IOL IOS-XE 17.16.1a ran it with
+  no `cdp run` line (show cdp neighbors listed peers on every router), so the saved show output
+  decides and an absent file is "assumed on". The lab-v2 fixture gained show cdp/lldp output.
+
+Not checked or not verified: global `ip arp proxy disable` (not in the sources; a config using
+it would show a proxy-arp false positive), BOOTP server and PAD defaults on 17.x (present-line
+only), IPv6 too-specific length, route-map contents, dynamic neighbors (`bgp listen range`),
+the IP options ACL (CISC-RT-000350), ICMP mask reply, unused interfaces shut, own-AS prefix and
+AS-path filtering, unique BGP keys per AS.
+
+Lab v2 run, read by hand against each running config and its show cdp/lldp output: 19 new
+findings, the 158 earlier ones unchanged (IDs, devices, scores). Totals: 177 = 3d 2, 14d 9,
+60d 19, maintenance window 147.
+
+| Device | New findings | By hand |
+|---|---|---|
+| hq-edge-rtr-01 | NO-COPP, EDGE-IP-SERVICES (Eth0/2), BGP-NO-GTSM, BGP-INBOUND-PERMISSIVE (60d); EDGE-CDP-LLDP (window) | `control-plane` empty; Eth0/2 has only the EDGE-IN access-group; CDP neighbor isp-rtr-01 on Eth0/2; no ttl-security; ISP-IN seq 15 `203.0.113.0/24 le 32`. Passes: EDGE-IN denies 10/8, 172.16/12, 192.168/16 first; ISP-IN in, HQ-OUT out; maximum-prefix 100 80 |
+| isp-rtr-01 | NO-COPP, EDGE-IP-SERVICES, EDGE-NO-ANTISPOOF, BGP-NO-POLICY, BGP-MAX-PREFIX, BGP-NO-GTSM (60d); EDGE-CDP-LLDP (window) | neighbor 198.51.100.2 has only activate and default-originate; Eth0/1 and Eth0/2 have no ACL or uRPF; Loopback0 left out. INBOUND-PERMISSIVE n/a (no list) |
+| branch1-rtr-01 | NO-COPP, EDGE-IP-SERVICES, EDGE-NO-ANTISPOOF (60d); EDGE-CDP-LLDP (window) | Eth0/1 (NAT outside, public) has no ACL or uRPF; CDP sees isp-rtr-01 there; no BGP (n/a) |
+| hq-core-sw-01, hq-dist-sw-01/02 | NO-COPP (window) | run OSPF, `control-plane` empty, no policy-map |
+| access switches, branch1-sw-01 | none | no routing, no internet interface: n/a |
+
+IOS-LEGACY-SERVICES passes on all 11 (none of the lines present, version 17.16), so it stays
+`validated: fixture`. 25 new tests in tests/test_ios_edge.py; 177 tests in the suite.

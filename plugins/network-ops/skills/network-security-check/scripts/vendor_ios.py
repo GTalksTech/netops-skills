@@ -3,22 +3,25 @@
 # Purpose:      Cisco IOS / IOS-XE: facts (interfaces, internet exposure, features) and
 #               config checks from a saved running config. Every check returns a result
 #               (pass, fail, n/a, not-visible); routing authentication is in ios_routing.py,
-#               AAA, timeouts, banner, NTP, syslog depth and SNMP version in ios_mgmt.py.
+#               AAA, timeouts, banner, NTP, syslog depth and SNMP version in ios_mgmt.py,
+#               CoPP and edge interface services in ios_cp.py, anti-spoofing and eBGP in ios_edge.py.
 # Author:       G Talks Tech
 # Notes:        Read-only. Check IDs and sources live in settings/checks.yaml.
 # ============================================================
 import re
 from pathlib import Path
 
+import ios_cp
+import ios_edge
 import ios_mgmt
 import ios_routing
 from common import feature, fails, is_public, is_segmented, mask_to_prefix, new_facts, result
 from ios_routing import _routing_auth  # noqa: F401  (kept importable here for the tests)
-from parsers import ios_blocks
+from parsers import ios_acl_lines, ios_blocks
 
 CHECKS = ("IOS-HTTP-SERVER", "IOS-TELNET", "IOS-SSH-V1", "IOS-VTY-ACL", "IOS-SNMP-COMMUNITY",
           "IOS-PASSWORD-STORAGE", "IOS-SMART-INSTALL", "IOS-NO-REMOTE-LOG", "IOS-ROUTING-NO-AUTH",
-          "IOS-ROUTING-WEAK-AUTH", "IOS-SEGMENT-ROUTED") + ios_mgmt.CHECKS
+          "IOS-ROUTING-WEAK-AUTH", "IOS-SEGMENT-ROUTED") + ios_mgmt.CHECKS + ios_cp.CHECKS + ios_edge.CHECKS
 WEAK_COMMUNITIES = {"public", "private", "cisco", "community", "snmp", "admin", "secret"}
 
 
@@ -29,14 +32,8 @@ PRIVATE_DENY = re.compile(r"^deny\s+ip\s+\S+(\s+\S+)?\s+(any|10\.0\.0\.0 0\.255\
 def _acl_is_open(blocks, name):
     """True when an ACL reaches a permit ip any any without first denying the internal ranges
     (deny ip ... any, or a deny to 10/8, 172.16/12 or 192.168/16)."""
-    lines = []
-    for h, ch in blocks:
-        if h == f"ip access-list extended {name}" or h == f"ip access-list standard {name}":
-            lines = ch
-        elif h.startswith(f"access-list {name} "):
-            lines.append(h.split(" ", 2)[2])
+    lines = ios_acl_lines(blocks, name) or []
     for l in lines:
-        l = re.sub(r"^\d+\s+", "", l)
         if PRIVATE_DENY.match(l):
             return False
         if re.match(r"permit\s+ip\s+any\s+any\b", l) or l == "permit any":
@@ -265,6 +262,13 @@ def analyze(text, dev):
 
     # --- AAA, timeouts, banner, NTP, syslog depth, SNMP version (ios_mgmt.py) ---
     res += ios_mgmt.check(blocks, top, internet)
+
+    # --- control plane: CoPP, edge interface services, CDP/LLDP, legacy services (ios_cp.py) ---
+    external = ios_cp.external_interfaces(blocks, facts["interfaces"])
+    res += ios_cp.check(blocks, top, facts["interfaces"], external, dev)
+
+    # --- edge anti-spoofing and eBGP session hygiene (ios_edge.py) ---
+    res += ios_edge.check(blocks, external)
 
     # --- segmentation: a segmented SVI routing to other SVIs in the same VRF with no ACL ---
     svis = [i for i in facts["interfaces"] if re.match(r"[Vv]lan\d+$", i["name"]) and i["ips"]

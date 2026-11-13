@@ -49,3 +49,5 @@ before a check that uses it ships.
 - R1 done 2026-11-13: result model (pass/fail/n-a/not-visible, masked evidence), checks.yaml plane/validated/controls/zt_pillar, exceptions.yaml waivers, ios_routing.py split, maintenance-window label. See review-log Round 5.
 - R2 and R3 done 2026-11-13: ten IOS checks in ios_mgmt.py (timeouts, lockout, central AAA, lines with no authentication, accounting, banner, NTP auth and redundancy, syslog depth, SNMP v1/v2c). IOS-VTY-RANGES dropped (covered per range by existing checks). See review-log Round 6.
 - R4 and R5 done 2026-11-13: nine IOS checks in ios_cp.py and ios_edge.py (CoPP, edge ICMP/ARP services, CDP/LLDP on external interfaces, legacy services, anti-spoofing, eBGP policy, maximum-prefix, GTSM, inbound prefix-list content), peer-group and template resolution. See review-log Round 7.
+- R7 done 2026-11-13: FortiOS hardening, 10 checks (review-log Round 8).
+- R8 done 2026-11-13: end-of-support check, lifecycle.yaml (review-log Round 9). Open: FortiOS 7.0/7.2/8.0 dates.

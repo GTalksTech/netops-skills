@@ -324,3 +324,39 @@ findings, the 158 earlier ones unchanged (IDs, devices, scores). Totals: 177 = 3
 
 IOS-LEGACY-SERVICES passes on all 11 (none of the lines present, version 17.16), so it stays
 `validated: fixture`. 25 new tests in tests/test_ios_edge.py; 177 tests in the suite.
+
+## Round 8 (R7): FortiOS hardening (2026-11-13)
+
+Ten FortiGate checks in fgt_hardening.py, sourced to DISA FortiGate Firewall NDM STIG V1R6
+(FGFW-ND-*) and Fortinet's 7.6 best practices and 8.0 CLI reference: admin lockout, admin
+timeout, weak admin TLS / strong-crypto / SSHv1, cleartext admin protocols on internal
+interfaces, admins without two-factor, password policy, no remote logging, WAN services without
+a local-in policy, unused VIPs, stale AV definitions. FortiOS `show` omits defaults, so an absent
+line is graded by the documented default (lockout 3 tries / 60 s, admintimeout 5, strong-crypto
+on, TLS 1.2+).
+
+fw-01 (real, 8.0.1), checked by hand: lockout fails (60 s default vs STIG 900 s), password
+policy fails on length; timeout, TLS, cleartext and remote log pass; local-in, unused VIP and AV
+age n/a; two-factor not-visible (read-only profile).
+
+Open: 7.0-7.4 defaults unverified; FGT-AV-STALE rests on the same sources as FGT-IPS-STALE (house
+rule 8 should name AV too); 8.0.1 prints `set status enable` for the password policy although
+the 8.0.0 reference gives enable as default.
+
+## Round 9 (R8): end of support (2026-11-13)
+
+lifecycle.py and settings/lifecycle.yaml: per release train, end of maintenance, end of
+vulnerability support and end of support, each read on the vendor page on 2026-11-13 (Cisco
+IOS XE 17.9-17.18, PAN-OS 10.1-12.1, Junos 21.4-26.2, FortiOS 7.4 and 7.6 from a Fortinet staff
+post citing CSB-260330-1, tier 2). LIFECYCLE-EOS (past end of security fixes) and LIFECYCLE-SOON
+(within 12 months). House rule 10 in SCORING.md: CISA BOD 26-02 treats end-of-support edge
+devices as a standing risk, so an internet-facing device past end of security fixes scores as
+exposed, automatable, total impact (3 days); internal devices 60 days.
+
+Lab v2: all 11 devices run 17.16.1a, whose security support ended 2026-01-13 (Cisco notice
+re-read by the lead: migrate to 17.17.1 or later). hq-edge-rtr-01, branch1-rtr-01 and
+isp-rtr-01 now lead the report at 3 days. fw-01 on 8.0.1 is n/a: Fortinet's lifecycle grid did
+not load, so no 8.0 dates yet.
+
+Merge of R4+R5, R7 and R8: 212 tests, 71 checks, lab 190 findings (3d 5, 14d 9, 60d 27,
+lowest band 149).

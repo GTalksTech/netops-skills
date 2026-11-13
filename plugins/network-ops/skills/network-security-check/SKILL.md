@@ -102,11 +102,12 @@ Config findings in the lowest band say "Fix in the next maintenance window"; CVE
 |---|---|---|
 | Cisco IOS / IOS-XE | yes | 30 checks, tested (IOS-XE 17.16) |
 | Cisco ASA | yes | 6 checks, untested |
-| FortiGate (FortiOS) | yes | 9 checks, tested (FortiOS 8.0) |
+| FortiGate (FortiOS) | yes | 19 checks, tested (FortiOS 8.0) |
 | Palo Alto PAN-OS | yes | 7 checks, untested |
 | Juniper Junos | yes | 3 management checks, untested (no SRX policy checks yet) |
 | Arista EOS, Cisco NX-OS, HPE Aruba AOS-CX, Dell OS10, Extreme EXOS, HPE ArubaOS-Switch (ProCurve) | yes | none yet |
 | Huawei VRP, Nokia SR OS | version only: their CVE records are free text, so the report says to check by hand and links the PSIRT | none yet |
+| End of support (all vendors in settings/lifecycle.yaml) | per release train | LIFECYCLE-EOS, LIFECYCLE-SOON from vendor end-of-life dates (CISA BOD 26-02) |
 
 "Tested" means run against real devices in the G Talks Tech lab and the results checked by hand.
 Which checks that covers is recorded per check in `checks.yaml` (`validated: lab-v2`).

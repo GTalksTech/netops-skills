@@ -29,6 +29,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import advisories  # noqa: E402
 import events as events_mod  # noqa: E402
+import lifecycle  # noqa: E402
 import scoring  # noqa: E402
 import vendor_asa  # noqa: E402
 import vendor_fortios  # noqa: E402
@@ -246,6 +247,7 @@ def build(args):
     facts = [device_facts(d, repo, platforms) for d in devices]
     by_name = {f["name"]: f for f in facts}
     findings, notes = [], []
+    lifecycle.apply(facts, notes)   # R8: end-of-support results, scored below as config findings
 
     # ---------- events first: attack attempts raise the CVE findings they hit ----------
     ev_summary = None
@@ -614,6 +616,7 @@ def check_settings(platforms, checks):
         for k in ("vendor", "kind", "version", "config", "cpe", "cna_product"):
             if k not in cfg:
                 bad.append(f"platform {p}: missing {k}")
+    bad += lifecycle.validate(lifecycle.load(), keys)
     print("\n".join(bad) or f"OK: {len(checks)} checks, {len(platforms)} platforms, every check sourced")
     return 1 if bad else 0
 

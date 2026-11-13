@@ -110,6 +110,9 @@ def check(blocks, top, interfaces, external, dev):
 
     # --- ICMP and ARP behaviour on external interfaces ---
     rate_limit = [h for h in top if re.match(r"ip icmp rate-limit unreachable\b", h)]
+    # Cisco ARP configuration guide, "Globally Disabling Proxy ARP": the global command turns
+    # proxy ARP off on every interface.
+    proxy_off_global = "ip arp proxy disable" in top
     if not external:
         for c in ("IOS-EDGE-IP-SERVICES", "IOS-EDGE-CDP-LLDP"):
             res.append(result(c, "n/a", "no internet-facing interface"))
@@ -118,7 +121,7 @@ def check(blocks, top, interfaces, external, dev):
         for n in ext_names:
             ch = cfg.get(n, [])
             why = []
-            if "no ip proxy-arp" not in ch:
+            if "no ip proxy-arp" not in ch and not proxy_off_global:
                 why.append("proxy-arp")
             if "no ip redirects" not in ch:
                 why.append("redirects")
@@ -137,7 +140,8 @@ def check(blocks, top, interfaces, external, dev):
             res.append(result("IOS-EDGE-IP-SERVICES", "pass", "proxy-arp, redirects and unreachables off, no "
                               "directed broadcast on " + ", ".join(ext_names),
                               [f"interface {n}: {c}" for n in ext_names for c in cfg.get(n, [])
-                               if re.match(r"no ip (proxy-arp|redirects|unreachables)$", c)] + rate_limit))
+                               if re.match(r"no ip (proxy-arp|redirects|unreachables)$", c)] + rate_limit
+                              + (["ip arp proxy disable"] if proxy_off_global else [])))
 
         # --- CDP / LLDP on external interfaces ---
         cdp_show = _show(dev, "show-cdp-neighbors-detail.txt")

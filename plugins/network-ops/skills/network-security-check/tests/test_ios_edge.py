@@ -355,3 +355,9 @@ def test_lab_edge_results():
     exposed = {c for c, r in res.items() if r["exposed"]}
     assert exposed == {"IOS-NO-COPP", "IOS-EDGE-IP-SERVICES", "IOS-BGP-NO-GTSM", "IOS-BGP-INBOUND-PERMISSIVE"}
     assert "gtt-lab-ro" not in str(res) and "$9$" not in str(res)    # no secrets in evidence
+
+
+def test_global_proxy_arp_disable_counts_as_off():
+    cfg = GOOD.replace(" no ip proxy-arp\n", "")
+    assert _st(cfg, "IOS-EDGE-IP-SERVICES") == "fail"
+    assert _st(cfg + "ip arp proxy disable\n", "IOS-EDGE-IP-SERVICES") == "pass"

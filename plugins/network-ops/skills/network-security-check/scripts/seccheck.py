@@ -20,6 +20,7 @@ import argparse
 import datetime as dt
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -30,6 +31,7 @@ sys.path.insert(0, str(HERE))
 import advisories  # noqa: E402
 import events as events_mod  # noqa: E402
 import lifecycle  # noqa: E402
+import report  # noqa: E402
 import scoring  # noqa: E402
 import vendor_asa  # noqa: E402
 import vendor_fortios  # noqa: E402
@@ -351,13 +353,29 @@ def build(args):
                        "feature_off": sum(1 for _, x in mine if x["feature_off"]),
                        "check_fixed_release": platforms[d["platform"]].get("psirt")})
     rollup.sort(key=lambda r: (scoring.ORDER.index(r["worst"]), -r["kev"], -r["cves"]))
-    return {"generated": dt.datetime.now().isoformat(timespec="seconds"), "repo": str(repo),
+    rep = {"generated": dt.datetime.now().isoformat(timespec="seconds"), "repo": str(repo),
+            "snapshot": snapshot_info(repo),
             "advisory_cache": {"fetched": cache["fetched"], "kev_version": cache["kev_version"]} if cache else None,
             "devices": [{k: v for k, v in d.items() if k != "findings"} for d in facts],
             "counts": {b: sum(1 for f in findings if f["deadline"] == b) for b in scoring.ORDER},
             "result_counts": {st: sum(d.get("result_counts", {}).get(st, 0) for d in facts) for st in STATUSES},
             "upgrade_plan": rollup,
             "findings": findings, "accepted_risk": accepted, "events": _ev_light(ev_summary), "notes": notes}
+    rep.update(report.analysis(rep, checks))   # R9: summary, posture grid, control map
+    return rep
+
+
+def snapshot_info(repo):
+    """Commit and date of the snapshot repo's HEAD, read with git (read-only). None if not a repo."""
+    try:
+        out = subprocess.run(["git", "-C", str(repo), "log", "-1", "--format=%h|%cI"], capture_output=True,
+                             text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode or "|" not in out.stdout:
+        return None
+    commit, date = out.stdout.strip().split("|", 1)
+    return {"commit": commit, "date": date}
 
 
 # ---------- accepted risk (exceptions.yaml) ----------
@@ -483,75 +501,8 @@ def _ev_light(s):
 
 
 def markdown(rep, checks):
-    L = [f"# Network security check, {rep['generated'][:16].replace('T', ' ')}", ""]
-    c = rep["counts"]
-    L.append("| Deadline (CISA BOD 26-04) | Findings |\n|---|---|")
-    for b in scoring.ORDER:
-        label = scoring.BANDS[b][2] + (" (CVEs) / in the next maintenance window (config)" if b == "upgrade" else "")
-        L.append(f"| {label} | {c.get(b, 0)} |")
-    L.append("")
-    rc = rep.get("result_counts") or {}
-    if any(rc.values()):
-        L.append(f"Config checks run: {rc.get('pass', 0)} pass, {rc.get('fail', 0)} fail, {rc.get('n/a', 0)} not "
-                 f"applicable, {rc.get('not-visible', 0)} not visible in the snapshot. Per-device results are in "
-                 "the JSON report (devices[].results).")
-        if rep.get("accepted_risk"):
-            L.append(f"{len(rep['accepted_risk'])} finding(s) accepted as risk (see Accepted risk): not in the "
-                     "counts above.")
-        L.append("")
-    if rep["upgrade_plan"]:
-        L.append("## Upgrade plan (one upgrade clears every CVE listed for a device)\n")
-        L.append("| Device | Version | CVEs | In KEV | 3d+triage | 3d | 14d | 60d | Upgrade | Feature off |")
-        L.append("|---|---|---|---|---|---|---|---|---|---|")
-        for r in rep["upgrade_plan"]:
-            b = r["by_deadline"]
-            L.append(f"| {r['device']} | {r['version']} | {r['cves']} | {r['kev']} | {b['3d+triage']} | {b['3d']} | "
-                     f"{b['14d']} | {b['60d']} | {b['upgrade']} | {r['feature_off']} |")
-        L.append("")
-    urgent = ("3d+triage", "3d", "14d")
-    for title, typ in (("CVEs on your devices", "cve"), ("Configuration", "config"), ("Firewall events", "event")):
-        rows = [f for f in rep["findings"] if f["type"] == typ]
-        if not rows:
-            continue
-        L.append(f"## {title} ({len(rows)})\n")
-        shown = [f for f in rows if f["deadline"] in urgent] if typ == "cve" else rows
-        for f in shown:
-            if typ == "cve":
-                devs = ", ".join(f"{d['device']} ({d['version']}, {d['score']})" for d in f["devices"])
-                epss = f["epss"].get("epss")
-                L.append(f"- **{f['score']}** {f['id']}: {f['title']}. Devices: {devs}. "
-                         f"KEV: {'yes' if f['kev'] else 'no'}. EPSS: {f'{epss:.3f}' if epss is not None else 'n/a'}. "
-                         f"CVSS: {(f['cvss'] or {}).get('score', 'n/a')}. Exposure: {f['why'].get('publicly_exposed')}.")
-            elif typ == "config":
-                L.append(f"- **{f['score']}** {f['id']} on {f['device']}: {f['detail']}. Fix: {f['fix']}")
-            else:
-                L.append(f"- **{f['score']}** {f['id']}: {f['detail']}")
-        rest = len(rows) - len(shown)
-        if rest:
-            L.append(f"- ...and {rest} more CVEs at 60 days or next upgrade: see the JSON report.")
-        L.append("")
-    if rep.get("accepted_risk"):
-        L.append(f"## Accepted risk ({len(rep['accepted_risk'])})\n")
-        L.append("Waived in exceptions.yaml (NIST SP 800-53 CA-5, RA-7). Still open: not counted against "
-                 "a deadline until the waiver expires.\n")
-        for f in rep["accepted_risk"]:
-            a = f["accepted"]
-            L.append(f"- **{f['score']}** {f['id']} on {f['device']}: {f['detail']}. Accepted: {a['reason']}"
-                     + (f" (owner {a['owner']})" if a.get("owner") else "") + f". Expires {a['expires']}.")
-        L.append("")
-    hidden = [f"{d['name']}: {r['check']}" for d in rep["devices"] for r in d.get("results", [])
-              if r["status"] == "not-visible"]
-    if hidden:
-        L.append("## Not visible in the snapshot\n")
-        L.append("These checks could not run because the config section they need is missing or unreadable: "
-                 + "; ".join(hidden) + ".\n")
-    if rep["notes"] or any(d["notes"] for d in rep["devices"]):
-        L.append("## Coverage notes\n")
-        L += [f"- {n}" for n in rep["notes"]]
-        L += [f"- {d['name']}: {n}" for d in rep["devices"] for n in d["notes"]]
-    L.append("\nCVE data: CVE.org, CISA KEV, FIRST EPSS. This product uses data from the NVD API but "
-             "is not endorsed or certified by the NVD.")
-    return "\n".join(L) + "\n"
+    """The markdown report. Kept here for callers of the old name: report.py renders it."""
+    return report.markdown(rep, checks)
 
 
 def main():
@@ -585,10 +536,13 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     stamp = dt.datetime.now().strftime("%Y-%m-%d-%H%M")
     (out / f"{stamp}.json").write_text(json.dumps(rep, indent=1, default=str), encoding="utf-8")
-    (out / f"{stamp}.md").write_text(markdown(rep, checks), encoding="utf-8")
+    (out / f"{stamp}.md").write_text(report.markdown(rep, checks), encoding="utf-8")
+    (out / f"{stamp}.html").write_text(report.html_report(rep, checks), encoding="utf-8")
     (out / "last-report.json").write_text(json.dumps(rep, indent=1, default=str), encoding="utf-8")
     print(json.dumps({"report_json": str(out / f"{stamp}.json"), "report_md": str(out / f"{stamp}.md"),
+                      "report_html": str(out / f"{stamp}.html"),
                       "counts": rep["counts"], "findings": len(rep["findings"]),
+                      "top_actions": [f"{a['deadline']}: {a['action']}" for a in rep["summary"]["top_actions"]],
                       "top": [{k: f.get(k) for k in ("score", "deadline", "type", "id", "device", "title")}
                               for f in rep["findings"][:10]],
                       "notes": rep["notes"]}, indent=1, default=str))

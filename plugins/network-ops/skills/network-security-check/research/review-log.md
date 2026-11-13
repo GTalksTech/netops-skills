@@ -360,3 +360,61 @@ not load, so no 8.0 dates yet.
 
 Merge of R4+R5, R7 and R8: 212 tests, 71 checks, lab 190 findings (3d 5, 14d 9, 60d 27,
 lowest band 149).
+
+## Round 10 (R9): report rebuild (2026-11-13)
+
+scripts/report.py renders the report from the JSON, which stays the source of truth. New JSON
+fields, nothing removed: `summary` (counts, all actions, `top_actions`), `posture` (device x
+plane fail / pass counts with the worst open deadline per cell, plus a CVE column), `controls`
+(NIST SP 800-53r5 control and CISA ZTMM pillar to failing and passing checks), `snapshot`
+(commit and date of the snapshot repo, read with git log).
+
+Markdown and a new self-contained HTML file (inline CSS, no scripts or external assets, light
+and dark), in this order: scope and method, summary with top actions, posture grid, findings by
+deadline grouped by check (one evidence line, why, fix, sources), accepted risk, what is good,
+what the check could not see, control map.
+
+Judgment calls:
+- Top actions group by fix. One upgrade action per (platform, version) carries its CVEs and
+  LIFECYCLE findings. Related config checks merge into themes (eBGP, edge interfaces, routing
+  auth, inbound firewall policy, management baseline, NTP, logging, FortiGate admin baseline);
+  layer 2 checks form one theme by plane. Ranked by deadline, then score, then exposure.
+- The upgrade hint quotes the lifecycle.yaml note only when it names a recommended release
+  ("Cisco recommends 17.17.1 or later"); otherwise "see the vendor advisory".
+- CVEs that share title, devices and advisory print as one line (the Cisco hardening bundle:
+  six CVEs, one advisory). The lowest band lists checks one line each and CVE IDs by version.
+- "What is good" lists checks that passed on every device they apply to; partial passes stay
+  in the findings.
+- The markdown control map groups controls by family to stay short; the HTML has a row per
+  control with the failing check IDs.
+
+Lab v2 run with R6 merged, read end to end: 211 findings, unchanged by the rebuild; markdown 260
+lines, HTML about 70 KB.
+Top actions: upgrade IOS-XE 17.16.1a on all 11 devices (3 days), upgrade FortiOS 8.0.1 on
+fw-01 (3 days), FortiGate IPS signatures (14 days), then inbound firewall policy, eBGP, edge
+interfaces and routing auth (60 days). 15 tests in tests/test_report.py (sections and order,
+grouping, device ranges, no fixture secrets in md or HTML, no external assets, HTML escaping of a
+crafted finding, accepted risk); 254 in the suite.
+
+Open: the fw-01 trusted-host note repeats the FGT-ADMIN-NO-TRUSTHOST not-visible line. The
+markdown is a little over the 250-line aim since the layer 2 checks added a dozen lines.
+
+## Round 11 (R6): layer 2 and first hop (2026-11-13)
+
+Nine checks in ios_l2.py, sourced to DISA Cisco IOS XE Switch L2S STIG V3R2 (CISC-L2-*) and, for
+HSRP/VRRP authentication (no STIG rule exists), Cisco's Harden IOS Devices guide: BPDU guard,
+DHCP snooping, DAI, port security / 802.1X / MAB, unused ports, DTP, trunk native VLAN and
+allowed list, VTP authentication, FHRP authentication. Saved show output (switchport, trunk,
+vtp, standby) is the truth when present. Server/DMZ VLANs are skipped for snooping and DAI as
+the STIG allows. L2 findings are never internet-exposed.
+
+Lab v2, checked by hand by the builder: 21 new findings, all lowest band (DHCP snooping and DAI
+on user VLANs, DTP on trunks, native VLAN 1, HSRP without authentication on both distribution
+switches, port authentication). BPDU guard, VTP transparent and the PARKED VLAN pass.
+
+Found on the way and fixed by the lead: common.mask() left HSRP `authentication text <key>` and
+the value in `md5 key-string 7 <key>` visible. Fixed, with tests/test_mask.py. Lab scan of 326
+evidence lines: no leaks.
+
+Open: IP Source Guard (CISC-L2-000140) not implemented; network-snapshot should save
+`show vtp password`; IOL support for snooping/DAI/port-security not confirmed on the device.

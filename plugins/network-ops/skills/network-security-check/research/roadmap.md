@@ -51,3 +51,5 @@ before a check that uses it ships.
 - R4 and R5 done 2026-11-13: nine IOS checks in ios_cp.py and ios_edge.py (CoPP, edge ICMP/ARP services, CDP/LLDP on external interfaces, legacy services, anti-spoofing, eBGP policy, maximum-prefix, GTSM, inbound prefix-list content), peer-group and template resolution. See review-log Round 7.
 - R7 done 2026-11-13: FortiOS hardening, 10 checks (review-log Round 8).
 - R8 done 2026-11-13: end-of-support check, lifecycle.yaml (review-log Round 9). Open: FortiOS 7.0/7.2/8.0 dates.
+- R9 done 2026-11-13: report.py renders md and a self-contained HTML report (summary with top actions grouped by fix, posture grid, grouped findings, what is good, coverage, control map); JSON gains summary, posture, controls, snapshot (review-log Round 10).
+- R6 done 2026-11-13: layer 2 and FHRP, 9 checks (review-log Round 11).

@@ -48,15 +48,26 @@ python <skill folder>/scripts/seccheck.py run   [--repo ~/network-snapshots] [--
   key). If the user has an NVD API key, they can set `NVD_API_KEY` in their own shell to make it
   faster. Never ask them for the key.
 - `run` works offline. It prints a short JSON summary and writes the full report to
-  `~/network-security/reports/` (`<date>.json` and `<date>.md`, plus `last-report.json`).
+  `~/network-security/reports/`: `<date>.json` (the source of truth, also `last-report.json`),
+  `<date>.md`, and `<date>.html` (one self-contained file with a colored posture grid; opens
+  offline in any browser). `scripts/report.py` renders the md and HTML from the JSON.
 - Python 3.9+ with `pyyaml`. No other packages.
 
 ## Report to the user, in this order
 
-Read `last-report.json`. Each finding has `score`, `deadline`, `inputs` (the four answers)
-and `why` (where each answer came from). Each device also has `results`: one entry per config
-check with `status` pass, fail, n/a (doesn't apply) or not-visible (the config section it needs
-was missing), plus `evidence` (short config lines, secrets masked). Only fails are scored.
+Read `last-report.json`, starting with `summary`: `counts` per deadline and `top_actions`, the
+five to seven most important fixes, each already grouped by fix (one upgrade per software
+version clears its CVEs and end-of-support findings; related config checks form one action).
+Lead with those actions instead of rebuilding a list from `findings`. `posture` holds the
+device x plane grid (fail / pass per cell) and `controls` the NIST SP 800-53 and CISA ZTMM map.
+Each finding has `score`, `deadline`, `inputs` (the four answers) and `why` (where each answer
+came from). Each device also has `results`: one entry per config check with `status` pass,
+fail, n/a (doesn't apply) or not-visible (the config section it needs was missing), plus
+`evidence` (short config lines, secrets masked). Only fails are scored.
+
+Point the user to the HTML report (`report_html` in the run output) for the full picture: the
+posture grid as a heatmap, every finding grouped by check with evidence and fix, what passed,
+and what the check could not see. In chat, keep to the summary below.
 
 1. **One line on scope:** devices checked, advisory cache date, event window if any.
 2. **Fix within 3 days + check for compromise** (score 90+). For each: what it is, which
@@ -64,8 +75,8 @@ was missing), plus `evidence` (short config lines, secrets masked). Only fails a
    GlobalProtect is on the internet-facing interface, attempts seen in your logs, 20 not
    blocked"). Say plainly that "check for compromise" means looking for signs someone already
    got in (the vendor advisory usually lists indicators), not just patching.
-3. **3 days, then 14 days:** grouped by device or by theme when that reads better (all the
-   exposed-management findings together).
+3. **3 days, then 14 days:** follow `top_actions`, which already groups by fix; add a device
+   or theme detail only where the action line leaves it out.
 4. **60 days and next upgrade:** counts plus one line each for the top few. Don't list every
    low finding unless asked.
 5. **What passed:** one line from `result_counts` (for example "79 checks passed, 40 did not

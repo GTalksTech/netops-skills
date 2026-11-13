@@ -56,9 +56,14 @@ STATUSES = ("pass", "fail", "n/a", "not-visible")
 
 # Secret values that may sit on a config line. The value after the keyword (and after a type
 # digit or ENC) is replaced, so evidence can quote the line without the secret.
+# The value must not itself be a keyword: in "md5 key-string 7 X" the match skips "md5" and masks
+# the value after "key-string 7". HSRP/VRRP/GLBP clear-text keys ("standby 1 authentication X",
+# "authentication text X") are covered by the last two keywords.
 _SECRET = re.compile(r"(?<![\w-])(community|secret|password|passwd|psksecret|key-string|authentication-key|"
-                     r"encrypted-password|md5|sha|aes|key|auth-password|priv-password)"
-                     r"(\s+(?:\d{1,3}|ENC|encrypted)\b)?\s+(?!<hidden>|chain\b|generate\b)\S+", re.I)
+                     r"encrypted-password|md5|sha|aes|key|auth-password|priv-password|authentication\s+text|"
+                     r"(?:standby|vrrp|glbp)\s+\d+\s+authentication)"
+                     r"(\s+(?:\d{1,3}|ENC|encrypted)\b)?\s+"
+                     r"(?!<hidden>|chain\b|generate\b|key-string\b|key-chain\b|key\b|md5\b|text\b)\S+", re.I)
 
 
 def mask(line):

@@ -18,15 +18,21 @@ from pathlib import Path
 from common import result
 
 CHECKS = ("IOS-L2-BPDUGUARD", "IOS-L2-DHCP-SNOOPING", "IOS-L2-DAI", "IOS-L2-PORT-AUTH", "IOS-L2-UNUSED-PORTS",
-          "IOS-L2-DTP", "IOS-L2-TRUNK-VLANS", "IOS-L2-VTP-AUTH", "IOS-FHRP-NO-AUTH")
-L2_CHECKS = CHECKS[:-1]
+          "IOS-L2-DTP", "IOS-L2-TRUNK-VLANS", "IOS-L2-VTP-AUTH", "IOS-FHRP-NO-AUTH", "IOS-L2-V6-FHS",
+          "IOS-L2-V6-FHS-ADVISORY")
+L2_CHECKS = CHECKS[:8]          # BPDU guard .. VTP: need a switchport
+V6_CHECKS = CHECKS[-2:]         # RA Guard and DHCPv6 Guard (IPv6 first hop security)
 
 ALL_VLANS = frozenset(range(1, 4095))
 # DHCP snooping and DAI are asked for on user VLANs (STIG CISC-L2-000130 / -000150): VLANs whose
 # name marks them as server, DMZ or printer VLANs are left out and named in the detail.
 SERVER_VLAN = re.compile(r"serv|srv|dmz|print", re.I)
 NOT_PORT = re.compile(r"(Vlan|Loopback|Tunnel|BDI|Null|Virtual|Dialer|Serial|Multilink|nve|Cellular|Async|NVI|"
-                      r"LISP|Embedded|Wlan)", re.I)
+                      r"LISP|Embedded|Wlan|Bluetooth|AppGigabitEthernet|Mgmt|Management)", re.I)
+# Config lines that make an interface a routed or service port, not a switchport (used only when
+# the snapshot has no 'show interfaces switchport' to say so).
+ROUTED = re.compile(r"(no switchport$|ip address \S|ipv6 address \S|ip unnumbered |(ip )?vrf forwarding |"
+                    r"encapsulation |service instance )")
 SHORT = (("TwentyFiveGigE", "Twe"), ("TenGigabitEthernet", "Te"), ("FortyGigabitEthernet", "Fo"),
          ("HundredGigE", "Hu"), ("AppGigabitEthernet", "Ap"), ("GigabitEthernet", "Gi"),
          ("FastEthernet", "Fa"), ("Ethernet", "Et"), ("Port-channel", "Po"))
@@ -149,6 +155,22 @@ def _trunk_allowed(lines):
     return set(ALL_VLANS) if allowed is None else allowed
 
 
+def templates(blocks):
+    """{name: [lines]} from IOS XE interface templates ('template NAME' blocks, IBNS 2.0)."""
+    return {h.split()[1]: list(ch) for h, ch in blocks if re.match(r"template \S+$", h)}
+
+
+def with_templates(ch, tpls):
+    """An interface's lines with the lines of its 'source template NAME' folded in after its own
+    (interface lines win: they come first and the checks read the first match)."""
+    out = list(ch)
+    for c in ch:
+        m = re.match(r"source template (\S+)$", c)
+        if m:
+            out += [l for l in tpls.get(m.group(1), []) if l not in out]
+    return out
+
+
 def ports(blocks, dev):
     """Every switchport on the device with its mode, VLANs and settings. Show output wins over
     the config where both say something. [] when the device has no switchport."""
@@ -159,14 +181,19 @@ def ports(blocks, dev):
     if not is_l2:
         return []
     out = []
+    tpls = templates(blocks)
     for h, ch in blocks:
         m = re.match(r"interface (\S+)$", h)
         if not m or NOT_PORT.match(m.group(1)):
             continue
         name = m.group(1)
+        ch = with_templates(ch, tpls)
         s = sw.get(short(name), {})
-        if s.get("Switchport") == "Disabled" or (not s and ("no switchport" in ch
-                                                             or any(c.startswith("ip address") for c in ch))):
+        if sw:
+            # the saved show output is the truth: only ports it lists as switchports are graded
+            if s.get("Switchport") != "Enabled":
+                continue
+        elif "." in name or any(ROUTED.match(c) for c in ch):
             continue
         p = {"name": name, "lines": ch, "shutdown": "shutdown" in ch, "status": status.get(short(name)),
              "from_show": bool(s), "default_mode": False}
@@ -430,6 +457,106 @@ def _fhrp(blocks):
                   [f"interface {i}: {l}" for i, _, _, _, l in groups])
 
 
+# ---------- IPv6 first hop security: RA Guard and DHCPv6 Guard ----------
+
+# Policy roles that let the guarded messages through (Cisco IOS XE 17 FHS guide: RA Guard
+# device-role default host, DHCPv6 Guard default client; trusted-port skips the guard).
+_FHS = {"ra": ("ipv6 nd raguard", "ipv6 nd raguard policy", re.compile(r"device-role router$")),
+        "dhcp": ("ipv6 dhcp guard", "ipv6 dhcp guard policy", re.compile(r"device-role server$"))}
+
+
+def _fhs_policies(blocks, kind):
+    """{policy name: why it does not guard, or None when it does}."""
+    _, head, open_role = _FHS[kind]
+    out = {}
+    for h, ch in blocks:
+        m = re.match(rf"{head} (\S+)$", h)
+        if m:
+            bad = [c for c in ch if open_role.match(c) or c == "trusted-port"]
+            out[m.group(1)] = f"policy {m.group(1)}: {bad[0]}" if bad else None
+    return out
+
+
+def _attach(line, kind):
+    """(policy name or None for the default policy, set of VLANs or None for all) when the line
+    attaches the guard, else False."""
+    cmd = _FHS[kind][0]
+    m = re.match(rf"{cmd}(?: attach-policy (\S+))?(?: vlan (?:add |except |remove )?(.+))?$", line)
+    if not m:
+        return False
+    vl = m.group(2)
+    return m.group(1), (None if not vl or vl.strip().lower() == "all" else vlan_set(vl))
+
+
+def _guarded(p, kind, vlan_cfg, policies):
+    """(True, how) when the access port is covered by this guard, (False, why) when not."""
+    vlan = p["access_vlan"]
+    cands = []
+    for c in p["lines"]:
+        a = _attach(c, kind)
+        if a is not False and (a[1] is None or vlan in a[1]):
+            cands.append((a[0], c))
+    if not cands:
+        for vl, lines in vlan_cfg:
+            if vlan in vl:
+                for c in lines:
+                    a = _attach(c, kind)
+                    if a is not False:
+                        cands.append((a[0], f"vlan configuration {vlan_text(vl)}: {c}"))
+    if not cands:
+        return False, "none"
+    pol, how = cands[0]
+    if pol and pol not in policies:
+        return False, f"{how} names an undefined policy"
+    why = policies.get(pol) if pol else None
+    return (False, why) if why else (True, how)
+
+
+def v6_fhs(blocks, top, access):
+    """IOS-L2-V6-FHS (access ports in a VLAN whose SVI here has IPv6) and IOS-L2-V6-FHS-ADVISORY
+    (other access ports on a switch that routes IPv6). RFC 6105: only router-facing ports should
+    accept router advertisements; DHCPv6 Guard does the same for DHCPv6 server messages."""
+    svi6 = set()
+    for h, ch in blocks:
+        m = re.match(r"interface [Vv]lan(\d+)$", h)
+        if m and "shutdown" not in ch and any(re.match(r"ipv6 (address \S|enable$)", c) for c in ch):
+            svi6.add(int(m.group(1)))
+    routes6 = "ipv6 unicast-routing" in top
+    if not routes6 and not svi6:
+        why = "the switch does not route IPv6 (no ipv6 unicast-routing, no SVI with IPv6)"
+        return [result(c, "n/a", why) for c in V6_CHECKS]
+    if not access:
+        return [result(c, "n/a", "no active access port") for c in V6_CHECKS]
+    vlan_cfg = [(vlan_set(h.split(None, 2)[2]), ch) for h, ch in blocks if h.startswith("vlan configuration ")]
+    pol = {k: _fhs_policies(blocks, k) for k in _FHS}
+    rows = []       # (port, in an IPv6 VLAN, missing [..], how [..])
+    for p in access:
+        miss, how = [], []
+        for kind, label in (("ra", "RA Guard"), ("dhcp", "DHCPv6 Guard")):
+            ok, text = _guarded(p, kind, vlan_cfg, pol[kind])
+            (how if ok else miss).append(text if ok else f"no {label}" + ("" if text == "none" else f" ({text})"))
+        rows.append((p, p["access_vlan"] in svi6, miss, how))
+    out = []
+    for cid, in_v6 in (("IOS-L2-V6-FHS", True), ("IOS-L2-V6-FHS-ADVISORY", False)):
+        mine = [r for r in rows if r[1] == in_v6]
+        if not mine:
+            out.append(result(cid, "n/a", "no active access port in a VLAN whose SVI on this switch has IPv6"
+                              if in_v6 else "every active access port is in a VLAN with an IPv6 SVI here"))
+            continue
+        bad = [r for r in mine if r[2]]
+        if bad:
+            scope = ("in VLANs with an IPv6 SVI on this switch" if in_v6 else
+                     "in VLANs with no IPv6 SVI here, on a switch that routes IPv6 (hosts run IPv6 by default)")
+            out.append(result(cid, "fail", f"Access ports {scope} accept rogue router advertisements or DHCPv6 "
+                              "server messages: " + "; ".join(f"{p['name']} VLAN {p['access_vlan']} "
+                                                                f"({', '.join(m)})" for p, _, m, _ in bad),
+                              [f"interface {p['name']}" for p, *_ in bad], where=", ".join(p["name"] for p, *_ in bad)))
+        else:
+            out.append(result(cid, "pass", f"RA Guard and DHCPv6 Guard on all {len(mine)} access port(s)",
+                              [f"{p['name']}: {h}" for p, _, _, hw in mine for h in hw]))
+    return out
+
+
 def check(blocks, top, dev):
     res = []
     swports = ports(blocks, dev)
@@ -438,6 +565,7 @@ def check(blocks, top, dev):
         res.append(_vtp(swports, top, dev) if _show(dev, "show-vtp-status.txt")
                    else result("IOS-L2-VTP-AUTH", "n/a", "no switchport on this device"))
         res.append(_fhrp(blocks))
+        res += [result(c, "n/a", "no switchport on this device") for c in V6_CHECKS]
         return res
     names = parse_vlan_names(_show(dev, "show-vlan-brief.txt"))
     for h, ch in blocks:
@@ -471,4 +599,5 @@ def check(blocks, top, dev):
     res.append(_trunk_vlans(trunks, acc_vlans, top))
     res.append(_vtp(swports, top, dev))
     res.append(_fhrp(blocks))
+    res += v6_fhs(blocks, top, access)
     return sorted(({**r, "exposed": False} for r in res), key=lambda r: CHECKS.index(r["check"]))

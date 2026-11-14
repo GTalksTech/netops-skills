@@ -2,7 +2,8 @@
 # Script:       fgt_hardening.py
 # Purpose:      FortiGate (FortiOS) management-plane hardening checks (roadmap R7): admin
 #               lockout, idle timeout, admin TLS, clear-text admin protocols, two-factor,
-#               password policy, remote logging, local-in policy, unused VIPs, stale AV.
+#               password policy, remote logging, local-in policy, unused VIPs, stale AV,
+#               admin SSH algorithms (round 14).
 # Author:       G Talks Tech
 # Notes:        Read-only. FortiOS "show" leaves out every line that is at its default, so
 #               an absent line means the documented default (research/sources.md, R7 rows:
@@ -15,7 +16,7 @@ from common import result
 
 CHECKS = ("FGT-ADMIN-LOCKOUT", "FGT-ADMIN-TIMEOUT", "FGT-WEAK-ADMIN-TLS", "FGT-ADMIN-CLEARTEXT",
           "FGT-ADMIN-NO-2FA", "FGT-PASSWORD-POLICY", "FGT-NO-REMOTE-LOG", "FGT-WAN-NO-LOCAL-IN",
-          "FGT-VIP-UNUSED", "FGT-AV-STALE")
+          "FGT-VIP-UNUSED", "FGT-AV-STALE", "FGT-ADMIN-SSH-CRYPTO")
 
 # STIG FGFW-ND values (DISA FortiGate NDM STIG V1R6)
 STIG_LOCKOUT_THRESHOLD = 3
@@ -30,6 +31,26 @@ STALE_DAYS = 30            # same bar as FGT-IPS-STALE (SCORING.md house rule 8)
 OLD_TLS = {"sslv3", "tlsv1-0", "tlsv1-1"}
 OLD_MIN_PROTO = {"sslv3", "tlsv1", "tlsv1-0", "tlsv1-1"}
 MGMT = {"http", "https", "ssh", "telnet", "snmp"}     # FGT-MGMT-ON-WAN reports these on WAN
+
+
+MONTHS = {m: i + 1 for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
+                                         "nov", "dec"))}
+
+
+def snapshot_date(folder, fallback):
+    """The day the snapshot was taken: the 'System time:' line of get-system-status.txt when it is
+    there (the FortiGate's own clock), else the modification time of `fallback` (the file the date
+    was read from, written by the snapshot run). Shared by FGT-AV-STALE and FGT-IPS-STALE."""
+    f = folder / "get-system-status.txt" if folder else None
+    if f and f.exists():
+        m = re.search(r"^System time:\s*(?:\w{3}\s+)?(\w{3})\s+(\d{1,2})\s+[\d:]+\s+(\d{4})",
+                      f.read_text(encoding="utf-8", errors="replace"), re.M)
+        if m and m.group(1).lower() in MONTHS:
+            try:
+                return dt.date(int(m.group(3)), MONTHS[m.group(1).lower()], int(m.group(2)))
+            except ValueError:
+                pass
+    return dt.date.fromtimestamp(fallback.stat().st_mtime)
 
 
 def version(text):
@@ -117,6 +138,38 @@ def _global_checks(glob, ver, wan_admin):
                                                                      "ssl-min-proto-version", "admin-ssh-v1")
                            if k in glob] or ["(no lines: FortiOS defaults)"], where="system global"))
     return out
+
+
+# Admin SSH algorithms. FortiOS 7.4+ keeps them in 'config system ssh-config' (7.0.2-7.2 in
+# 'config system global'). The FortiOS 8.0.0 defaults are all strong (fortinet-cli-ssh-config-80),
+# so only an explicit 'set' that adds one of these fails.
+SSH_WEAK = {
+    "ssh-enc-algo": re.compile(r"cbc|3des|arcfour|blowfish|cast128", re.I),
+    "ssh-kex-algo": re.compile(r"sha1", re.I),
+    "ssh-mac-algo": re.compile(r"^(hmac-md5|hmac-sha1|umac-64)", re.I),
+    "ssh-hsk-algo": re.compile(r"^ssh-rsa$", re.I),
+}
+
+
+def _ssh_crypto(sshcfg, glob, wan_admin):
+    bad, ev = [], []
+    for key, rx in SSH_WEAK.items():
+        for where, cfg in (("system ssh-config", sshcfg), ("system global", glob or {})):
+            vals = cfg.get(key)
+            if not vals:
+                continue
+            ev.append(f"{where}: set {key} {' '.join(vals)}")
+            weak = [v for v in vals if rx.search(v)]
+            if weak:
+                bad.append(f"{key} {' '.join(weak)}")
+            break
+    if bad:
+        return result("FGT-ADMIN-SSH-CRYPTO", "fail", "admin SSH allows weak algorithms: " + "; ".join(bad), ev,
+                      exposed=wan_admin, where="system ssh-config")
+    return result("FGT-ADMIN-SSH-CRYPTO", "pass",
+                  "admin SSH algorithms " + ("set explicitly, none weak" if ev else
+                                             "at the FortiOS 8.0 defaults (no CBC, 3DES, SHA-1 or MD5)"),
+                  ev or ["(no ssh-*-algo lines: FortiOS defaults)"], where="system ssh-config")
 
 
 def _cleartext(ifaces, internet_if, glob):
@@ -224,10 +277,15 @@ def _remote_log(sections):
 
 def _local_in(ifaces, zones, internet_if, local_in):
     """WAN interfaces that answer more than ping and admin protocols (fabric, fgfm, ftm,
-    radius-acct, probe-response, speed-test...) with no local-in policy on that interface."""
+    radius-acct, probe-response, speed-test...) with no local-in policy on that interface. A policy
+    counts only when it restricts: action deny (the FortiOS default when no 'set action' line is
+    shown) or a source other than "all". A plain accept from all filters nothing."""
+    def restricts(p):
+        return p.get("action", ["deny"]) != ["accept"] or set(p.get("srcaddr", ["all"])) - {"all"}
+
     def covered(name):
         for p in local_in.values():
-            if p.get("status") == ["disable"]:
+            if p.get("status") == ["disable"] or not restricts(p):
                 continue
             intf = set(p.get("intf", []))
             if "any" in intf or name in intf or any(name in zones.get(z, {}).get("interface", [])
@@ -299,7 +357,7 @@ def _av_stale(folder, av_in_use, internet):
                     pass
     if not when:
         return result("FGT-AV-STALE", "not-visible", "no virus definitions date in the saved FortiGuard status")
-    taken = dt.date.fromtimestamp(src.stat().st_mtime)
+    taken = snapshot_date(folder, src)
     age = (taken - when).days
     stale = age > STALE_DAYS
     return result("FGT-AV-STALE", "fail" if stale else "pass",
@@ -316,6 +374,7 @@ def analyze(tree, text, dev, section, ifaces, zones, internet_if, policies, vips
     wan_admin = any(admin_on & set(ifaces.get(i, {}).get("allowaccess", [])) for i in internet_if)
     out = _global_checks(glob, ver, wan_admin)
     out += _cleartext(ifaces, internet_if, glob)
+    out.append(_ssh_crypto(section(tree, "system ssh-config"), glob, wan_admin))
 
     admins = section(tree, "system admin")
     partial = bool(admins) and list(admins) == [dev.get("username")]

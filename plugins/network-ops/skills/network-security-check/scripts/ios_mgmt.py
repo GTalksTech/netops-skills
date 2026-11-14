@@ -11,7 +11,7 @@ import re
 
 from common import result
 
-CHECKS = ("IOS-EXEC-TIMEOUT", "IOS-LOGIN-BLOCK", "IOS-AAA-CENTRAL", "IOS-LOGIN-NONE",
+CHECKS = ("IOS-EXEC-TIMEOUT", "IOS-LOGIN-BLOCK", "IOS-AAA-CENTRAL", "IOS-LOGIN-NONE", "IOS-VTY-NO-LOGIN",
           "IOS-AAA-ACCOUNTING", "IOS-BANNER", "IOS-NTP-AUTH", "IOS-NTP-REDUNDANT", "IOS-LOG-DEPTH",
           "IOS-SNMP-V2C")
 
@@ -19,6 +19,28 @@ STIG_TIMEOUT = 300          # seconds; DISA CISC-ND-000720: 5 minutes
 DEFAULT_TIMEOUT = 600       # seconds; Cisco Doc 13608: "disconnected after ten minutes of inactivity"
 TRAP_LEVELS = {"emergencies": 0, "alerts": 1, "critical": 2, "errors": 3, "warnings": 4,
                "notifications": 5, "informational": 6, "debugging": 7}
+
+
+def vty_acl_in(ch, v6=False):
+    """The ACL a line applies to inbound sessions ('access-class X in', 'in vrf-also'), else
+    None. 'access-class X out' filters outgoing sessions from the line and protects nothing."""
+    rx = r"ipv6 access-class (\S+) in\b" if v6 else r"access-class (\S+) in\b"
+    for c in ch:
+        m = re.match(rx, c)
+        if m:
+            return m.group(1)
+    return None
+
+
+def trusted_keys(top):
+    """Key numbers from 'ntp trusted-key' lines, ranges included ('ntp trusted-key 1 - 5')."""
+    out = set()
+    for h in top:
+        m = re.match(r"ntp trusted-key (\d+)(?:\s*-\s*(\d+))?", h)
+        if m:
+            lo, hi = int(m.group(1)), int(m.group(2) or m.group(1))
+            out |= {str(k) for k in range(lo, min(hi, lo + 1000) + 1)}
+    return out
 
 
 def _login_lines(blocks):
@@ -60,7 +82,12 @@ def _line_auth(h, ch, aaa, lists):
         name = named[0] if named else "default"
         methods = lists.get(name)
         if methods is None:
-            why = "no default login list (local users)" if name == "default" else \
+            if name == "default" and h.startswith("line con"):
+                # Cisco IOS Security Command Reference, aaa authentication login: "On the console,
+                # login will succeed without any authentication checks if default keyword is not set."
+                return "none", ("aaa new-model with no 'aaa authentication login default' list: the console "
+                                "logs in without authentication")
+            why ="no default login list (local users)" if name == "default" else \
                 f"login list {name} is not defined"
             return "local", why
         text = f"login list {name}: {' '.join(methods)}"
@@ -137,7 +164,7 @@ def check(blocks, top, internet):
     if not vty:
         res.append(result("IOS-LOGIN-BLOCK", "n/a", "no vty line accepts remote logins"))
     elif not block:
-        open_vty = [h for h, ch in vty if not any(c.startswith("access-class") for c in ch)]
+        open_vty = [h for h, ch in vty if not vty_acl_in(ch)]
         res.append(result("IOS-LOGIN-BLOCK", "fail", "No 'login block-for': failed logins are not limited",
                           exposed=internet and bool(open_vty)))
     else:
@@ -150,19 +177,25 @@ def check(blocks, top, internet):
 
     # --- how each line authenticates ---
     auth = [(h, ch) + _line_auth(h, ch, aaa, lists) for h, ch in lines]
-    no_auth = [a for a in auth if a[2] in ("none", "none-fallback")]
-    if not lines:
-        res.append(result("IOS-LOGIN-NONE", "n/a", "no console or vty line in the config"))
-    elif no_auth:
-        exposed = internet and any(h.startswith("line vty") and not any(c.startswith("access-class") for c in ch)
-                                   for h, ch, _, _ in no_auth)
-        res.append(result("IOS-LOGIN-NONE", "fail", "Login without authentication: " + "; ".join(
-            f"{h} ({t}{', falls back to none if the servers do not answer' if k == 'none-fallback' else ''}"
-            f"{', privilege level 15' if 'privilege level 15' in ch else ''})"
-            for h, ch, k, t in no_auth), [f"{h}: {t}" for h, _, _, t in no_auth], exposed=exposed))
-    else:
-        res.append(result("IOS-LOGIN-NONE", "pass", "every console and vty line asks for a login",
-                          [f"{h}: {t}" for h, _, _, t in auth]))
+    def _txt(h, ch, k, t):
+        return (f"{h} ({t}{', falls back to none if the servers do not answer' if k == 'none-fallback' else ''}"
+                f"{', privilege level 15' if 'privilege level 15' in ch else ''})")
+
+    # Console (IOS-LOGIN-NONE) and vty (IOS-VTY-NO-LOGIN) are graded apart: a console needs
+    # someone at the device, a vty is reachable over the network.
+    for cid, kind in (("IOS-LOGIN-NONE", "line con"), ("IOS-VTY-NO-LOGIN", "line vty")):
+        these = [a for a in auth if a[0].startswith(kind)]
+        bad = [a for a in these if a[2] in ("none", "none-fallback")]
+        label = "console" if kind == "line con" else "vty"
+        if not these:
+            res.append(result(cid, "n/a", f"no {label} line that accepts a login in the config"))
+        elif bad:
+            exposed = cid == "IOS-VTY-NO-LOGIN" and internet and any(not vty_acl_in(ch) for _, ch, _, _ in bad)
+            res.append(result(cid, "fail", "Login without authentication: " + "; ".join(_txt(*a) for a in bad),
+                              [f"{h}: {t}" for h, _, _, t in bad], exposed=exposed))
+        else:
+            res.append(result(cid, "pass", f"every {label} line asks for a login",
+                              [f"{h}: {t}" for h, _, _, t in these]))
 
     servers = _servers(blocks, top)
     vty_auth = [a for a in auth if a[0].startswith("line vty")]
@@ -210,7 +243,7 @@ def check(blocks, top, internet):
     if not ntp_src:
         res.append(result("IOS-NTP-AUTH", "n/a", "no NTP server configured"))
     else:
-        trusted = {t for h in top if h.startswith("ntp trusted-key ") for t in h.split()[2:3]}
+        trusted = trusted_keys(top)
         keys = {}
         for h in top:
             m = re.match(r"ntp authentication-key (\d+) (\S+)", h)

@@ -31,27 +31,25 @@ THEMES = {
     "IOS-BGP-MAX-PREFIX": "Harden the eBGP sessions (route filters, maximum-prefix, GTSM)",
     "IOS-BGP-NO-GTSM": "Harden the eBGP sessions (route filters, maximum-prefix, GTSM)",
     "IOS-BGP-INBOUND-PERMISSIVE": "Harden the eBGP sessions (route filters, maximum-prefix, GTSM)",
-    "IOS-EDGE-NO-ANTISPOOF": "Harden the internet-facing interfaces (anti-spoofing, IP services, CDP/LLDP)",
-    "IOS-EDGE-IP-SERVICES": "Harden the internet-facing interfaces (anti-spoofing, IP services, CDP/LLDP)",
-    "IOS-EDGE-CDP-LLDP": "Harden the internet-facing interfaces (anti-spoofing, IP services, CDP/LLDP)",
+    "IOS-EDGE-NO-ANTISPOOF": "Harden the internet-facing interfaces (anti-spoofing, IP services)",
+    "IOS-EDGE-IP-SERVICES": "Harden the internet-facing interfaces (anti-spoofing, IP services)",
+    "IOS-EDGE-CDP-LLDP": "Harden the internet-facing interfaces (anti-spoofing, IP services)",
     "IOS-ROUTING-NO-AUTH": "Authenticate routing protocol neighbors",
     "IOS-ROUTING-WEAK-AUTH": "Authenticate routing protocol neighbors",
     "FGT-INBOUND-ANY-SERVICE": "Tighten inbound firewall policy (named services, IPS on every inbound rule)",
     "FGT-INBOUND-NO-IPS": "Tighten inbound firewall policy (named services, IPS on every inbound rule)",
     "PAN-INBOUND-ANY-SERVICE": "Tighten inbound firewall policy (named services, IPS on every inbound rule)",
     "PAN-INBOUND-NO-PROFILE": "Tighten inbound firewall policy (named services, IPS on every inbound rule)",
-    "IOS-AAA-CENTRAL": "Apply a management-access baseline (central AAA, lockout, timeouts, banner)",
-    "IOS-LOGIN-BLOCK": "Apply a management-access baseline (central AAA, lockout, timeouts, banner)",
-    "IOS-EXEC-TIMEOUT": "Apply a management-access baseline (central AAA, lockout, timeouts, banner)",
-    "IOS-LOGIN-NONE": "Apply a management-access baseline (central AAA, lockout, timeouts, banner)",
-    "IOS-BANNER": "Apply a management-access baseline (central AAA, lockout, timeouts, banner)",
+    "IOS-AAA-CENTRAL": "Apply a management-access baseline (central AAA, lockout, timeouts)",
+    "IOS-LOGIN-BLOCK": "Apply a management-access baseline (central AAA, lockout, timeouts)",
+    "IOS-EXEC-TIMEOUT": "Apply a management-access baseline (central AAA, lockout, timeouts)",
+    "IOS-LOGIN-NONE": "Apply a management-access baseline (central AAA, lockout, timeouts)",
 }
+# Advisory checks (tier: advisory in checks.yaml: banner, second NTP or syslog server...) are not
+# in the findings, so they never reach an action: they are listed under "Hygiene notes".
 THEMES.update({
-    "IOS-NTP-AUTH": "Authenticate NTP and use two or more servers",
-    "IOS-NTP-REDUNDANT": "Authenticate NTP and use two or more servers",
-    "IOS-NO-REMOTE-LOG": "Send syslog and command accounting to two or more remote servers",
-    "IOS-LOG-DEPTH": "Send syslog and command accounting to two or more remote servers",
-    "IOS-AAA-ACCOUNTING": "Send syslog and command accounting to two or more remote servers",
+    "IOS-NO-REMOTE-LOG": "Send syslog and command accounting to remote servers",
+    "IOS-AAA-ACCOUNTING": "Send syslog and command accounting to remote servers",
     "FGT-ADMIN-LOCKOUT": "Apply the FortiGate admin-access baseline (lockout, password policy, timeout, 2FA)",
     "FGT-PASSWORD-POLICY": "Apply the FortiGate admin-access baseline (lockout, password policy, timeout, 2FA)",
     "FGT-ADMIN-TIMEOUT": "Apply the FortiGate admin-access baseline (lockout, password policy, timeout, 2FA)",
@@ -68,7 +66,12 @@ ACTION_LABELS = {
     "IOS-SNMP-COMMUNITY": "Remove weak SNMP communities (default, read-write or without an ACL)",
     "IOS-TELNET": "Allow only SSH on the VTY lines",
     "IOS-VTY-ACL": "Put an access-class on every VTY line",
+    "IOS-NTP-AUTH": "Authenticate NTP (key on every server)",
 }
+HYGIENE_INTRO = ("Low-value hygiene checks (tier: advisory in checks.yaml): worth fixing in a routine "
+                 "change, not counted in the deadlines or top actions. Fixes: the HTML or JSON report.")
+ROLLUP_NOTE = ("Counts are distinct problems: a check that fails in the same band on 3 or more devices "
+               "counts once ({n} findings device by device, each listed in the JSON report).")
 KIND_NAMES = {"router_switch": ("router or switch", "routers or switches"), "firewall": ("firewall", "firewalls"),
               "router": ("router", "routers"), "switch": ("switch", "switches")}
 
@@ -243,8 +246,9 @@ def config_actions(rep, checks):
         key = theme or f["id"]
         g = groups.setdefault(key, {"theme": theme, "checks": [], "devices": [], "exposed": set(),
                                     "worst": "upgrade", "score": 0, "type": f["type"]})
-        if f["id"] not in g["checks"]:
-            g["checks"].append(f["id"])
+        for cid in [f["id"]] + [a["id"] for a in f.get("also") or []]:
+            if cid not in g["checks"]:
+                g["checks"].append(cid)
         if f.get("device"):
             g["devices"].append(f["device"])
             if f["inputs"]["publicly_exposed"]:
@@ -360,10 +364,47 @@ def analysis(rep, checks):
     top = [a for a in acts if a["deadline"] != "upgrade"][:TOP_ACTIONS]
     if len(top) < 5:
         top += [a for a in acts if a["deadline"] == "upgrade"][:5 - len(top)]
-    return {"summary": {"counts": rep["counts"], "accepted": len(rep.get("accepted_risk") or []),
+    return {"summary": {"counts": rep["counts"], "counts_unique": _unique_counts(rep),
+                        "hygiene": len(rep.get("hygiene") or []),
+                        "accepted": len(rep.get("accepted_risk") or []),
                         "result_counts": rep.get("result_counts"), "devices": len(rep["devices"]),
                         "top_actions": top, "actions": acts},
             "posture": posture(rep, checks), "controls": controls(rep, checks)}
+
+
+def _unique_counts(rep):
+    """counts_unique (distinct problems), or the per device-check counts for a report made
+    before the rollup existed."""
+    return rep.get("counts_unique") or rep["counts"]
+
+
+def _hygiene(rep, checks):
+    """Advisory fails, one entry per check: (id, title, devices, example detail)."""
+    order = [d["name"] for d in rep["devices"]]
+    by = OrderedDict()
+    for f in rep.get("hygiene") or []:
+        g = by.setdefault(f["id"], {"id": f["id"], "title": f["title"], "devices": [],
+                                    "detail": _clip(f.get("detail"), 140), "example_device": f.get("device")})
+        if f.get("device"):
+            g["devices"].append(f["device"])
+    for g in by.values():
+        g["device_text"] = device_phrase(g["devices"], order) if g["devices"] else ""
+    return list(by.values())
+
+
+def _hygiene_text(g):
+    one = len(set(g["devices"])) == 1
+    return (f"{g['id']}: {_first_sentence(g['title'], 100)} ({g['device_text'] or 'no device'})"
+            + (f": {g['detail']}" if one and g["detail"] else ""))
+
+
+def _summary_note(rep, hyg):
+    """The one line under the deadline table: what the counts mean and what sits outside them."""
+    txt = ROLLUP_NOTE.format(n=sum(rep["counts"].values()))
+    if hyg:
+        txt += (f" {_plural(len(hyg), 'hygiene check')} also "
+                f"{'fail' if len(hyg) > 1 else 'fails'}: listed under Hygiene notes, not counted here.")
+    return txt
 
 
 def _ensure(rep, checks):
@@ -431,10 +472,20 @@ def _band_groups(rep, checks, band):
         scores = [f["score"] for f in fs]
         names = [f["device"] for f in fs if f.get("device")]
         ex = fs[0]
-        out.append({**g, "lo": min(scores), "hi": max(scores), "devices": names,
+        also = OrderedDict()
+        for f in fs:
+            for a in f.get("also") or []:
+                also.setdefault(a["id"], {"title": a["title"], "devices": []})["devices"].append(a.get("device"))
+        also_text = "; ".join(f"{cid} ({re.sub(r' [(].*[)]$', '', _first_sentence(v['title'], 90))}) on "
+                              + (f"the same {_plural(len(set(names)), 'device')}" if set(v["devices"]) == set(names)
+                                 and len(set(names)) > 1 else device_phrase([d for d in v["devices"] if d], order))
+                              for cid, v in also.items())
+        out.append({**g, "lo": min(scores), "hi": max(scores), "devices": names, "also_text": also_text,
+                    "also_ids": list(also),
                     "device_text": device_phrase(names, order) if names else "",
                     "exposed": sorted({f["device"] for f in fs if f.get("device") and f["inputs"]["publicly_exposed"]}),
-                    "example_device": ex.get("device"), "example_detail": _clip(ex.get("detail"), 200),
+                    "example_device": ex.get("device"),
+                    "example_detail": _clip(re.sub(r" Also: .*$", "", str(ex.get("detail") or "")), 200),
                     "example_evidence": mask(ex["evidence"][0]) if ex.get("evidence") else ""})
     out.sort(key=lambda g: (-g["hi"], g["id"]))
     return out, cves
@@ -572,12 +623,15 @@ def markdown(rep, checks):
 
     # 2. summary
     s = rep["summary"]
-    c = rep["counts"]
+    c = _unique_counts(rep)
+    hyg = _hygiene(rep, checks)
     L.append("## Summary\n")
-    L.append("| Deadline | Findings |\n|---|---|")
+    L.append("| Deadline | Problems |\n|---|---|")
     for b in scoring.ORDER:
         L.append(f"| {_band_title(b)} | {c.get(b, 0)} |")
     rc = rep.get("result_counts") or {}
+    L.append("")
+    L.append(_summary_note(rep, hyg))
     L.append("")
     L.append(f"Config check results: {rc.get('fail', 0)} fail, {rc.get('pass', 0)} pass, {rc.get('n/a', 0)} n/a, "
              f"{rc.get('not-visible', 0)} not visible."
@@ -617,7 +671,8 @@ def markdown(rep, checks):
             for g in groups:
                 L.append(f"- {g['id']}: {g['title']} ({_plural(len(set(g['devices'])) or len(g['findings']), 'device')}"
                          f"{'' if g['devices'] else ' finding'}, score {g['lo']}"
-                         + (f"-{g['hi']}" if g["hi"] != g["lo"] else "") + ")")
+                         + (f"-{g['hi']}" if g["hi"] != g["lo"] else "") + ")"
+                         + (f". Also failing, depends on this fix: {g['also_text']}" if g["also_text"] else ""))
             if cves:
                 by, off = _lowest_cve_summary(rep, cves)
                 L.append(f"- {_plural(len(cves), 'CVE')} cleared by the upgrades in Top actions"
@@ -634,6 +689,8 @@ def markdown(rep, checks):
             ev = f" `{g['example_evidence']}`" if g["example_evidence"] else ""
             who = f"{g['example_device']}: " if g["example_device"] else ""
             L.append(f"- Evidence: {who}{g['example_detail']}{ev}")
+            if g["also_text"]:
+                L.append(f"- Also failing, depends on this fix: {g['also_text']}")
             L.append(f"- Why: {_first_sentence(g['why'], 220)}.")
             L.append(f"- Fix: {_clip(g['fix'], 300)}")
             L.append(f"- Sources: {', '.join(g['sources'])}. NIST 800-53: {', '.join(g['controls']) or 'n/a'}."
@@ -645,6 +702,13 @@ def markdown(rep, checks):
                 L.append(f"- **{', '.join(x['ids'])}** ({x['facts']}): {_cve_text(x)}"
                          + (f" Advisory: {x['ref']}" if x["ref"] else ""))
             L.append("")
+
+    # 4b. hygiene notes (tier: advisory)
+    if hyg:
+        L.append(f"## Hygiene notes ({len(hyg)})\n")
+        L.append(HYGIENE_INTRO + "\n")
+        L += [f"- {_hygiene_text(g)}" for g in hyg]
+        L.append("")
 
     # 5. accepted risk
     if rep.get("accepted_risk"):
@@ -750,8 +814,9 @@ def _cell_class(c):
 def html_report(rep, checks):
     rep = _ensure(rep, checks)
     order = [d["name"] for d in rep["devices"]]
-    c = rep["counts"]
+    c = _unique_counts(rep)
     s = rep["summary"]
+    hyg = _hygiene(rep, checks)
     H = ["<!doctype html>", '<html lang="en"><head><meta charset="utf-8">',
          '<meta name="viewport" content="width=device-width, initial-scale=1">',
          f"<title>Network security check {_e(rep['generated'][:10])}</title>",
@@ -769,6 +834,7 @@ def html_report(rep, checks):
         H.append(f"<div>{_e(_band_title(b))}</div><div><div class=\"bar {_CLS[b] if n else 'zero'}\" "
                  f"style=\"width:{(n / mx * 100) if n else 0:.1f}%\"></div></div><div class=\"num\">{n}</div>")
     H.append("</div>")
+    H.append(f'<p class="muted">{_e(_summary_note(rep, hyg))}</p>')
     rc = rep.get("result_counts") or {}
     H.append(f"<p>Config check results: {rc.get('fail', 0)} fail, {rc.get('pass', 0)} pass, {rc.get('n/a', 0)} n/a, "
              f"{rc.get('not-visible', 0)} not visible."
@@ -823,6 +889,8 @@ def html_report(rep, checks):
             who = f"{g['example_device']}: " if g["example_device"] else ""
             ev = f" <code>{_e(g['example_evidence'])}</code>" if g["example_evidence"] else ""
             H.append(f"<li>Evidence: {_e(who + g['example_detail'])}{ev}</li>")
+            if g["also_text"]:
+                H.append(f"<li>Also failing, depends on this fix: {_e(g['also_text'])}</li>")
             H.append(f"<li>Why: {_e(_first_sentence(g['why'], 220))}.</li><li>Fix: {_e(g['fix'])}</li>")
             H.append(f"<li>Sources: {_e(', '.join(g['sources']))}. NIST 800-53: {_e(', '.join(g['controls']) or 'n/a')}."
                      + (" Tested on sample configs only." if g["validated"] == "fixture" else "") + "</li></ul></div></details>")
@@ -833,6 +901,14 @@ def html_report(rep, checks):
                 H.append(f"<li><strong>{_e(', '.join(x['ids']))}</strong> <span class=\"muted\">({_e(x['facts'])})</span>: "
                          f"{_e(_cve_text(x))}" + (f" Advisory: {_link(x['ref'])}" if x["ref"] else "") + "</li>")
             H.append("</ul></div></details>")
+
+    if hyg:
+        H.append(f"<h2>Hygiene notes ({len(hyg)})</h2><p class=\"muted\">{_e(HYGIENE_INTRO.split(' Fixes:')[0])}</p>")
+        for g in hyg:
+            meta = _check_meta(checks, g["id"])
+            H.append(f"<details><summary>{_e(_hygiene_text(g))}</summary><div><ul>"
+                     f"<li>Why: {_e(_first_sentence(meta.get('why', ''), 220))}.</li>"
+                     f"<li>Fix: {_e(meta.get('fix', ''))}</li></ul></div></details>")
 
     if rep.get("accepted_risk"):
         H.append(f"<h2>Accepted risk ({len(rep['accepted_risk'])})</h2><p>Waived in exceptions.yaml (NIST SP 800-53 "

@@ -351,7 +351,7 @@ def test_ios_dhcp_wan_with_nat_outside_is_internet():
 
 def test_ios_vty_transport_none_is_not_flagged():
     cfg = "hostname r1\nip ssh version 2\nlogging host 10.0.0.5\nline vty 0 4\n access-class 5 in\n transport input ssh\n" \
-          "line vty 5 15\n transport input none\n"
+          "line vty 5 15\n transport input none\naccess-list 5 permit 10.0.0.0 0.0.0.255\n"
     _, found = vendor_ios.analyze(cfg, {})
     assert "IOS-VTY-ACL" not in ids(found)
 
@@ -715,13 +715,14 @@ def test_bgp_auth_grades_and_findings():
            " neighbor 10.255.0.3 remote-as 65010\n")
     cfg = CHAINS + RT_BASE.format(e0="", e1="") + bgp
     g = _grades(cfg)
-    assert g == {"BGP neighbor 198.51.100.1 (AS 64500)": "md5", "BGP neighbor 203.0.113.9 (AS 64501)": "strong",
+    assert g == {"BGP neighbor 198.51.100.1 (AS 64500)": "tcp-md5", "BGP neighbor 203.0.113.9 (AS 64501)": "strong",
                  "BGP neighbor 10.255.0.3 (AS 65010)": "none"}
-    _, found = vendor_ios.analyze(cfg, {})
+    facts, found = vendor_ios.analyze(cfg, {})
     by = {f["check"]: f for f in found}
-    assert by["IOS-ROUTING-WEAK-AUTH"]["detail"] == \
-        "MD5 or no algorithm set: BGP neighbor 198.51.100.1 (AS 64500) (TCP MD5 password)"
-    assert by["IOS-ROUTING-WEAK-AUTH"]["exposed"]          # public eBGP neighbor
+    # round 12: BGP TCP MD5 passes with a note (most ISPs offer no TCP-AO); MD5 stays weak for IGPs
+    assert "IOS-ROUTING-WEAK-AUTH" not in by
+    weak = next(r for r in facts["results"] if r["check"] == "IOS-ROUTING-WEAK-AUTH")
+    assert weak["status"] == "pass" and "BGP TCP MD5 accepted" in weak["detail"]
     assert "10.255.0.3" in by["IOS-ROUTING-NO-AUTH"]["detail"] and not by["IOS-ROUTING-NO-AUTH"]["exposed"]
 
 
@@ -778,11 +779,12 @@ def test_ios_vty_and_routing_n_a_and_empty_config_not_visible():
 
 
 def test_report_carries_results_per_device(report):
+    import rollup
     for d in report["devices"]:
         if not d.get("results"):
             continue
         assert d["result_counts"]["fail"] == sum(1 for r in d["results"] if r["status"] == "fail")
-        assert d["result_counts"]["fail"] == len([f for f in report["findings"] + report["accepted_risk"]
+        assert d["result_counts"]["fail"] == len([f for f in rollup.every_finding(report)   # B1: none lost
                                                   if f["type"] == "config" and f["device"] == d["name"]])
     devs = {d["name"]: d for d in report["devices"]}
     assert devs["asa-01"]["results"] and devs["srx-01"]["results"]        # fail-only modules fill passes

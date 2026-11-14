@@ -30,8 +30,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import advisories  # noqa: E402
 import events as events_mod  # noqa: E402
+import fgt_hardening  # noqa: E402
 import lifecycle  # noqa: E402
 import report  # noqa: E402
+import rollup as fleet  # noqa: E402
 import scoring  # noqa: E402
 import vendor_asa  # noqa: E402
 import vendor_fortios  # noqa: E402
@@ -82,6 +84,11 @@ def device_facts(dev, repo, platforms):
            "version": None, "model": None, "findings": [], "results": [], "features": {}, "notes": [],
            "interface_ips": []}
     pcfg = platforms.get(p)
+    # The folder comes from inventory text: never let a name or site walk out of the snapshot repo.
+    bad = [v for v in (str(out["site"]), str(dev["name"])) if ".." in v or "/" in v or "\\" in v or not v.strip()]
+    if bad:
+        out["notes"].append(f"inventory site/name {bad[0]!r} contains '..', '/' or '\\': device skipped")
+        return out
     folder = repo / out["site"] / dev["name"]
     if not pcfg:
         out["notes"].append(f"no security settings for device_type '{p}': not checked")
@@ -158,7 +165,7 @@ def device_facts(dev, repo, platforms):
         except ValueError:
             when = None
         if when:
-            taken = dt.date.fromtimestamp(vf.stat().st_mtime)   # the snapshot run, not today
+            taken = fgt_hardening.snapshot_date(folder, vf)   # the snapshot day, not today
             age = (taken - when).days
             stale = age > STALE_SIGNATURE_DAYS
             r = result("FGT-IPS-STALE", "fail" if stale else "pass", f"IPS-DB dated {m.group(1)}, {age} days old "
@@ -341,6 +348,11 @@ def build(args):
 
     findings.sort(key=lambda f: (-f["score"], f["id"]))
     findings, accepted = apply_waivers(findings, load_waivers(repo, notes), notes)
+    # House rules 11-13 (SCORING.md): dependent checks fold into their parent, advisory checks
+    # move to hygiene, and counts_unique counts a check failing on 3+ devices as one problem.
+    findings = fleet.fold_dependents(findings, checks)
+    findings, hygiene = fleet.split_tiers(findings, checks)
+    unique = fleet.unique(findings)
     rollup = []
     for d in facts:
         mine = [(f, x) for f in findings if f["type"] == "cve" for x in f["devices"] if x["device"] == d["name"]]
@@ -357,10 +369,10 @@ def build(args):
             "snapshot": snapshot_info(repo),
             "advisory_cache": {"fetched": cache["fetched"], "kev_version": cache["kev_version"]} if cache else None,
             "devices": [{k: v for k, v in d.items() if k != "findings"} for d in facts],
-            "counts": {b: sum(1 for f in findings if f["deadline"] == b) for b in scoring.ORDER},
+            "counts": fleet.counts(findings), "counts_unique": fleet.counts(unique),
             "result_counts": {st: sum(d.get("result_counts", {}).get(st, 0) for d in facts) for st in STATUSES},
             "upgrade_plan": rollup,
-            "findings": findings, "accepted_risk": accepted, "events": _ev_light(ev_summary), "notes": notes}
+            "findings": findings, "findings_unique": unique, "hygiene": hygiene, "accepted_risk": accepted, "events": _ev_light(ev_summary), "notes": notes}
     rep.update(report.analysis(rep, checks))   # R9: summary, posture grid, control map
     return rep
 
@@ -541,7 +553,8 @@ def main():
     (out / "last-report.json").write_text(json.dumps(rep, indent=1, default=str), encoding="utf-8")
     print(json.dumps({"report_json": str(out / f"{stamp}.json"), "report_md": str(out / f"{stamp}.md"),
                       "report_html": str(out / f"{stamp}.html"),
-                      "counts": rep["counts"], "findings": len(rep["findings"]),
+                      "counts": rep["counts"], "counts_unique": rep["counts_unique"],
+                      "findings": len(rep["findings"]), "hygiene": len(rep["hygiene"]),
                       "top_actions": [f"{a['deadline']}: {a['action']}" for a in rep["summary"]["top_actions"]],
                       "top": [{k: f.get(k) for k in ("score", "deadline", "type", "id", "device", "title")}
                               for f in rep["findings"][:10]],
@@ -561,6 +574,13 @@ def check_settings(platforms, checks):
             bad.append(f"{cid}: plane '{c['plane']}' is not one of {', '.join(PLANES)}")
         if "validated" in c and c["validated"] not in VALIDATED:
             bad.append(f"{cid}: validated '{c['validated']}' is not one of {', '.join(VALIDATED)}")
+        if c.get("tier", "standard") not in fleet.TIERS:
+            bad.append(f"{cid}: tier '{c['tier']}' is not one of {', '.join(fleet.TIERS)}")
+        for p in c.get("suppressed_by") or []:
+            if p == cid or p not in checks:
+                bad.append(f"{cid}: suppressed_by '{p}' is not another check in checks.yaml")
+            elif checks[p].get("suppressed_by"):
+                bad.append(f"{cid}: suppressed_by '{p}', which is itself suppressed by a check (no chains)")
         bad += [f"{cid}: control '{x}' is not an 800-53 ID like AC-17 or SC-7(5)"
                 for x in c.get("controls", []) if not re.match(r"^[A-Z]{2}-\d{1,2}(\(\d{1,2}\))?$", str(x))]
         if c.get("zt_pillar") not in (None, *ZT_PILLARS):

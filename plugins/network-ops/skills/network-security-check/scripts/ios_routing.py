@@ -9,7 +9,8 @@
 import ipaddress
 import re
 
-from common import is_public, result
+import ios_edge
+from common import result
 
 
 def _in_network(ip, net, wild):
@@ -118,22 +119,20 @@ def _routing_auth(blocks, interfaces):
                         grade, how = named.get(name) or named.get("default") or ("none", "")
                 out.append({"what": f"{proto.upper()} {pid} on {name}", "grade": grade, "how": how,
                             "public": False})
-        mb = re.match(r"router bgp (\S+)", h)
-        if mb:
-            peers = {c.split()[1]: c.split()[3] for c in ch if re.match(r"neighbor \S+ remote-as \S+", c)}
-            group = {c.split()[1]: c.split()[3] for c in ch if re.match(r"neighbor \S+ peer-group \S+$", c)}
-            auth = {}
-            for c in ch:
-                ma = re.match(r"neighbor (\S+) (password|ao) (\S+)", c)
-                if ma:
-                    auth[ma.group(1)] = ("md5", "TCP MD5 password") if ma.group(2) == "password" else \
-                        _chain_grade(chains, ma.group(3))
-            for n, ras in peers.items():
-                if not re.match(r"[\d.:a-fA-F]+$", n):
-                    continue
-                grade, how = auth.get(n) or auth.get(group.get(n)) or ("none", "")
-                out.append({"what": f"BGP neighbor {n} (AS {ras})", "grade": grade, "how": how,
-                            "public": is_public(n)})
+    # BGP: one TCP session per neighbor. Peer-groups and peer-session templates are resolved by
+    # ios_edge.bgp_sessions, so a remote-as, password or ao set on a group or template counts.
+    for s in ios_edge.bgp_sessions(blocks, per_neighbor=True):
+        grade, how = "none", ""
+        for l in s["session"]:          # the neighbor's own lines come first, then group, then template
+            ma = re.match(r"(password|ao) (\S+)", l)
+            if ma:
+                grade, how = ("tcp-md5", "TCP MD5 password") if ma.group(1) == "password" else \
+                    _chain_grade(chains, ma.group(2))
+                if ma.group(1) == "ao":
+                    how = "TCP-AO " + how
+                break
+        out.append({"what": f"BGP neighbor {s['neighbor']} (AS {s['remote_as']})", "grade": grade, "how": how,
+                    "public": s["public"]})
     return out
 
 
@@ -153,7 +152,11 @@ def check(blocks, interfaces):
         return [result("IOS-ROUTING-NO-AUTH", "n/a", why), result("IOS-ROUTING-WEAK-AUTH", "n/a", why)]
     no_auth = [a for a in adj if a["grade"] in ("none", "clear")]
     weak = [a for a in adj if a["grade"] in ("md5", "unset")]
-    strong = [a for a in adj if a["grade"] == "strong"]
+    # BGP TCP MD5 (RFC 2385) passes with a note: TCP-AO needs the peer to support it and most
+    # ISPs offer only MD5. MD5 stays weak for OSPF and EIGRP, where both ends are yours.
+    strong = [a for a in adj if a["grade"] in ("strong", "tcp-md5")]
+    md5_note = ("; BGP TCP MD5 accepted (move to TCP-AO with hmac-sha-256 where the peer supports it)"
+                if any(a["grade"] == "tcp-md5" for a in adj) else "")
     out = []
     if no_auth:
         out.append(result("IOS-ROUTING-NO-AUTH", "fail", "No authentication: " + _adj_list(no_auth),
@@ -162,10 +165,11 @@ def check(blocks, interfaces):
         out.append(result("IOS-ROUTING-NO-AUTH", "pass", f"all {len(adj)} adjacencies authenticate: "
                           + _adj_list(adj)))
     if weak:
-        out.append(result("IOS-ROUTING-WEAK-AUTH", "fail", "MD5 or no algorithm set: " + _adj_list(weak),
+        out.append(result("IOS-ROUTING-WEAK-AUTH", "fail", "MD5 or no algorithm set: " + _adj_list(weak) + md5_note,
                           exposed=any(a["public"] for a in weak)))
     elif strong:
-        out.append(result("IOS-ROUTING-WEAK-AUTH", "pass", "HMAC-SHA or AES-CMAC: " + _adj_list(strong)))
+        out.append(result("IOS-ROUTING-WEAK-AUTH", "pass", "HMAC-SHA, AES-CMAC or BGP TCP MD5: " + _adj_list(strong)
+                          + md5_note))
     else:
         out.append(result("IOS-ROUTING-WEAK-AUTH", "n/a", "no authenticated adjacency to grade"))
     return out

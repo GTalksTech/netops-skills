@@ -58,7 +58,12 @@ python <skill folder>/scripts/seccheck.py run   [--repo ~/network-snapshots] [--
 Read `last-report.json`, starting with `summary`: `counts` per deadline and `top_actions`, the
 five to seven most important fixes, each already grouped by fix (one upgrade per software
 version clears its CVEs and end-of-support findings; related config checks form one action).
-Lead with those actions instead of rebuilding a list from `findings`. `posture` holds the
+Lead with those actions instead of rebuilding a list from `findings`. Quote `counts_unique`
+(distinct problems: a check failing in one band on 3 or more devices counts once), not `counts`
+(one per device and check). Hygiene checks (`hygiene`, tier advisory: banner, second NTP or
+syslog server and similar) are outside the counts; mention them in one line at most. A check that
+depends on another (`suppressed_by` in checks.yaml) sits in its parent's `also` list: say "fix X
+first, then Y". House rules 11-13 in SCORING.md. `posture` holds the
 device x plane grid (fail / pass per cell) and `controls` the NIST SP 800-53 and CISA ZTMM map.
 Each finding has `score`, `deadline`, `inputs` (the four answers) and `why` (where each answer
 came from). Each device also has `results`: one entry per config check with `status` pass,
@@ -111,9 +116,9 @@ Config findings in the lowest band say "Fix in the next maintenance window"; CVE
 
 | Vendor | CVE matching | Config checks |
 |---|---|---|
-| Cisco IOS / IOS-XE | yes | 39 checks, tested (IOS-XE 17.16) |
+| Cisco IOS / IOS-XE | yes | 45 checks, tested (IOS-XE 17.16) |
 | Cisco ASA | yes | 6 checks, untested |
-| FortiGate (FortiOS) | yes | 19 checks, tested (FortiOS 8.0) |
+| FortiGate (FortiOS) | yes | 20 checks, tested (FortiOS 8.0) |
 | Palo Alto PAN-OS | yes | 7 checks, untested |
 | Juniper Junos | yes | 3 management checks, untested (no SRX policy checks yet) |
 | Arista EOS, Cisco NX-OS, HPE Aruba AOS-CX, Dell OS10, Extreme EXOS, HPE ArubaOS-Switch (ProCurve) | yes | none yet |

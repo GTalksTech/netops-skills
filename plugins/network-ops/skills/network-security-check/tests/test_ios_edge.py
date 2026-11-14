@@ -197,7 +197,11 @@ def test_antispoof_urpf_credited():
     assert _st(strict, "IOS-EDGE-NO-ANTISPOOF") == "pass"
     loose = no_acl.replace(" no ip redirects\n", " no ip redirects\n ip verify unicast source reachable-via any\n")
     r = _res(loose)["IOS-EDGE-NO-ANTISPOOF"]
-    assert r["status"] == "pass" and "loose" in r["detail"]
+    # round 12: loose uRPF alone accepts any routed source (a default route covers all): not a pass
+    assert r["status"] == "fail" and "loose uRPF only" in r["detail"]
+    loose_acl = GOOD.replace(" no ip redirects\n", " no ip redirects\n ip verify unicast source reachable-via any\n")
+    r = _res(loose_acl)["IOS-EDGE-NO-ANTISPOOF"]
+    assert r["status"] == "pass" and "plus loose uRPF" in r["detail"]
     allow = loose.replace("reachable-via any", "reachable-via any allow-default")
     assert _st(allow, "IOS-EDGE-NO-ANTISPOOF") == "fail"
 

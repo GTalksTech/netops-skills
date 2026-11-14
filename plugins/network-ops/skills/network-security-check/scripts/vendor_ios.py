@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 import ios_cp
+import ios_crypto
 import ios_edge
 import ios_l2
 import ios_mgmt
@@ -25,6 +26,7 @@ CHECKS = ("IOS-HTTP-SERVER", "IOS-TELNET", "IOS-SSH-V1", "IOS-VTY-ACL", "IOS-SNM
           "IOS-PASSWORD-STORAGE", "IOS-SMART-INSTALL", "IOS-NO-REMOTE-LOG", "IOS-ROUTING-NO-AUTH",
           "IOS-ROUTING-WEAK-AUTH", "IOS-SEGMENT-ROUTED") + ios_mgmt.CHECKS + ios_cp.CHECKS + ios_edge.CHECKS \
     + ios_l2.CHECKS
+CHECKS = CHECKS + ios_crypto.CHECKS
 WEAK_COMMUNITIES = {"public", "private", "cisco", "community", "snmp", "admin", "secret"}
 
 
@@ -44,6 +46,22 @@ def _acl_is_open(blocks, name):
     return not lines  # ACL referenced but not defined: IOS permits all
 
 
+def _vty_acl_state(blocks, name):
+    """Why a vty access-class does not filter (None when it does): undefined (IOS then lets every
+    source in) or a permit from any source."""
+    lines = ios_acl_lines(blocks, name)
+    if lines is None:
+        return f"access-class {name} is not defined, so every source is allowed"
+    for l in lines:
+        t = l.split()
+        if not t or t[0] != "permit":
+            continue
+        src = t[1:] if len(t) > 1 and re.match(r"(any|host|\d+\.\d+\.\d+\.\d+)$", t[1]) else t[2:]
+        if src[:1] == ["any"] or src[:2] == ["0.0.0.0", "255.255.255.255"] or src[:1] == ["0.0.0.0/0"]:
+            return f"access-class {name} permits any source ({l})"
+    return None
+
+
 def _ssh_version(dev):
     """'2.0', '1.99' or '1.5' from the snapshot's show ip ssh output, else None."""
     folder = dev.get("_folder")
@@ -52,6 +70,96 @@ def _ssh_version(dev):
         return None
     m = re.search(r"SSH Enabled - version (\d+\.\d+)", f.read_text(encoding="utf-8", errors="replace"))
     return m.group(1) if m else None
+
+
+def general_prefixes(blocks):
+    """{name: prefix} for IPv6 general prefixes: 'ipv6 general-prefix NAME X/len' as written, and
+    'ipv6 dhcp client pd NAME' (delegated by the upstream, so global unicast: stored as None)."""
+    out = {}
+    for h, ch in blocks:
+        m = re.match(r"ipv6 general-prefix (\S+) ([0-9A-Fa-f:]+/\d+)", h)
+        if m:
+            out[m.group(1)] = m.group(2)
+        for c in ch:
+            m = re.match(r"ipv6 dhcp client pd (\S+)", c)
+            if m and not m.group(1).startswith("hint"):
+                out.setdefault(m.group(1), None)
+    return out
+
+
+def _ipv6_line(itf, c, gen_prefixes):
+    """Read one interface 'ipv6 ...' line into itf: ips6 (address/len), v6_learned (SLAAC or
+    DHCPv6 address), v6_pd_client, acl6_in (ipv6 traffic-filter X in)."""
+    m = re.match(r"ipv6 address ([0-9A-Fa-f:]+/\d+)", c)
+    if m:
+        itf.setdefault("ips6", []).append(m.group(1))
+        return
+    m = re.match(r"ipv6 address (\S+) ([0-9A-Fa-f:]+/\d+)", c)
+    if m and m.group(1) in gen_prefixes:          # general prefix + host part
+        pfx = gen_prefixes[m.group(1)]
+        if pfx:
+            itf.setdefault("ips6", []).append(pfx)
+        else:
+            itf["v6_delegated"] = True      # from a delegated prefix: global unicast, subnet unknown
+        return
+    if re.match(r"ipv6 address (autoconfig|dhcp)\b", c):
+        itf["v6_learned"] = True
+    elif c.startswith("ipv6 dhcp client pd "):
+        itf["v6_pd_client"] = True
+    elif re.match(r"ipv6 traffic-filter \S+ in$", c):
+        itf["acl6_in"] = c.split()[2]
+
+
+def _mark_internet6(blocks, interfaces):
+    """Set itf['internet6']: the interface has a global unicast IPv6 address (common.is_public:
+    2000::/3, not fe80::/10 or fc00::/7) AND something shows it is the outside. IPv6 LANs use global
+    addresses too, so the address alone cannot tell an inside interface from the ISP link the way a
+    public IPv4 address does. Outside signs: the interface also faces the internet over IPv4; an
+    IPv6 default route leaves through it; an eBGP neighbor with a public address sits in its subnet;
+    it asks the upstream for a delegated prefix (ipv6 dhcp client pd, which also makes a SLAAC or
+    DHCPv6 address on it count); or its name or description reads like an internet link
+    (settings/segments.yaml internet_names)."""
+    import ipaddress
+    from common import looks_internet
+    ebgp6 = [ipaddress.ip_address(s["neighbor"]) for s in ios_edge.bgp_sessions(blocks, per_neighbor=True)
+             if s["ebgp"] and ":" in s["neighbor"] and is_public(s["neighbor"])]
+    defaults = []       # (interface or None, next hop or None) of 'ipv6 route ::/0 ...'
+    for h, _ in blocks:
+        m = re.match(r"ipv6 route (?:vrf \S+ )?::/0 (\S+)(?: (\S+))?", h)
+        if m:
+            a, b = m.groups()
+            if ":" in a:
+                defaults.append((None, a))
+            else:
+                defaults.append((a, b if b and ":" in b else None))
+    for itf in interfaces:
+        nets = []
+        for ip in itf.get("ips6", []):
+            try:
+                nets.append(ipaddress.ip_interface(ip).network)
+            except ValueError:
+                pass
+        pub6 = any(is_public(ip) for ip in itf.get("ips6", [])) or bool(itf.get("v6_delegated"))
+        pd =bool(itf.get("v6_pd_client"))
+        itf["public"] = itf["public"] or pub6
+        if not itf["up"] or not (pub6 or (pd and itf.get("v6_learned"))):
+            itf["internet6"] = False
+            continue
+
+        def _in(addr):
+            try:
+                a = ipaddress.ip_address(addr.split("%")[0])
+            except ValueError:
+                return False
+            return any(a in n for n in nets if n.prefixlen < 128)
+        why = ("IPv4 internet link" if itf["internet4"] else
+               "ipv6 dhcp client pd" if pd else
+               "IPv6 default route" if any(i == itf["name"] or (i is None and nh and _in(nh)) for i, nh in defaults)
+               else "eBGP neighbor" if any(n.prefixlen < 128 and a in n for a in ebgp6 for n in nets)
+               else "name" if looks_internet(itf["name"]) or looks_internet(itf.get("description")) else None)
+        itf["internet6"] = bool(why)
+        if why:
+            itf["internet6_why"] = why
 
 
 def analyze(text, dev):
@@ -71,6 +179,7 @@ def analyze(text, dev):
                 if c.startswith("name "):
                     vlan_names[m.group(1)] = c[5:].strip()
 
+    gen_prefixes = general_prefixes(blocks)
     for h, ch in blocks:
         m = re.match(r"interface (\S+)", h)
         if not m:
@@ -94,15 +203,23 @@ def analyze(text, dev):
                 itf["ips"].append("dhcp")
             elif c.startswith("description "):
                 itf["description"] = c[12:]
+            elif c.startswith("ipv6 "):
+                _ipv6_line(itf, c, gen_prefixes)
         vm = re.match(r"[Vv]lan(\d+)$", name)
         itf["vlan_name"] = vlan_names.get(vm.group(1)) if vm else None
-        itf["public"] = any(is_public(ip) for ip in itf["ips"] if ip != "dhcp")
+        pub4 = any(is_public(ip) for ip in itf["ips"] if ip != "dhcp")
+        itf["public"] = pub4
         mgmt = bool(re.search(r"mgmt|management|oob", itf["vrf"], re.I))
+        itf["up"] = not mgmt and not itf["shutdown"]
         # a public IP, or a NAT outside interface (also covers a DHCP address from the ISP)
-        itf["internet"] = (itf["public"] or itf.get("nat_outside", False)) and not mgmt and not itf["shutdown"]
+        itf["internet4"] = (pub4 or itf.get("nat_outside", False)) and itf["up"]
         facts["interfaces"].append(itf)
+    _mark_internet6(blocks, facts["interfaces"])
+    for itf in facts["interfaces"]:
+        itf["internet"] = itf["internet4"] or itf["internet6"]
+        itf.pop("up", None)
         if itf["internet"]:
-            facts["internet_interfaces"].append(name)
+            facts["internet_interfaces"].append(itf["name"])
 
     internet = bool(facts["internet_interfaces"])
     if len(top) < 5:
@@ -114,21 +231,51 @@ def analyze(text, dev):
 
     # --- management plane ---
     http_lines = [h for h in top if re.match(r"ip http (secure-)?server$", h)]
-    http_acl = any(h.startswith("ip http access-class") for h in top)
+    acl_lines = [h for h in top if re.match(r"ip http access-class (ipv4 )?\S+", h)]
+    http_acl = bool(acl_lines)
+    plain = "ip http server" in http_lines
     feature(facts, "http_server", bool(http_lines), internet and not http_acl,
             "ip http server" if http_lines else None)
-    if http_lines:
+    if http_lines and not plain and http_acl:
+        res.append(result("IOS-HTTP-SERVER", "pass", "Web UI is HTTPS only and limited by ip http access-class. "
+                          "Note: the HTTPS server was also affected by CVE-2023-20198; keep the ACL to the "
+                          "management subnet and the software patched", http_lines + acl_lines))
+    elif http_lines:
+        why = []
+        if plain:
+            why.append("plain HTTP server on (ip http server)")
+        if not http_acl:
+            why.append("no ip http access-class")
         res.append(result("IOS-HTTP-SERVER",
-                          "fail", "Web UI is on" + (" and the device has an internet-facing interface with no "
-                                                    "ip http access-class" if internet and not http_acl else ""),
-                          http_lines, exposed=internet and not http_acl))
+                          "fail", "Web UI is on: " + ", ".join(why) + (
+                              "; the device has an internet-facing interface" if internet and not http_acl else ""),
+                          http_lines + acl_lines, exposed=internet and not http_acl))
     else:
         res.append(result("IOS-HTTP-SERVER", "pass", "web UI is off",
                           [h for h in top if re.match(r"no ip http (secure-)?server$", h)]))
 
     vty = [(h, ch) for h, ch in blocks if h.startswith("line vty")
            and "transport input none" not in ch]
-    no_acl = [h for h, ch in vty if not any(c.startswith("access-class") for c in ch)]
+    v6_on = any(c.startswith("ipv6 address ") for h, ch in blocks if h.startswith("interface ") for c in ch)
+    acl_bad = []    # (line, why) for vty lines whose inbound access-class is missing or does not filter
+    for h, ch in vty:
+        name = ios_mgmt.vty_acl_in(ch)
+        out_only = [c for c in ch if re.match(r"access-class \S+ out\b", c)]
+        if not name:
+            acl_bad.append((h, "no access-class ... in" + (" ('access-class ... out' filters outgoing sessions "
+                                                            "only)" if out_only else "")))
+            continue
+        state = _vty_acl_state(blocks, name)
+        if state:
+            acl_bad.append((h, state))
+        if v6_on:
+            n6 = ios_mgmt.vty_acl_in(ch, v6=True)
+            if not n6:
+                acl_bad.append((h, "no ipv6 access-class ... in, and the device has IPv6 addresses"))
+            elif not any(b == f"ipv6 access-list {n6}" for b in top):
+                acl_bad.append((h, f"ipv6 access-class {n6} is not defined"))
+    # lines with no working IPv4 filter (used for the telnet exposure below)
+    no_acl = [h for h, ch in vty if not ios_mgmt.vty_acl_in(ch) or _vty_acl_state(blocks, ios_mgmt.vty_acl_in(ch))]
     no_tin = [h for h, ch in vty if not any(c.startswith("transport input") for c in ch)]
     if no_tin:
         facts["notes"].append(f"{', '.join(no_tin)}: no 'transport input' line. The default (and whether "
@@ -147,12 +294,16 @@ def analyze(text, dev):
         if not telnet:
             res.append(result("IOS-TELNET", "pass", "no vty line allows telnet",
                               [f"{h}: {c}" for h, ch in vty for c in ch if c.startswith("transport input")]))
-        if no_acl:
-            res.append(result("IOS-VTY-ACL", "fail", "No access-class on: " + ", ".join(no_acl), no_acl,
+        if acl_bad:
+            res.append(result("IOS-VTY-ACL", "fail", "VTY lines not limited to known sources: "
+                              + "; ".join(f"{h} ({w})" for h, w in acl_bad),
+                              sorted({h for h, _ in acl_bad}) + [f"{h}: {c}" for h, ch in vty for c in ch
+                                                                 if "access-class" in c],
                               exposed=internet))
         else:
-            res.append(result("IOS-VTY-ACL", "pass", "every vty line has an access-class",
-                              [f"{h}: {c}" for h, ch in vty for c in ch if c.startswith("access-class")]))
+            res.append(result("IOS-VTY-ACL", "pass", "every vty line has an inbound access-class that "
+                              "permits listed sources only",
+                              [f"{h}: {c}" for h, ch in vty for c in ch if "access-class" in c]))
     # IOS-XE 17.x runs SSH v2 only and writes no "ip ssh version 2" line, so the saved
     # "show ip ssh" output decides when it is there ("version 2.0" = v2 only, "1.99" = both).
     ssh_shown = _ssh_version(dev)
@@ -227,12 +378,23 @@ def analyze(text, dev):
             weak.append("enable password (type 0/7)")
         elif re.match(r"enable secret 5 ", h):
             weak.append("enable secret type 5 (MD5)")
+        elif re.match(r"enable secret 4 ", h):
+            weak.append("enable secret type 4 (weak SHA-256, withdrawn by Cisco)")
         m = re.match(r"username (\S+) .*?(password|secret) (\d) ", h)
-        if m and (m.group(2) == "password" or m.group(3) == "5"):
+        if m and (m.group(2) == "password" or m.group(3) in ("4", "5")):
             weak.append(f"username {m.group(1)}: {m.group(2)} type {m.group(3)}")
         elif re.match(r"username \S+ .*password (?!\d )\S", h):
             weak.append(f"username {h.split()[1]}: clear-text password")
-    creds = [h for h in top if re.match(r"(enable (password|secret)|username \S+ .*(password|secret)) ", h)]
+    line_pw = []
+    for h, ch in blocks:
+        if re.match(r"line (con|vty|aux)\b", h):
+            for c in ch:
+                m = re.match(r"password (?:(\d) )?\S", c)
+                if m:
+                    line_pw.append(h)
+                    weak.append(f"{h}: password " + (f"type {m.group(1)}" if m.group(1) else "in clear text"))
+    creds = [h for h in top if re.match(r"(enable (password|secret)|username \S+ .*(password|secret)) ", h)] \
+        + [f"{h}: password" for h in line_pw]
     if weak:
         res.append(result("IOS-PASSWORD-STORAGE", "fail", "; ".join(weak), [], exposed=False))
     elif creds:
@@ -265,6 +427,9 @@ def analyze(text, dev):
 
     # --- AAA, timeouts, banner, NTP, syslog depth, SNMP version (ios_mgmt.py) ---
     res += ios_mgmt.check(blocks, top, internet)
+
+    # --- SSH crypto strength and clear-text file transfer (ios_crypto.py) ---
+    res += ios_crypto.check(blocks, top, internet, dev)
 
     # --- control plane: CoPP, edge interface services, CDP/LLDP, legacy services (ios_cp.py) ---
     external = ios_cp.external_interfaces(blocks, facts["interfaces"])

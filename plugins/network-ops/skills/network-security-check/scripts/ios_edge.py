@@ -1,7 +1,7 @@
 # ============================================================
 # Script:       ios_edge.py
 # Purpose:      Cisco IOS / IOS-XE edge checks: anti-spoofing on external interfaces (uRPF or
-#               an inbound ACL that drops private sources, BCP 38/84) and eBGP session hygiene
+#               an inbound ACL that drops private sources, BCP 38/84; IPv4 and IPv6) and eBGP session hygiene
 #               (import and export policy, maximum-prefix, GTSM, what the inbound prefix-list
 #               lets in). eBGP neighbors are resolved through peer-groups and peer templates.
 # Author:       G Talks Tech
@@ -21,12 +21,39 @@ CHECKS = ("IOS-EDGE-NO-ANTISPOOF", "IOS-BGP-NO-POLICY", "IOS-BGP-MAX-PREFIX", "I
 
 RFC1918 = [ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
 TOO_SPECIFIC_V4 = 24    # DISA CISC-RT-000570: reject prefixes longer than /24
+TOO_SPECIFIC_V6 = 48    # RFC 7454 6.1.3: IPv6 prefixes longer than /48 are generally not accepted
+ULA = ipaddress.ip_network("fc00::/7")
+# IPv6 bogons for an internet eBGP peering: RFC 6890 entries with Global = False (RFC 7454 section 6.1.1, IPv6 part),
+# plus multicast (RFC 7454 section 6.1.2, IPv6 part: accept only IANA-allocated unicast). 2001:db8::/32 is left out to
+# match common.is_public (documentation ranges count as public); 2001::/23 is left out because some
+# of its more specific allocations are global, so Teredo, benchmarking and ORCHID are listed instead.
+V6_BOGONS = [ipaddress.ip_network(n) for n in (
+    "::/128", "::1/128", "::ffff:0:0/96", "100::/64", "2001::/32", "2001:2::/48", "2001:10::/28",
+    "fc00::/7", "fe80::/10", "ff00::/8")]
+BOGONS = [n for n in NOT_PUBLIC if n.version == 4] + V6_BOGONS
+# ICMPv6 neighbor and router discovery: link-scoped (hop limit 255, never forwarded), so an ACL
+# permit for them is not a spoofing gap
+ND_TYPES = re.compile(r"\b(nd-na|nd-ns|router-advertisement|router-solicitation|13[3-6])\b")
 UNICAST_AF = re.compile(r"(ipv4|ipv6)( vrf \S+)?$")
-SESSION = re.compile(r"(remote-as|ttl-security|ebgp-multihop|disable-connected-check|password|"
+SESSION = re.compile(r"(remote-as|ttl-security|ebgp-multihop|disable-connected-check|password|ao|"
                      r"inherit peer-session|peer-group)\b")
 
 
 # ---------- anti-spoofing ----------
+
+def wildcard_net(addr, wild):
+    """An ACL address and WILDCARD mask as a network ('0.0.0.0 255.255.255.255' = any).
+    ipaddress would read 255.255.255.255 as a netmask (/32), so the wildcard is inverted here.
+    None for a non-contiguous wildcard."""
+    try:
+        a, w = int(ipaddress.IPv4Address(addr)), int(ipaddress.IPv4Address(wild))
+    except ValueError:
+        return None
+    if w & (w + 1):         # wildcard bits must be a run of ones at the right
+        return None
+    plen = 32 - w.bit_length()
+    return ipaddress.ip_network((a & ~w & 0xFFFFFFFF, plen))
+
 
 def _src(tokens):
     """Source network of an ACL entry's address tokens and how many tokens it used.
@@ -39,10 +66,7 @@ def _src(tokens):
         return ipaddress.ip_network(f"{tokens[1]}/32"), 2
     if re.match(r"\d+\.\d+\.\d+\.\d+$", tokens[0]):
         if len(tokens) > 1 and re.match(r"\d+\.\d+\.\d+\.\d+$", tokens[1]):
-            try:
-                return ipaddress.ip_network(f"{tokens[0]}/{tokens[1]}", strict=False), 2
-            except ValueError:
-                return None, 2
+            return wildcard_net(tokens[0], tokens[1]), 2
         return ipaddress.ip_network(f"{tokens[0]}/32"), 1
     return None, 0
 
@@ -77,36 +101,115 @@ def acl_antispoof(blocks, name):
     return "ok", f"ACL {name} permits only listed sources (implicit deny for the rest)"
 
 
+def acl6_lines(blocks, name):
+    """Entries of an IOS IPv6 access list in order ('sequence N' and remarks dropped). None when
+    it is not defined (IOS then permits all traffic on the traffic-filter)."""
+    for h, ch in blocks:
+        if h == f"ipv6 access-list {name}":
+            out = [re.sub(r"^sequence \d+\s+", "", l) for l in ch]
+            return [l for l in out if not l.startswith("remark")]
+    return None
+
+
+def _src6(tokens):
+    """Source network of an IPv6 ACL entry (tokens after the protocol). None when unreadable."""
+    if not tokens:
+        return None
+    if tokens[0] == "any":
+        return ipaddress.ip_network("::/0")
+    if tokens[0] == "host" and len(tokens) > 1:
+        try:
+            return ipaddress.ip_network(f"{tokens[1]}/128")
+        except ValueError:
+            return None
+    try:
+        return ipaddress.ip_network(tokens[0], strict=False)
+    except ValueError:
+        return None
+
+
+def acl6_antispoof(blocks, name):
+    """How an inbound IPv6 ACL treats ULA (fc00::/7) sources, the IPv6 private range: ('ok', why),
+    ('open', why) or ('unknown', why). Same rule as acl_antispoof: denied by an 'ipv6' deny before any
+    permit that could match it, or never permitted. Permits for ICMPv6 neighbor and router discovery
+    are skipped (link-scoped). Link-local sources are not asked for: routers never forward them
+    (RFC 6890: fe80::/10 not forwardable), and a deny would break neighbor discovery."""
+    lines = acl6_lines(blocks, name)
+    if lines is None:
+        return "open", f"IPv6 ACL {name} is applied but not defined (IOS then permits all)"
+    for l in lines:
+        t = l.split()
+        if len(t) < 2 or t[0] not in ("permit", "deny"):
+            continue
+        if t[1] in ("any", "host") or ":" in t[1]:     # no protocol word: all IPv6
+            proto, src = "ipv6", _src6(t[1:])
+        else:
+            proto, src = t[1], _src6(t[2:])
+        if src is None or src.version != 6:
+            return "unknown", f"IPv6 ACL {name}: '{l}' uses a source the check cannot read"
+        if t[0] == "deny":
+            if proto == "ipv6" and ULA.subnet_of(src):
+                return "ok", f"IPv6 ACL {name} denies {ULA} as a source first"
+            continue
+        if proto in ("icmp", "ipv6-icmp", "58") and ND_TYPES.search(l):
+            continue
+        if src.overlaps(ULA):
+            return "open", f"IPv6 ACL {name}: '{l}' comes before any deny of {ULA} as a source"
+    return "ok", f"IPv6 ACL {name} permits only listed sources (implicit deny for the rest)"
+
+
+def _grade(n, ch, acl, v6, blocks):
+    """('good'|'bad'|'unknown', text) for one interface and one address family."""
+    fam = "ipv6" if v6 else "ip"
+    urpf = [c for c in ch if re.match(rf"{fam} verify unicast (source reachable-via|reverse-path)", c)]
+    strict = [c for c in urpf if re.search(r"reachable-via rx|reverse-path", c)]
+    loose = [c for c in urpf if "reachable-via any" in c and "allow-default" not in c]
+    if v6:
+        verdict, why = acl6_antispoof(blocks, acl) if acl else ("open", "no inbound IPv6 traffic-filter")
+    else:
+        verdict, why = acl_antispoof(blocks, acl) if acl else ("open", "no inbound ACL")
+    label = f"{n} (IPv6)" if v6 else n
+    what = "ULA" if v6 else "private"
+    # Loose uRPF alone drops only sources with no route at all: with a default route (the
+    # usual edge) it accepts every source, private ones included. It counts only with an ACL.
+    if strict:
+        return "good", f"{label}: {strict[0]}"
+    if verdict == "ok":
+        return "good", f"{label}: {why}" + (f" (plus loose uRPF: {loose[0]})" if loose else "")
+    if verdict == "unknown":
+        return "unknown", f"{label}: {why}"
+    if loose:
+        return "bad", (f"{label}: {why}; loose uRPF only ({loose[0]}), which accepts any source that has a "
+                       f"route, so a default route lets spoofed {what} sources through")
+    extra = " and no uRPF" + (" ('allow-default' makes uRPF accept any source)" if urpf else "")
+    return "bad", f"{label}: {why}{extra}"
+
+
 def _antispoof(blocks, external):
+    """IPv4 on interfaces that face the internet over IPv4 (public address or NAT outside), IPv6 on
+    interfaces with a global unicast IPv6 address. One finding: both are the same edge filter."""
     cfg = {h.split()[1]: ch for h, ch in blocks if h.startswith("interface ")}
     if not external:
         return result("IOS-EDGE-NO-ANTISPOOF", "n/a", "no internet-facing interface")
-    bad, good, unknown = [], [], []
+    out = {"good": [], "bad": [], "unknown": []}
     for i in external:
         n, ch = i["name"], cfg.get(i["name"], [])
-        urpf = [c for c in ch if re.match(r"ip verify unicast (source reachable-via|reverse-path)", c)]
-        strict = [c for c in urpf if re.search(r"reachable-via rx|reverse-path", c)]
-        loose = [c for c in urpf if "reachable-via any" in c and "allow-default" not in c]
-        acl = i.get("acl_in")
-        verdict, why = acl_antispoof(blocks, acl) if acl else ("open", "no inbound ACL")
-        if strict or loose:
-            good.append((n, f"{n}: {(strict or loose)[0]}" + ("" if strict else " (loose mode: drops sources "
-                                                                    "with no route only)")))
-        elif verdict == "ok":
-            good.append((n, f"{n}: {why}"))
-        elif verdict == "unknown":
-            unknown.append((n, f"{n}: {why}"))
-        else:
-            extra = " and no uRPF" + (" ('allow-default' makes uRPF accept any source)" if urpf else "")
-            bad.append((n, f"{n}: {why}{extra}"))
+        if i.get("internet4", True) or not i.get("internet6"):
+            v, w = _grade(n, ch, i.get("acl_in"), False, blocks)
+            out[v].append((n, w, f"interface {n}: ip access-group {i['acl_in']} in" if i.get("acl_in") else None))
+        if i.get("internet6"):
+            v, w = _grade(n, ch, i.get("acl6_in"), True, blocks)
+            out[v].append((n, w, f"interface {n}: ipv6 traffic-filter {i['acl6_in']} in" if i.get("acl6_in")
+                           else None))
+    bad, good, unknown = out["bad"], out["good"], out["unknown"]
     if bad:
+        names = list(dict.fromkeys(n for n, _, _ in bad))
         return result("IOS-EDGE-NO-ANTISPOOF", "fail", "Spoofed private sources can enter: "
-                      + "; ".join(w for _, w in bad), [f"interface {n}" for n, _ in bad]
-                      + [f"interface {n}: ip access-group {i['acl_in']} in" for i in external for n, _ in bad
-                         if i["name"] == n and i.get("acl_in")], exposed=True, where=", ".join(n for n, _ in bad))
+                      + "; ".join(w for _, w, _ in bad), [f"interface {n}" for n in names]
+                      + [a for _, _, a in bad if a], exposed=True, where=", ".join(names))
     if unknown:
-        return result("IOS-EDGE-NO-ANTISPOOF", "not-visible", "; ".join(w for _, w in unknown + good))
-    return result("IOS-EDGE-NO-ANTISPOOF", "pass", "; ".join(w for _, w in good), [w for _, w in good])
+        return result("IOS-EDGE-NO-ANTISPOOF", "not-visible", "; ".join(w for _, w, _ in unknown + good))
+    return result("IOS-EDGE-NO-ANTISPOOF", "pass", "; ".join(w for _, w, _ in good), [w for _, w, _ in good])
 
 
 # ---------- BGP ----------
@@ -147,10 +250,12 @@ def _tpl_lines(tpls, kind, name, depth=0):
     return lines
 
 
-def bgp_sessions(blocks):
+def bgp_sessions(blocks, per_neighbor=False):
     """Every BGP neighbor (by address) in every unicast address family it is active in, with
     peer-group and template settings folded in. A list of dicts: neighbor, remote_as, local_as,
-    ebgp, af, session (lines that apply to the TCP session) and policy (lines for this AF)."""
+    ebgp, af, session (lines that apply to the TCP session) and policy (lines for this AF).
+    per_neighbor=True: one entry per neighbor (af None, no policy), any address family; used for
+    the TCP session itself (ios_routing.py authentication)."""
     out = []
     for h, ch in blocks:
         mb = re.match(r"router bgp (\S+)", h)
@@ -203,9 +308,16 @@ def bgp_sessions(blocks):
             ras = next((l.split()[1] for l in s_lines if l.startswith("remote-as ")), None)
             if ras is None:
                 continue
+            if per_neighbor:    # one entry per neighbor, whatever address families it carries
+                out.append({"neighbor": n, "remote_as": ras, "local_as": local_as, "af": None, "peer_group": pg,
+                            "ebgp": ras != local_as and ras not in confed and ras != "internal",
+                            "session": s_lines, "policy": [], "public": is_public(n)})
+                continue
             afs = {a for (x, a) in pol if x in (n, pg) and "activate" in pol[(x, a)]}
             afs |= af_def.get(n, set())
-            if n in top_def and not no_default_v4:
+            # 'bgp default ipv4-unicast' activates IPv4 neighbors only; an IPv6 neighbor needs an
+            # explicit activate in each address family
+            if n in top_def and not no_default_v4 and ":" not in n:
                 afs.add("ipv4")
             for a in sorted(afs):
                 if not UNICAST_AF.match(a):
@@ -268,16 +380,17 @@ def pl_permits(entries, probe):
 
 
 def pl_leaks(entries):
-    """Routes a prefix-list provably accepts that it should not: bogon space (the private,
-    loopback, link-local, CGNAT, multicast and reserved ranges in common.NOT_PUBLIC) and IPv4
-    prefixes longer than /24. Only entries with ge/le are graded for length: an exact entry for
-    one long prefix is a deliberate exception. [(route, why, line)]."""
+    """Routes a prefix-list provably accepts that it should not: bogon space (IPv4: the private,
+    loopback, link-local, CGNAT, multicast and reserved ranges in common.NOT_PUBLIC; IPv6:
+    V6_BOGONS) and prefixes longer than /24 (IPv4) or /48 (IPv6). Only entries with ge/le are
+    graded for length: an exact entry for one long prefix is a deliberate exception.
+    [(route, why, line)]."""
     out, seen = [], set()
     for action, net, ge, le, line in entries:
         if action != "permit":
             continue
         lo, hi = _range(net, ge, le)
-        for b in NOT_PUBLIC:
+        for b in BOGONS:
             if b.version != net.version or not net.overlaps(b):
                 continue
             base = net if net.subnet_of(b) else b
@@ -288,11 +401,12 @@ def pl_leaks(entries):
             if pl_permits(entries, probe) and ("bogon", str(b)) not in seen:
                 seen.add(("bogon", str(b)))
                 out.append((probe, f"bogon {b}", line))
-        if net.version == 4 and (ge is not None or le is not None) and hi > TOO_SPECIFIC_V4:
-            probe = ipaddress.ip_network(f"{net.network_address}/{max(lo, TOO_SPECIFIC_V4 + 1)}")
+        limit = TOO_SPECIFIC_V4 if net.version == 4 else TOO_SPECIFIC_V6
+        if (ge is not None or le is not None) and hi > limit:
+            probe = ipaddress.ip_network(f"{net.network_address}/{max(lo, limit + 1)}")
             if pl_permits(entries, probe) and ("long", line) not in seen:
                 seen.add(("long", line))
-                out.append((probe, f"longer than /{TOO_SPECIFIC_V4}", line))
+                out.append((probe, f"longer than /{limit}", line))
     return out
 
 
@@ -300,11 +414,61 @@ def _label(s):
     return f"{s['neighbor']} (AS {s['remote_as']}" + (f", {s['af']}" if s["af"] != "ipv4" else "") + ")"
 
 
+def private_asn(asn):
+    """RFC 6996 private ASNs: 64512-65534 and 4200000000-4294967294 (asplain or asdot)."""
+    try:
+        if "." in str(asn):
+            hi, lo = str(asn).split(".", 1)
+            n = int(hi) * 65536 + int(lo)
+        else:
+            n = int(asn)
+    except ValueError:
+        return False
+    return 64512 <= n <= 65534 or 4200000000 <= n <= 4294967294
+
+
+def _listen_ranges(blocks):
+    return [c for h, ch in blocks if h.startswith("router bgp ") for c in ch if c.startswith("bgp listen range ")]
+
+
 def _bgp(blocks, top):
-    sessions = [s for s in bgp_sessions(blocks) if s["ebgp"]]
-    if not sessions:
-        why = "no eBGP neighbor in the config"
+    every = [s for s in bgp_sessions(blocks) if s["ebgp"]]
+    listen = _listen_ranges(blocks)
+    lnote = (f" Dynamic neighbors are not graded ({'; '.join(listen[:3])})." if listen else "")
+    # eBGP to a private address and a private ASN is an internal fabric or an MPLS VPN CE link: only
+    # maximum-prefix is graded there (a provider mistake can still flood the table); GTSM, filters and
+    # prefix-list content belong to internet edges.
+    internal = [s for s in every if not is_public(s["neighbor"]) and private_asn(s["remote_as"])]
+    sessions = [s for s in every if s not in internal]
+    inote = (" Private eBGP (private address and private AS: " + ", ".join(sorted({_label(s) for s in internal}))
+             + ") is graded for maximum-prefix only." if internal else "")
+    if not every:
+        why = "no eBGP neighbor in the config" + lnote
         return [result(c, "n/a", why) for c in CHECKS[1:]]
+    res = []
+    if not sessions:
+        why = "every eBGP neighbor is private (private address and private AS): not an internet edge." + lnote
+        res += [result(c, "n/a", why) for c in ("IOS-BGP-NO-POLICY", "IOS-BGP-NO-GTSM", "IOS-BGP-INBOUND-PERMISSIVE")]
+        res.append(_max_prefix(internal, ""))
+        return sorted(res, key=lambda r: CHECKS.index(r["check"]))
+    res += _bgp_edge(sessions, top, inote + lnote)
+    res.append(_max_prefix(sessions + internal, ""))
+    return sorted(res, key=lambda r: CHECKS.index(r["check"]))
+
+
+def _max_prefix(sessions, note):
+    bad = [s for s in sessions if not any(l.startswith("maximum-prefix ") for l in s["policy"])]
+    if bad:
+        return result("IOS-BGP-MAX-PREFIX", "fail", "No maximum-prefix: " + "; ".join(map(_label, bad)) + note,
+                      [f"neighbor {s['neighbor']} remote-as {s['remote_as']}" for s in bad],
+                      exposed=any(s["public"] for s in bad), where=", ".join(s["neighbor"] for s in bad))
+    return result("IOS-BGP-MAX-PREFIX", "pass", "every eBGP session has a maximum-prefix limit" + note,
+                  [f"neighbor {s['neighbor']} {l}" for s in sessions for l in s["policy"]
+                   if l.startswith("maximum-prefix ")])
+
+
+def _bgp_edge(sessions, top, note):
+    """IOS-BGP-NO-POLICY, IOS-BGP-NO-GTSM and IOS-BGP-INBOUND-PERMISSIVE for internet-edge eBGP."""
     res = []
 
     # import and export policy (RFC 8212)
@@ -315,23 +479,12 @@ def _bgp(blocks, top):
         (bad if miss else good).append((s, miss, fin + fout))
     if bad:
         res.append(result("IOS-BGP-NO-POLICY", "fail", "eBGP without import/export policy: " + "; ".join(
-            f"{_label(s)}: {', '.join(m)}" for s, m, _ in bad),
+            f"{_label(s)}: {', '.join(m)}" for s, m, _ in bad) + note,
             [f"neighbor {s['neighbor']} remote-as {s['remote_as']}" for s, _, _ in bad],
             exposed=any(s["public"] for s, _, _ in bad), where=", ".join(s["neighbor"] for s, _, _ in bad)))
     else:
-        res.append(result("IOS-BGP-NO-POLICY", "pass", f"all {len(sessions)} eBGP session(s) filter both ways",
+        res.append(result("IOS-BGP-NO-POLICY", "pass", f"all {len(sessions)} eBGP session(s) filter both ways" + note,
                           [f"neighbor {s['neighbor']} {f}" for s, _, fl in good for f in fl]))
-
-    # maximum-prefix
-    bad = [s for s in sessions if not any(l.startswith("maximum-prefix ") for l in s["policy"])]
-    if bad:
-        res.append(result("IOS-BGP-MAX-PREFIX", "fail", "No maximum-prefix: " + "; ".join(map(_label, bad)),
-                          [f"neighbor {s['neighbor']} remote-as {s['remote_as']}" for s in bad],
-                          exposed=any(s["public"] for s in bad), where=", ".join(s["neighbor"] for s in bad)))
-    else:
-        res.append(result("IOS-BGP-MAX-PREFIX", "pass", "every eBGP session has a maximum-prefix limit",
-                          [f"neighbor {s['neighbor']} {l}" for s in sessions for l in s["policy"]
-                           if l.startswith("maximum-prefix ")]))
 
     # GTSM on single-hop eBGP (per session, not per AF)
     by_n = {}
@@ -375,8 +528,10 @@ def _bgp(blocks, top):
                           sorted({l for *_, l in leaks}), exposed=True,
                           where=", ".join(sorted({s["neighbor"] for s, *_ in leaks}))))
     elif graded:
+        v6 = any(s["af"].startswith("ipv6") for s, _ in graded)
         res.append(result("IOS-BGP-INBOUND-PERMISSIVE", "pass", "inbound prefix-lists reject bogons and "
-                          f"prefixes longer than /{TOO_SPECIFIC_V4}: "
+                          f"prefixes longer than /{TOO_SPECIFIC_V4}" + (f" (IPv6: /{TOO_SPECIFIC_V6})" if v6 else "")
+                          + ": "
                           + ", ".join(f"{n} from {s['neighbor']}" for s, n in graded),
                           [l for _, n in graded for k in pls if k[1] == n for *_, l in pls[k]]))
     else:

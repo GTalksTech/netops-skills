@@ -48,6 +48,8 @@ line vty 0 4
  access-class MGMT in
  exec-timeout 5 0
  transport input ssh
+ip access-list standard MGMT
+ permit 10.0.20.0 0.0.0.255
 """
 
 
@@ -143,15 +145,38 @@ def test_without_aaa_console_default_is_no_login():
     assert r["status"] == "fail" and "line con 0" in r["detail"] and "line vty" not in r["detail"]
     r = _run(cfg.replace("line con 0\n", "line con 0\n login local\n"))["IOS-LOGIN-NONE"]
     assert r["status"] == "pass"
-    r = _run(cfg.replace(" login local", " no login"))["IOS-LOGIN-NONE"]
+    r = _run(cfg.replace(" login local", " no login"))["IOS-VTY-NO-LOGIN"]
     assert r["status"] == "fail" and "line vty 0 4" in r["detail"]
+    assert _run(cfg)["IOS-VTY-NO-LOGIN"]["status"] == "pass"
+
+
+def test_aaa_without_default_list_leaves_the_console_open():
+    # Cisco Security Command Reference (aaa authentication login): with no default list the
+    # console logs in without checks, the vty lines use the local database.
+    cfg = GOOD.replace("aaa authentication login default group ISE local\n", "")
+    res = _run(cfg)
+    assert res["IOS-LOGIN-NONE"]["status"] == "fail" and "line con 0" in res["IOS-LOGIN-NONE"]["detail"]
+    assert res["IOS-VTY-NO-LOGIN"]["status"] == "pass"
+
+
+def test_ntp_trusted_key_range():
+    assert ios_mgmt.trusted_keys(["ntp trusted-key 1 - 5", "ntp trusted-key 9"]) == {"1", "2", "3", "4", "5", "9"}
+    cfg = GOOD.replace("ntp trusted-key 1", "ntp trusted-key 1 - 3")
+    assert _st(cfg, "IOS-NTP-AUTH") == "pass"
 
 
 def test_vty_with_no_auth_on_the_internet_is_exposed():
     cfg = GOOD.replace("10.0.0.1 255.255.255.0", "203.0.113.2 255.255.255.252").replace(
         " access-class MGMT in\n", "").replace("group ISE local", "none")
-    r = _run(cfg)["IOS-LOGIN-NONE"]
+    r = _run(cfg)["IOS-VTY-NO-LOGIN"]
     assert r["status"] == "fail" and r["exposed"] is True
+    assert _run(cfg)["IOS-LOGIN-NONE"]["status"] == "fail"     # the default list is none for the console too
+    # an inbound access-class keeps it unexposed; an 'out' one does not
+    vty = " exec-timeout 5 0\n transport"
+    r = _run(cfg.replace(vty, " access-class MGMT in\n" + vty))
+    assert r["IOS-VTY-NO-LOGIN"]["exposed"] is False
+    r = _run(cfg.replace(vty, " access-class MGMT out\n" + vty))
+    assert r["IOS-VTY-NO-LOGIN"]["exposed"] is True
     assert _run(cfg)["IOS-LOGIN-BLOCK"]["exposed"] is False     # lockout is in place in GOOD
 
 
@@ -185,7 +210,8 @@ def test_lab_results():
     text = (LAB / "show-running-config-view-full.txt").read_text(encoding="utf-8")
     facts, found = vendor_ios.analyze(text, {"_folder": LAB})
     res = {r["check"]: r for r in facts["results"] if r["check"] in ios_mgmt.CHECKS}
-    assert {c: r["status"] for c, r in res.items()} == {c: "fail" for c in ios_mgmt.CHECKS}
+    assert {c: r["status"] for c, r in res.items()} == {c: "pass" if c == "IOS-VTY-NO-LOGIN" else "fail"
+                                                         for c in ios_mgmt.CHECKS}
     assert "line con 0 (never)" in res["IOS-EXEC-TIMEOUT"]["detail"]
     assert "line vty 0 4 (30 min)" in res["IOS-EXEC-TIMEOUT"]["detail"]
     assert "login list CONSOLE: none" in res["IOS-LOGIN-NONE"]["detail"]
@@ -195,5 +221,5 @@ def test_lab_results():
     assert res["IOS-NTP-REDUNDANT"]["detail"].startswith("1 NTP server")
     # the lab vty has an access-class and the console is physical: nothing here is internet-exposed
     assert not any(r["exposed"] for r in res.values())
-    assert all(r in found for r in res.values())
+    assert all(r in found for r in res.values() if r["status"] == "fail")
     assert all(r["status"] in common.STATUSES for r in facts["results"])

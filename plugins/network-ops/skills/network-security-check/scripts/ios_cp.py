@@ -9,7 +9,10 @@
 #               unreachables are ON unless an interface says "no ...". Directed broadcast, small
 #               servers and finger are OFF unless the line is present. IP source routing is OFF
 #               from IOS XE 17.1.1 and ON before it. LLDP is off unless "lldp run". CDP state is
-#               read from the saved show cdp neighbors output when it is there.
+#               read from the saved show cdp neighbors output when it is there. IPv6 (Cisco IPv6
+#               command reference): redirects and unreachables ON, type 0 routing header
+#               processing (ipv6 source-route) OFF since 12.4(15)T; with ipv6 unicast-routing the
+#               router sends router advertisements unless "ipv6 nd ra suppress".
 # ============================================================
 import re
 from pathlib import Path
@@ -18,6 +21,7 @@ from common import result
 from ios_routing import _routing_auth
 
 CHECKS = ("IOS-NO-COPP", "IOS-EDGE-IP-SERVICES", "IOS-EDGE-CDP-LLDP", "IOS-LEGACY-SERVICES")
+V6_IGP = r"(ipv6 ospf \d+ area |ospfv3 \d+ (ipv6 )?area |ipv6 eigrp \d+)"
 
 # DISA CISC-ND-000470: services that must not be in the configuration (present-line test).
 # ip http server has its own check (IOS-HTTP-SERVER). service call-home is left out: the STIG
@@ -41,6 +45,10 @@ def external_interfaces(blocks, interfaces):
         m = re.match(r"(OSPF|EIGRP) \S+ on (\S+)$", a["what"])
         if m:
             igp.add(m.group(2))
+    # IPv6 IGPs are enabled on the interface itself (OSPFv3, EIGRP for IPv6)
+    for h, ch in blocks:
+        if h.startswith("interface ") and any(re.match(V6_IGP, c) for c in ch):
+            igp.add(h.split()[1])
     return [i for i in interfaces if i.get("internet") and i["name"] not in igp
             and not re.match(r"(?i)(loopback|null)", i["name"])]
 
@@ -86,7 +94,8 @@ def check(blocks, top, interfaces, external, dev):
     ext_names = [i["name"] for i in external]
 
     # --- CoPP ---
-    cp = [ch for h, ch in blocks if h == "control-plane"]
+    # 'control-plane host' (the subinterface for traffic to the router itself) carries CoPP too
+    cp = [ch for h, ch in blocks if h == "control-plane" or h == "control-plane host"]
     pol = [c for ch in cp for c in ch if re.match(r"service-policy input \S+", c)]
     maps = {h.split()[1] for h, _ in blocks if re.match(r"policy-map \S+$", h)}
     if pol:
@@ -118,29 +127,49 @@ def check(blocks, top, interfaces, external, dev):
             res.append(result(c, "n/a", "no internet-facing interface"))
     else:
         bad, ok, reach = [], [], False
-        for n in ext_names:
-            ch = cfg.get(n, [])
+        v6_routing = "ipv6 unicast-routing" in top
+        for i in external:
+            n, ch = i["name"], cfg.get(i["name"], [])
             why = []
-            if "no ip proxy-arp" not in ch and not proxy_off_global:
-                why.append("proxy-arp")
-            if "no ip redirects" not in ch:
-                why.append("redirects")
-            if "no ip unreachables" not in ch and not rate_limit:
-                why.append("unreachables")
-                reach = True
-            if any(re.match(r"ip directed-broadcast\b", c) for c in ch):
-                why.append("directed-broadcast")
-                reach = True
+            # IPv4 items on an interface that faces the internet over IPv4 (or one read before the
+            # IPv4/IPv6 split, which has neither flag)
+            if i.get("internet4", True) or not i.get("internet6"):
+                if "no ip proxy-arp" not in ch and not proxy_off_global:
+                    why.append("proxy-arp")
+                if "no ip redirects" not in ch:
+                    why.append("redirects")
+                if "no ip unreachables" not in ch and not rate_limit:
+                    why.append("unreachables")
+                    reach = True
+                if any(re.match(r"ip directed-broadcast\b", c) for c in ch):
+                    why.append("directed-broadcast")
+                    reach = True
+            # IPv6 (Cisco IPv6 command reference: redirects and unreachables on by default; STIG
+            # CISC-RT-000391: suppress router advertisements on external IPv6 interfaces). A router
+            # sends RAs only with ipv6 unicast-routing.
+            if i.get("internet6"):
+                if "no ipv6 redirects" not in ch:
+                    why.append("ipv6 redirects")
+                if "no ipv6 unreachables" not in ch:
+                    why.append("ipv6 unreachables")
+                    reach = True
+                if v6_routing and not any(re.match(r"ipv6 nd (ra suppress( all)?|suppress-ra)$", c) for c in ch):
+                    why.append("ipv6 router advertisements")
             (bad if why else ok).append((n, why))
         if bad:
             res.append(result("IOS-EDGE-IP-SERVICES", "fail", "On by default and not turned off: " + "; ".join(
                 f"{n} ({', '.join(w)})" for n, w in bad), [f"interface {n}" for n, _ in bad], exposed=reach,
                 where=", ".join(n for n, _ in bad)))
         else:
+            v6 = [i["name"] for i in external if i.get("internet6")]
             res.append(result("IOS-EDGE-IP-SERVICES", "pass", "proxy-arp, redirects and unreachables off, no "
-                              "directed broadcast on " + ", ".join(ext_names),
+                              "directed broadcast on " + ", ".join(ext_names)
+                              + (f"; IPv6 redirects and unreachables off" + (
+                                  ", router advertisements suppressed" if v6_routing else "")
+                                 + f" on {', '.join(v6)}" if v6 else ""),
                               [f"interface {n}: {c}" for n in ext_names for c in cfg.get(n, [])
-                               if re.match(r"no ip (proxy-arp|redirects|unreachables)$", c)] + rate_limit
+                               if re.match(r"no ipv6 (redirects|unreachables)$|no ip (proxy-arp|redirects|"
+                                           r"unreachables)$|ipv6 nd (ra suppress|suppress-ra)", c)] + rate_limit
                               + (["ip arp proxy disable"] if proxy_off_global else [])))
 
         # --- CDP / LLDP on external interfaces ---
@@ -160,10 +189,16 @@ def check(blocks, top, interfaces, external, dev):
             lldp_on, lldp_how = True, "lldp run"
         else:
             lldp_on, lldp_how = False, "no 'lldp run' (LLDP is off by default)"
+        # IOS writes only non-default lines. A 'cdp enable' line on any interface means the per-interface
+        # default on this platform is off (seen on some IOS XE routers), so only those interfaces run it.
+        explicit = {h.split()[1] for h, ch in blocks if h.startswith("interface ") and "cdp enable" in ch}
+        if explicit and cdp_on:
+            cdp_how += "; per-interface default off ('cdp enable' is written on " + ", ".join(sorted(explicit)[:4]) \
+                + (" and more" if len(explicit) > 4 else "") + ")"
         hits = []
         for n in ext_names:
             ch = cfg.get(n, [])
-            if cdp_on and "no cdp enable" not in ch:
+            if cdp_on and "no cdp enable" not in ch and (not explicit or n in explicit):
                 hits.append(f"{n} (CDP)")
             if lldp_on and "no lldp transmit" not in ch:
                 hits.append(f"{n} (LLDP)")
@@ -185,6 +220,9 @@ def check(blocks, top, interfaces, external, dev):
                 found.append(h)
                 listening |= port
     ver = _version(top)
+    if "ipv6 source-route" in top:
+        # off by default since IOS 12.4(15)T: the router then drops packets with a type 0 routing header
+        found.append("ipv6 source-route")
     if any(re.match(r"ip source-route\b", h) for h in top):
         found.append("ip source-route")
     elif ver and ver < (17, 1) and "no ip source-route" not in top:

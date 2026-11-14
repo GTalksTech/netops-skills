@@ -44,6 +44,10 @@ a firewall's interfaces, it assumes the firewall faces the internet for its CVEs
 BOD 26-04 says "if one method finds it exposed, the answer is yes". It also stops trusting that
 config for feature checks, so no CVE gets marked "feature off" from a config it couldn't read.
 Interfaces in a management VRF or a management-only interface never count as internet-facing.
+IPv6 (Cisco IOS): IPv6 LANs use global addresses too, so a global unicast address counts only with
+a sign that the interface is the outside: it also faces the internet over IPv4, the IPv6 default
+route leaves through it, an eBGP neighbor sits in its subnet, it requests a delegated prefix
+(`ipv6 dhcp client pd`), or its name or description reads like an internet link.
 
 ## CISA BOD 26-04, Table 1
 
@@ -116,7 +120,9 @@ disagree with it. They are in the code as named constants or caps.
     are mostly remote code execution or auth bypass. CISA BOD 26-02 orders edge devices off
     end-of-support software "immediately" and reports widespread campaigns against them, but
     names no single exploit, so known exploited stays no. Result: an internet-facing device gets
-    3 days (score 80-89), which matches "immediately"; an internal device gets 60 days. No lower
+    3 days, which matches "immediately"; an internal device gets 60 days. Its weight is 0.1, so
+    inside the 3-day band it scores about 81, below the CVE and KEV findings that share the band
+    (an open, known flaw is more urgent than the lack of future fixes). No lower
     cap: a "next upgrade" deadline would contradict the directive. The security end date is the
     vendor's end of vulnerability support (Cisco), end of engineering (Juniper, Fortinet: no
     more releases means no more fixes) or end of Extended Support+ (Palo Alto). LIFECYCLE-SOON
@@ -140,6 +146,30 @@ with its reason and expiry and leaves the deadline counts. Its score is unchange
 waiver stops applying and the report says so. Only config findings can be waived: a CVE is
 cleared by patching, an event by blocking. Basis: NIST SP 800-53 Rev. 5 CA-5 (plan of action
 and milestones) and RA-7 (risk response).
+
+## Counting: distinct problems, hygiene and dependent checks
+
+More house rules (11-13). They change how findings are counted and listed, never a score or a
+deadline. Basis: NIST SP 800-53 Rev. 5 RA-3 (risk assessment) asks for findings ranked by risk so
+effort goes to what matters, and a report that counts every banner on every switch hides the few
+problems that do. Nothing is dropped: every per device-check finding stays in the JSON report.
+
+11. **Hygiene checks (`tier: advisory` in `settings/checks.yaml`) are listed, not counted.** A
+    check gets this tier only when it is not known exploited, not total control, and a fail
+    gives an attacker no foothold on its own: login banner, second NTP or syslog server, unused
+    ports, access-port authentication, trunk VLAN lists, CDP/LLDP on an external link, unused
+    FortiGate VIPs. Their fails go to `hygiene` in the JSON and a short "Hygiene notes" section
+    (one line per check), outside the deadline counts and top actions.
+12. **A dependent check folds into the check it depends on (`suppressed_by`).** When the parent
+    check fails on the same device, the dependent fail moves into the parent's `also` list and
+    its detail ("Also: ..."), because one fix has to come first: Dynamic ARP Inspection reads
+    the DHCP snooping table (IOS-L2-DAI under IOS-L2-DHCP-SNOOPING), and command accounting to
+    a server needs central AAA (IOS-AAA-ACCOUNTING under IOS-AAA-CENTRAL). Only clear
+    dependencies, one level deep (check-settings rejects chains).
+13. **A check failing in one band on 3 or more devices counts as one problem.** `counts` stays
+    per device-check; `counts_unique` (used in the report summary) counts that check once, and
+    `findings_unique` holds the rolled-up finding with its device list, score range, one
+    example and a per-device list. CVEs are already one finding per CVE.
 
 ## Reading a finding
 

@@ -53,3 +53,7 @@ before a check that uses it ships.
 - R8 done 2026-11-13: end-of-support check, lifecycle.yaml (review-log Round 9). Open: FortiOS 7.0/7.2/8.0 dates.
 - R9 done 2026-11-13: report.py renders md and a self-contained HTML report (summary with top actions grouped by fix, posture grid, grouped findings, what is good, coverage, control map); JSON gains summary, posture, controls, snapshot (review-log Round 10).
 - R6 done 2026-11-13: layer 2 and FHRP, 9 checks (review-log Round 11).
+- Round 12 (B2) done 2026-11-13: correctness batch (masking corpus, BGP auth via groups and templates, loose uRPF, IOS-VTY-NO-LOGIN, vty ACL direction and content, L2 routed ports and templates, LIFECYCLE-EOS weight) and R10 tests (Table 1, sources, no secret in a full run). See review-log Round 12. R10 done.
+- B1 and B2 done 2026-11-13: noise tiering and rollup, correctness batch from the mid-run review (review-log Rounds 12-13).
+- Round 14 (B3) done 2026-11-13: management transport crypto, IOS-SSH-CRYPTO, IOS-MGMT-CLEARTEXT-XFER (advisory), IOS-MGMT-CLEARTEXT-CRED and FGT-ADMIN-SSH-CRYPTO; all pass on the lab. See review-log Round 14.
+- B3 and B4 done 2026-11-13: SSH/transfer crypto strength, IPv6 edge parity (review-log Rounds 14-15).

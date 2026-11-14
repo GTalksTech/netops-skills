@@ -16,6 +16,10 @@
 #                    Kept to the 1-3 closest controls. A mapping, not a compliance claim.
 #   zt_pillar: CISA Zero Trust Maturity Model v2 pillar (cisa-ztmm-v2): networks, devices,
 #                    identity or visibility (the cross-cutting "visibility and analytics").
+#   tier: advisory (optional) = hygiene: fails are listed under "Hygiene notes", outside the
+#                    deadline counts and top actions (SCORING.md house rule 11). Default standard.
+#   suppressed_by: [CHECK] (optional) = when CHECK also fails on the same device, this fail folds
+#                    into CHECK's finding as "Also: ..." (house rule 12). One level, clear dependencies.
 #
 # Change a value only with a source. Add the source to research/sources.md first.
 
@@ -23,7 +27,7 @@
 IOS-HTTP-SERVER:
   title: Web UI (ip http server / secure-server) is enabled
   why: The IOS-XE web UI was the entry point for CVE-2023-20198, exploited at scale in 2023. Cisco's own fix guidance is to turn it off where it is not needed.
-  fix: "no ip http server / no ip http secure-server, or limit it with ip http access-class to a management subnet."
+  fix: "no ip http server / no ip http secure-server. If the web UI is needed, run HTTPS only (no ip http server, keep ip http secure-server) and limit it with ip http access-class to a management subnet; that combination passes with a note."
   known_exploited: true
   automatable: true
   total_control: true
@@ -60,9 +64,9 @@ IOS-SSH-V1:
   controls: [AC-17, SC-8, SC-13]
   zt_pillar: devices
 IOS-VTY-ACL:
-  title: VTY lines have no access-class
-  why: Without an ACL any host that can route to the device can try to log in.
-  fix: "access-class <mgmt-acl> in on every line vty, permitting only the management subnet."
+  title: VTY lines have no working inbound access-class
+  why: Without an inbound ACL any host that can route to the device can try to log in. 'access-class X out' filters outgoing sessions only, an access-class naming an undefined ACL lets every source in, and one that permits any source filters nothing. When the device has IPv6 addresses, the vty lines also need 'ipv6 access-class'.
+  fix: "access-class <mgmt-acl> in on every line vty (and ipv6 access-class <mgmt-acl6> in where IPv6 is configured), with the ACL defined and permitting only the management subnet."
   known_exploited: false
   automatable: true
   total_control: false
@@ -86,9 +90,9 @@ IOS-SNMP-COMMUNITY:
   controls: [IA-5, AC-17, CM-7]
   zt_pillar: devices
 IOS-PASSWORD-STORAGE:
-  title: Weak password storage (enable password, type 0, type 7 or type 5)
-  why: Type 0 is clear text, type 7 is reversible, type 5 is MD5. NSA recommends type 8 or 9.
-  fix: Use "enable algorithm-type scrypt secret" and "username X algorithm-type scrypt secret". Then rotate the passwords.
+  title: Weak password storage (enable password, type 0, 4, 5 or 7, line passwords)
+  why: Type 0 is clear text, type 7 is reversible, type 5 is MD5, type 4 is a flawed SHA-256 scheme Cisco withdrew. A 'password' under line con, vty or aux can only be type 0 or 7. NSA recommends type 8 or 9.
+  fix: Use "enable algorithm-type scrypt secret" and "username X algorithm-type scrypt secret", remove line passwords in favor of login local or AAA. Then rotate the passwords.
   known_exploited: false
   automatable: false
   total_control: true
@@ -139,7 +143,7 @@ IOS-ROUTING-NO-AUTH:
   zt_pillar: networks
 IOS-ROUTING-WEAK-AUTH:
   title: Routing protocol authentication uses MD5, or a key chain with no algorithm set
-  why: MD5 is not a FIPS 198-1 algorithm. DISA's router STIG asks for HMAC-SHA and records MD5-only authentication as a permanent finding. A key chain with no cryptographic-algorithm line leaves the algorithm to the default for that protocol.
+  why: MD5 is not a FIPS 198-1 algorithm. DISA's router STIG asks for HMAC-SHA and records MD5-only authentication as a permanent finding. A key chain with no cryptographic-algorithm line leaves the algorithm to the default for that protocol. OSPF and EIGRP are graded here; BGP TCP MD5 (neighbor <ip> password) passes with a note, because TCP-AO needs the peer to support it and most ISPs offer only MD5.
   fix: "Move to a key chain with cryptographic-algorithm hmac-sha-256 (OSPF: ip ospf authentication key-chain; EIGRP named mode: authentication mode hmac-sha-256; BGP: neighbor <ip> ao <tcp key chain> in place of neighbor <ip> password). Keep key lifetimes at 180 days or less."
   known_exploited: false
   automatable: false
@@ -204,17 +208,30 @@ IOS-AAA-CENTRAL:
   controls: [IA-2, AC-2]
   zt_pillar: identity
 IOS-LOGIN-NONE:
-  title: A console or vty line lets users in without authentication
-  why: The line's login method list is or ends in "none", or it has "no login". Anyone at the console (or, for a vty, anyone who reaches the device) gets a session without a password, at the line's privilege level. Without aaa new-model, the IOS console default is no login at all. The STIG example applies an authenticating list to line con 0 as well as the vty lines.
-  fix: "Apply a login list that authenticates (group <servers> local, or local) to line con 0 and every line vty. Remove 'none' from the method list and 'no login' from the lines."
+  title: The console line lets users in without authentication
+  why: The console's login method list is or ends in "none", or it has "no login". Anyone at the console gets a session without a password, at the line's privilege level. Without aaa new-model the IOS console default is no login at all, and with aaa new-model but no 'aaa authentication login default' list the console also logs in without checks (Cisco command reference). The STIG example applies an authenticating list to line con 0 as well as the vty lines. Vty lines are IOS-VTY-NO-LOGIN.
+  fix: "Apply a login list that authenticates (group <servers> local, or local) to line con 0, or define 'aaa authentication login default'. Remove 'none' from the method list and 'no login' from the line."
   known_exploited: false
   automatable: false
   total_control: true
   weight: 0.5
-  sources: [stig-ios-aaa-servers, cisa-comms-hardening]
+  sources: [stig-ios-aaa-servers, cisa-comms-hardening, cisco-aaa-login-cr]
   plane: management
   validated: lab-v2
   controls: [IA-2, AC-14]
+  zt_pillar: identity
+IOS-VTY-NO-LOGIN:
+  title: A vty line lets remote users in without authentication
+  why: The vty login method list is or ends in "none", or the line has "no login". Anyone who reaches the device over the network gets a session without a password, at the line's privilege level, and a script can do it with no user involved. On an internet-facing device with no inbound access-class on the line, that is anyone on the internet.
+  fix: "Apply a login list that authenticates (group <servers> local, or local) to every line vty, remove 'none' and 'no login', and add access-class <mgmt-acl> in."
+  known_exploited: false
+  automatable: true
+  total_control: true
+  weight: 0.8
+  sources: [stig-ios-aaa-servers, cisa-comms-hardening, cisco-aaa-login-cr]
+  plane: management
+  validated: fixture
+  controls: [IA-2, AC-14, AC-17]
   zt_pillar: identity
 IOS-AAA-ACCOUNTING:
   title: Admin commands are not recorded (no AAA command accounting, no archive log config)
@@ -229,6 +246,7 @@ IOS-AAA-ACCOUNTING:
   validated: lab-v2
   controls: [AU-2, AU-12]
   zt_pillar: visibility
+  suppressed_by: [IOS-AAA-CENTRAL]
 IOS-BANNER:
   title: No login banner
   why: A banner shown before login states that access is restricted and monitored, which supports legal action against misuse. DISA's STIG and Cisco's hardening guide both ask for one. IOS shows no banner by default.
@@ -242,6 +260,7 @@ IOS-BANNER:
   validated: lab-v2
   controls: [AC-8]
   zt_pillar: identity
+  tier: advisory
 IOS-NTP-AUTH:
   title: NTP is not authenticated
   why: An unauthenticated NTP source can be spoofed to shift the device clock, which breaks log correlation and certificate checks. DISA's STIG asks for ntp authenticate, a trusted key and a key on every server. IOS has no NTP authentication by default.
@@ -268,6 +287,7 @@ IOS-NTP-REDUNDANT:
   validated: lab-v2
   controls: [SC-45(1), AU-8]
   zt_pillar: visibility
+  tier: advisory
 IOS-LOG-DEPTH:
   title: Remote syslog has one server only, or the trap level sends almost nothing
   why: One syslog server is a single point of loss for the device's logs. DISA's STIG asks for at least two, and for logging trap at critical or a lower severity (informational, the IOS default when no logging trap line is shown, passes). 'no logging trap' or a trap level of emergencies or alerts sends almost nothing to the servers.
@@ -281,6 +301,7 @@ IOS-LOG-DEPTH:
   validated: lab-v2
   controls: [AU-9(2), AU-4]
   zt_pillar: visibility
+  tier: advisory
 IOS-SNMP-V2C:
   title: SNMP v1/v2c in use (community strings in clear text)
   why: SNMP v1 and v2c send the community string, and every value read, in clear text, so anyone on the path can capture it; an ACL limits who can use the string, not who can read it. DISA's STIG and CISA's communications hardening guidance ask for SNMPv3 with authentication and privacy. IOS has no SNMP by default. Weak or read-write communities are scored separately (IOS-SNMP-COMMUNITY).
@@ -308,14 +329,14 @@ IOS-NO-COPP:
   controls: [SC-5, SC-7]
   zt_pillar: devices
 IOS-EDGE-IP-SERVICES:
-  title: Proxy ARP, ICMP redirects or unreachables on, or directed broadcast, on an external interface
-  why: IOS XE turns on proxy ARP, ICMP redirects and ICMP unreachables by default, so an external interface without "no ip ..." lines has them. Unreachables help remote mapping and add CPU load; directed broadcast enables smurf amplification. Proxy ARP and redirects only reach the device on the other end of the link. DISA asks for all four to be off on external interfaces. Exposed when unreachables or directed broadcast are on (reachable from beyond the link).
-  fix: "On each external interface: no ip proxy-arp, no ip redirects, no ip unreachables, no ip directed-broadcast. (A global ip icmp rate-limit unreachable is accepted instead of no ip unreachables.)"
+  title: Proxy ARP, ICMP redirects or unreachables on, or directed broadcast, on an external interface (IPv4 and IPv6)
+  why: IOS XE turns on proxy ARP, ICMP redirects and ICMP unreachables by default, so an external interface without "no ip ..." lines has them. Unreachables help remote mapping and add CPU load; directed broadcast enables smurf amplification. Proxy ARP and redirects only reach the device on the other end of the link. DISA asks for all four to be off on external interfaces. IPv6 on an IPv6 internet-facing interface has the same defaults (ICMPv6 redirects and unreachables on, per the Cisco IPv6 command reference), and with ipv6 unicast-routing the router sends router advertisements on it, which DISA asks to suppress on external interfaces. Exposed when IPv4 or IPv6 unreachables or directed broadcast are on (reachable from beyond the link). IPv6 parts validated on fixtures only (the lab is IPv4-only).
+  fix: "On each external interface: no ip proxy-arp, no ip redirects, no ip unreachables, no ip directed-broadcast. (A global ip icmp rate-limit unreachable is accepted instead of no ip unreachables.) With IPv6: no ipv6 redirects, no ipv6 unreachables, and ipv6 nd ra suppress all."
   known_exploited: false
   automatable: false
   total_control: false
   weight: 0.15
-  sources: [stig-ios-redirects, stig-ios-unreachables, stig-ios-proxy-arp, stig-ios-directed-bcast, cisco-xe17-ipservices, cisco-harden-ios]
+  sources: [stig-ios-redirects, stig-ios-unreachables, stig-ios-proxy-arp, stig-ios-directed-bcast, cisco-xe17-ipservices, cisco-harden-ios, stig-ios-ra-suppress, cisco-ipv6-cr-defaults]
   plane: control
   validated: lab-v2
   controls: [CM-7, SC-7]
@@ -333,35 +354,36 @@ IOS-EDGE-CDP-LLDP:
   validated: lab-v2
   controls: [CM-7, SC-7]
   zt_pillar: networks
+  tier: advisory
 IOS-LEGACY-SERVICES:
   title: Legacy services enabled (small servers, finger, BOOTP, PAD, source routing and similar)
-  why: DISA lists services that must not be in an IOS XE configuration (TCP/UDP small servers, finger, identd, BOOTP and DNS server, rcmd, PAD, service config, boot network). They are off by default on current IOS, so the check looks for the line. IP source routing is off by default from IOS XE 17.1.1 and on before it, so an older release without "no ip source-route" also fails. Exposed when a listening service is on and an external interface has no inbound ACL (or one that permits ip any any).
-  fix: "Remove each line (no service tcp-small-servers, no ip finger, no ip bootp server, no service pad, ...). On releases before IOS XE 17.1.1 add no ip source-route."
+  why: DISA lists services that must not be in an IOS XE configuration (TCP/UDP small servers, finger, identd, BOOTP and DNS server, rcmd, PAD, service config, boot network). They are off by default on current IOS, so the check looks for the line. IP source routing is off by default from IOS XE 17.1.1 and on before it, so an older release without "no ip source-route" also fails. IPv6 type 0 routing header processing (ipv6 source-route) is off by default since IOS 12.4(15)T, so the line fails when present. Exposed when a listening service is on and an external interface has no inbound ACL (or one that permits ip any any).
+  fix: "Remove each line (no service tcp-small-servers, no ip finger, no ip bootp server, no service pad, no ipv6 source-route, ...). On releases before IOS XE 17.1.1 add no ip source-route."
   known_exploited: false
   automatable: false
   total_control: false
   weight: 0.3
-  sources: [stig-ios-http, cisco-harden-ios, cisco-xe17-ipservices]
+  sources: [stig-ios-http, cisco-harden-ios, cisco-xe17-ipservices, cisco-ipv6-cr-defaults]
   plane: control
   validated: fixture
   controls: [CM-7]
   zt_pillar: devices
 IOS-EDGE-NO-ANTISPOOF:
   title: No anti-spoofing on an external interface (no uRPF, no ACL dropping private sources)
-  why: BCP 38/84 ask every edge to drop inbound packets whose source address cannot be legitimate there. Without uRPF or an inbound ACL that denies private (RFC 1918) sources first, spoofed traffic enters the network and the edge can be used in reflection attacks. IOS XE has no uRPF by default. Either control passes; loose uRPF is credited but noted (it drops only sources with no route).
-  fix: "ip verify unicast source reachable-via rx on a single-homed external interface (loose 'any' where routing is asymmetric), or an inbound ACL that denies 10/8, 172.16/12, 192.168/16 and your own prefixes as sources before any permit."
+  why: BCP 38/84 ask every edge to drop inbound packets whose source address cannot be legitimate there. Without uRPF or an inbound ACL that denies private (RFC 1918) sources first, spoofed traffic enters the network and the edge can be used in reflection attacks. IOS XE has no uRPF by default. Strict uRPF or such an ACL passes. Loose uRPF alone does not, because it drops only sources with no route, and with a default route that is none of them; loose uRPF together with the ACL passes. IPv6 is graded the same way on IPv6 internet-facing interfaces (one finding, same fix); strict ipv6 uRPF, or an inbound ipv6 traffic-filter that denies ULA (fc00::/7) sources before any permit that could match them. Permits for ICMPv6 neighbor and router discovery are skipped (link-scoped). Link-local sources are not asked for (routers never forward them, RFC 6890) and documentation ranges are not, to match common.is_public. IPv6 parts validated on fixtures only.
+  fix: "ip verify unicast source reachable-via rx on a single-homed external interface (loose 'any' where routing is asymmetric), or an inbound ACL that denies 10/8, 172.16/12, 192.168/16 and your own prefixes as sources before any permit. IPv6: ipv6 verify unicast source reachable-via rx, or ipv6 traffic-filter <acl> in with deny ipv6 FC00::/7 any (and your own prefixes) before the permits, after the ICMPv6 neighbor discovery permits."
   known_exploited: false
   automatable: false
   total_control: false
   weight: 0.45
-  sources: [rfc2827-bcp38, rfc3704-bcp84, rfc8704-bcp84, stig-ios-urpf, stig-ios-bogon-acl]
+  sources: [rfc2827-bcp38, rfc3704-bcp84, rfc8704-bcp84, stig-ios-urpf, stig-ios-bogon-acl, rfc6890-special-purpose]
   plane: data
   validated: lab-v2
   controls: [SC-7, SC-5]
   zt_pillar: networks
 IOS-BGP-NO-POLICY:
   title: eBGP neighbor with no inbound or no outbound route filter
-  why: RFC 8212 says routes from an eBGP peer must not be used, and none sent, without an explicit policy. With no inbound filter the router accepts whatever the peer sends (route leaks, hijacks); with no outbound filter it can leak every route it knows. Whether IOS XE applies RFC 8212 by default was not verified, so a missing filter is a finding on every release. Peer-groups and peer templates are resolved; iBGP is not graded. Exposed when the neighbor address is public.
+  why: RFC 8212 says routes from an eBGP peer must not be used, and none sent, without an explicit policy. With no inbound filter the router accepts whatever the peer sends (route leaks, hijacks); with no outbound filter it can leak every route it knows. Whether IOS XE applies RFC 8212 by default was not verified, so a missing filter is a finding on every release. Peer-groups and peer templates are resolved; iBGP is not graded. IPv6 neighbors are graded in each address family they are activated in (bgp default ipv4-unicast does not activate an IPv6 neighbor in IPv4). Exposed when the neighbor address is public.
   fix: "neighbor <ip> prefix-list <in-list> in and neighbor <ip> prefix-list <out-list> out (or route-maps) on every eBGP neighbor."
   known_exploited: false
   automatable: false
@@ -399,18 +421,46 @@ IOS-BGP-NO-GTSM:
   controls: [SC-5, SC-7]
   zt_pillar: networks
 IOS-BGP-INBOUND-PERMISSIVE:
-  title: Inbound eBGP prefix-list accepts bogons or prefixes longer than /24
-  why: DISA asks the inbound filter from an internet peer to reject bogon space (private, loopback, link-local, CGNAT, multicast, reserved) and IPv4 prefixes longer than /24 (RFC 7454 6.1). The check reads the prefix-list in order and fails only when it can show a route that the list permits. Exact one-prefix entries are not graded for length (a deliberate exception); private-address eBGP neighbors (MPLS VPN and similar) are not graded; route-maps are not read.
-  fix: "Add deny entries for the bogon ranges before the permits, and replace 'le 32' ranges with 'le 24' (or list the long prefixes you really need one by one)."
+  title: Inbound eBGP prefix-list accepts bogons or prefixes longer than /24 (IPv4) or /48 (IPv6)
+  why: DISA asks the inbound filter from an internet peer to reject bogon space (private, loopback, link-local, CGNAT, multicast, reserved) and IPv4 prefixes longer than /24 (RFC 7454 6.1). For IPv6 (ipv6 prefix-list on an ipv6 address family) the bogons are the RFC 6890 blocks marked not global (loopback, unspecified, IPv4-mapped, discard, Teredo, benchmarking, ORCHID, ULA, link-local) plus multicast, and the length limit is /48 (RFC 7454 6.1.3); IPv6 validated on fixtures only. The check reads the prefix-list in order and fails only when it can show a route that the list permits. Exact one-prefix entries are not graded for length (a deliberate exception); private-address eBGP neighbors (MPLS VPN and similar) are not graded; route-maps are not read.
+  fix: "Add deny entries for the bogon ranges before the permits, and replace 'le 32' ranges with 'le 24' (IPv6: 'le 128' with 'le 48'), or list the long prefixes you really need one by one."
   known_exploited: false
   automatable: false
   total_control: false
   weight: 0.35
-  sources: [stig-ios-bgp-bogons, rfc7454-bgp-ops]
+  sources: [stig-ios-bgp-bogons, rfc7454-bgp-ops, rfc7454-ipv6-filters, rfc6890-special-purpose]
   plane: control
   validated: lab-v2
   controls: [SC-7, AC-4]
   zt_pillar: networks
+IOS-L2-V6-FHS:
+  title: Access port in an IPv6 VLAN without RA Guard or DHCPv6 Guard
+  why: A host on an access port can send IPv6 router advertisements or DHCPv6 server replies and make itself the default gateway or DNS server for every host on the VLAN, then read or change their traffic. RFC 6105 RA Guard blocks router advertisements on ports that are not router-facing; DHCPv6 Guard does the same for DHCPv6 server messages. Both are off by default. Graded on active access ports whose VLAN has an SVI with IPv6 on this switch. A port passes when an RA Guard and a DHCPv6 Guard attach (per port, or per VLAN under vlan configuration) with a policy that is not device-role router / server or trusted-port. The guide states device-role defaults host and client. Validated on fixtures only.
+  fix: "ipv6 nd raguard policy HOSTS / device-role host, ipv6 dhcp guard policy CLIENTS / device-role client, then ipv6 nd raguard attach-policy HOSTS and ipv6 dhcp guard attach-policy CLIENTS on the access ports (or under vlan configuration <user VLANs>). Router-facing uplinks get a device-role router / server policy."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.25
+  sources: [rfc6105-ra-guard, cisco-xe17-ipv6-fhs]
+  plane: l2
+  validated: fixture
+  controls: [SC-7, SC-8]
+  zt_pillar: networks
+IOS-L2-V6-FHS-ADVISORY:
+  title: Access port without RA Guard or DHCPv6 Guard on a switch that routes IPv6
+  why: Same attack as IOS-L2-V6-FHS on access ports whose VLAN has no IPv6 SVI on this switch, on a switch with ipv6 unicast-routing or an IPv6 SVI elsewhere. Hosts run IPv6 by default, so a rogue router advertisement or DHCPv6 reply can still steer them, but the switch shows no IPv6 service on that VLAN (it may live on another router), so this is hygiene. Folds into IOS-L2-V6-FHS when both fail on the same switch (one fix). Validated on fixtures only.
+  fix: "Attach the same host-role RA Guard and client-role DHCPv6 Guard policies to these access ports or their VLANs."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.1
+  sources: [rfc6105-ra-guard, cisco-xe17-ipv6-fhs]
+  plane: l2
+  validated: fixture
+  controls: [SC-7, SC-8]
+  zt_pillar: networks
+  tier: advisory
+  suppressed_by: [IOS-L2-V6-FHS]
 IOS-L2-BPDUGUARD:
   title: Access port without BPDU guard
   why: An access port that accepts BPDUs lets a host or a rogue switch take part in spanning tree, become root and pull traffic its way or loop the network. DISA asks for BPDU guard on user-facing access ports; it is off by default. Per-port bpduguard enable passes, and so does the global portfast bpduguard default on a portfast port. Only access ports that are not shut down are graded.
@@ -450,6 +500,7 @@ IOS-L2-DAI:
   validated: lab-v2
   controls: [SC-7, SC-8]
   zt_pillar: networks
+  suppressed_by: [IOS-L2-DHCP-SNOOPING]
 IOS-L2-PORT-AUTH:
   title: Access port with no port security, 802.1X or MAB
   why: Any device plugged into the port gets on the VLAN. DISA asks for 802.1X (MAB for devices with no supplicant) on host-facing ports outside telecom rooms; port security limits the port to known MAC addresses. Weighted low because many networks control access another way (a NAC system, or ports only in locked rooms); record that as accepted risk. Graded on access ports that are not shut down.
@@ -463,6 +514,7 @@ IOS-L2-PORT-AUTH:
   validated: lab-v2
   controls: [IA-3, AC-3]
   zt_pillar: devices
+  tier: advisory
 IOS-L2-UNUSED-PORTS:
   title: Unused switch port not shut down, in VLAN 1, or in a VLAN a trunk carries
   why: An idle port that is up, or that sits in a VLAN the trunks carry, gives anyone who plugs in a working connection. DISA asks for unused ports to be shut down and placed in an unused VLAN that no trunk carries. Unused means shut down in the config, or notconnect / disabled in show interfaces status when the snapshot has it.
@@ -476,6 +528,7 @@ IOS-L2-UNUSED-PORTS:
   validated: lab-v2
   controls: [CM-7, AC-3]
   zt_pillar: networks
+  tier: advisory
 IOS-L2-DTP:
   title: DTP trunk negotiation is on
   why: A port that negotiates trunking (dynamic auto or desirable, or a trunk without nonegotiate) lets a device that speaks DTP form a trunk and reach every VLAN on it (switch spoofing). DISA asks for static trunks with negotiation off and access ports set to access; it says DTP is on by default. The saved show interfaces switchport "Negotiation of Trunking" field is used when present; otherwise the config, with no switchport mode line read as dynamic.
@@ -502,6 +555,7 @@ IOS-L2-TRUNK-VLANS:
   validated: lab-v2
   controls: [SC-7, AC-4]
   zt_pillar: networks
+  tier: advisory
 IOS-L2-VTP-AUTH:
   title: VTP server or client mode without a VTP password
   why: A switch in VTP server or client mode accepts VLAN database updates with a higher revision. Without a password a rogue or reused switch on a trunk can overwrite or delete the VLANs across the domain. Mode comes from show vtp status, else the vtp mode line, else server (no vtp line meant server on IOL IOS-XE 17.16.1a in lab v2). Transparent and off pass; DISA asks for a password in transparent mode too, and the detail says so. Without a vtp password line or show vtp password output the result is not-visible.
@@ -528,6 +582,48 @@ IOS-FHRP-NO-AUTH:
   validated: lab-v2
   controls: [IA-3, SC-8]
   zt_pillar: networks
+
+IOS-SSH-CRYPTO:
+  title: SSH server offers weak algorithms or short keys (CBC, 3DES, SHA-1 MAC or key exchange, ssh-rsa, DH or RSA under 2048 bits)
+  why: "CBC ciphers in SSH allow partial plaintext recovery (CERT VU#958563); 3DES encryption is disallowed after 2023 and SHA-1 signatures (the ssh-rsa host key algorithm) are disallowed by NIST SP 800-131A Rev 2; DISA asks for FIPS-validated SHA-2 HMACs and approved ciphers on remote management sessions; RFC 9142 says SHA-1 key exchange SHOULD NOT be used (group14-sha1 only as a last resort); DH groups and RSA keys under 2048 bits give less than 112-bit strength. The saved 'show ip ssh' output decides (IOS-XE 17.16 defaults are strong); config lines decide only without it."
+  fix: "ip ssh server algorithm encryption aes256-gcm aes256-ctr aes128-ctr (no -cbc), ip ssh server algorithm mac hmac-sha2-256-etm@openssh.com hmac-sha2-512-etm@openssh.com, ip ssh server algorithm kex with no sha1 method, ip ssh server algorithm hostkey rsa-sha2-512 rsa-sha2-256, ip ssh dh min size 2048 (or higher), and an RSA key of 2048 bits or more (crypto key generate rsa modulus 3072 label <name>; ip ssh rsa keypair-name <name>). Or 'default ip ssh server algorithm ...' on IOS-XE 17.x to return to the strong defaults."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [stig-iosxe-ndm-hmac, stig-iosxe-ndm-ssh, nist-800-131a-r2, rfc9142-ssh-kex, cert-vu958563-ssh-cbc, cisco-iosxe-ssh-algorithms]
+  plane: management
+  validated: lab-v2
+  controls: [SC-8, SC-13, AC-17]
+  zt_pillar: devices
+IOS-MGMT-CLEARTEXT-XFER:
+  title: Configs or images moved over a clear-text protocol (TFTP, FTP, RCP, HTTP)
+  why: "TFTP, FTP, RCP and HTTP carry the file unencrypted and (TFTP) without authentication, so anyone on the path can read the config (with its hashes and keys) or swap the image. DISA's current IOS XE backup rule example uses SCP; NSA asks to replace clear-text management services. Flagged: archive path, boot system, copy commands in EEM applets or kron, and tftp-server. 'boot network' and 'service config' are graded under IOS-LEGACY-SERVICES."
+  fix: "Use SCP or SFTP: ip scp server enable where the device is the server, archive path scp://... or sftp://..., copy ... scp:. Remove tftp-server lines; boot from local flash."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.2
+  sources: [stig-ios-config-backup, nsa-nisg]
+  plane: management
+  validated: lab-v2
+  controls: [SC-8, CM-7]
+  zt_pillar: devices
+  tier: advisory
+  suppressed_by: [IOS-MGMT-CLEARTEXT-CRED]
+IOS-MGMT-CLEARTEXT-CRED:
+  title: Credential kept for clear-text file transfer (ip ftp password, ip http client password, user:password in a transfer URL)
+  why: "A password used by the FTP or HTTP client, or written into an ftp:// or http:// URL, crosses the network in clear text every time a backup or copy runs, and it is usually the password for the server that holds every device config."
+  fix: "Remove ip ftp password / ip http client password and passwords in URLs; move the transfer to SCP or SFTP with a dedicated account (key-based where possible), then change the exposed password on the file server."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [nsa-nisg, stig-ios-config-backup]
+  plane: management
+  validated: lab-v2
+  controls: [IA-5, SC-8]
+  zt_pillar: identity
 
 # ---------- FortiGate (FortiOS) ----------
 FGT-ANY-ANY:
@@ -753,6 +849,7 @@ FGT-VIP-UNUSED:
   validated: fixture
   controls: [CM-7]
   zt_pillar: networks
+  tier: advisory
 FGT-AV-STALE:
   title: Antivirus definitions are out of date while an AV profile is in use
   why: "Virus definitions older than 30 days on the snapshot day mean updates have stopped (license or reachability), so new malware passes the AV profile. Same bar as FGT-IPS-STALE, which covers IPS and application definitions. Not applicable when no policy uses an AV profile."
@@ -766,6 +863,20 @@ FGT-AV-STALE:
   validated: fixture
   controls: [SI-3]
   zt_pillar: visibility
+
+FGT-ADMIN-SSH-CRYPTO:
+  title: Admin SSH allows weak algorithms (CBC, 3DES, RC4, SHA-1 or MD5 MAC, SHA-1 key exchange, ssh-rsa)
+  why: "FortiOS 8.0 defaults for ssh-enc-algo, ssh-kex-algo, ssh-mac-algo and ssh-hsk-algo are all strong, so only a 'set' that adds a weak algorithm fails. Weak means: CBC and RC4 ciphers (CERT VU#958563), 3DES and SHA-1 signatures (NIST SP 800-131A Rev 2), SHA-1 key exchange (RFC 9142), SHA-1/MD5 HMACs (DISA asks for SHA-2)."
+  fix: "config system ssh-config (7.4 and later; system global on 7.0.2-7.2): unset ssh-enc-algo, ssh-kex-algo, ssh-mac-algo and ssh-hsk-algo to return to the defaults, or set them to lists with no cbc, 3des, arcfour, sha1, md5 or ssh-rsa entry."
+  known_exploited: false
+  automatable: false
+  total_control: false
+  weight: 0.3
+  sources: [fortinet-cli-ssh-config-80, nist-800-131a-r2, rfc9142-ssh-kex, cert-vu958563-ssh-cbc]
+  plane: management
+  validated: lab-v2
+  controls: [SC-8, SC-13]
+  zt_pillar: devices
 
 # ---------- Palo Alto (PAN-OS) ----------
 PAN-ANY-ANY:
@@ -1058,7 +1169,7 @@ LIFECYCLE-EOS:
   known_exploited: false
   automatable: true
   total_control: true
-  weight: 0.9
+  weight: 0.1
   sources: [cisa-bod-26-02, cisco-xe-17-16-eol, panw-eol-summary, juniper-junos-eol, fortinet-csb-260330-1]
   plane: lifecycle
   validated: lab-v2

@@ -418,3 +418,126 @@ evidence lines: no leaks.
 
 Open: IP Source Guard (CISC-L2-000140) not implemented; network-snapshot should save
 `show vtp password`; IOL support for snooping/DAI/port-security not confirmed on the device.
+
+## Round 12 (B2): correctness batch and test hardening (2026-11-13)
+
+Fixes from the advisor's review, each with a focused test (tests/test_round12.py, tests/test_mask.py).
+
+| # | Change | Basis |
+|---|---|---|
+| 1 | `common.mask()` rewritten as a word walk: after a secret keyword it skips a type (0/6/7/ENC) and an algorithm or format word, then hides the next word. Adds NTP keys with any algorithm, SNMPv3 user auth/priv keys, `snmp-server host` communities, IKE pre-shared keys, TACACS+/RADIUS `key`/`server-key`, WPA PSKs, FortiOS `set passphrase/auth-pwd/secondary-secret/ldap-password/private-key/psksecret/password`. Key chain names stay visible. `result()` now masks `detail` too (prose mode: common words and counts are never hidden). | corpus test, 52 lines |
+| 2 | BGP authentication reads `ios_edge.bgp_sessions(per_neighbor=True)`: remote-as, password and ao from peer-groups and peer-session templates count | test |
+| 3 | Loose uRPF alone is no longer a pass; strict uRPF, or a private-deny ACL (with or without loose) passes | RFC 8704, stig-ios-urpf |
+| 4 | New IOS-VTY-NO-LOGIN (automatable, total control; exposed when internet-facing and the vty has no inbound access-class). IOS-LOGIN-NONE is console only | checks.yaml entry, sources reused |
+| 5 | aaa new-model with no default login list: console = no authentication, vty = local | verified: Cisco IOS Security Command Reference, aaa authentication login (new row cisco-aaa-login-cr) |
+| 6 | L2: with show interfaces switchport saved, only ports it lists as Enabled are graded; without it, subinterfaces and ports with encapsulation, ipv6 address, ip unnumbered, vrf forwarding, service instance or no switchport are skipped, plus Bluetooth/AppGigabit/Mgmt names | test |
+| 7 | `source template NAME` folds the template's lines into the port (IBNS 2.0) | test |
+| 8 | CDP: when any interface carries an explicit `cdp enable`, only those interfaces count as running CDP | NOT verified in Cisco docs (bug CSCwe12150 and a community thread conflict per platform). Reasoning: IOS writes only non-default lines, so `cdp enable` in the config means the interface default is off on that platform. Saved show cdp output still decides the global state |
+| 9 | IOS-HTTP-SERVER: HTTPS only plus `ip http access-class [ipv4]` passes with a note; plain HTTP or no ACL fails | test |
+| 10 | IOS-VTY-ACL: needs `access-class X in`; fails on `out` only, an undefined ACL, a permit from any source, and missing `ipv6 access-class` when the device has IPv6 addresses | test |
+| 11 | IOS-PASSWORD-STORAGE flags type 4 secrets and any `password` under line con/vty/aux | nsa-cisco-password-types (row still UNVERIFIED, 403) |
+| 12 | IOS-LOG-DEPTH unchanged: the STIG row (CISC-ND-001000) asks for critical or a lower severity, which the check already applies; "notifications" is not the STIG bar | stig-ios-logging-level |
+| 13 | BGP TCP MD5 passes IOS-ROUTING-WEAK-AUTH with a note; MD5 stays weak for OSPF/EIGRP. checks.yaml why and the stig-ios-rtr-auth row updated | judgment, documented |
+| 14 | eBGP with a private address AND private ASN (RFC 6996) is graded for maximum-prefix only; policy, GTSM and inbound content are n/a with a note. `bgp listen range` peers are named as not graded | test |
+| 15 | FGT-AV-STALE and FGT-IPS-STALE share `fgt_hardening.snapshot_date` (System time line, else file mtime). Local-in coverage counts only policies that deny (FortiOS default action is deny) or name a source other than all | Fortinet CLI reference 6.4/7.0 (default = deny) |
+| 16 | `ntp trusted-key 1 - 5` ranges; ACL wildcard `0.0.0.0 255.255.255.255` read as any (ipaddress read it as /32); `control-plane host` service-policy counts; IPv6 global unicast interfaces count as internet-facing | tests |
+| 17 | LIFECYCLE-EOS weight 0.9 -> 0.1: internet-facing 81 (was 88), internal 37 (was 57). SCORING.md house rule 10 updated. IOS-SNMP-COMMUNITY total_control left static (per-finding inputs would mean touching findings assembly, B1's area): noted, not changed | |
+| 18 | seccheck.py skips an inventory device whose site or name contains `..`, `/` or `\`, with a note | test |
+| 19 | R10 tests: all 16 rows of BOD 26-04 Table 1; every check source in sources.md; a full fixture run seeded with nine fake secrets leaks none | tests |
+
+Lab v2 run (read-only snapshots, no fetch): 211 findings before and after, 3d 5, 14d 9, 60d 27,
+lowest band 170. Changed: LIFECYCLE-EOS scores only (fix 17). New results: IOS-VTY-NO-LOGIN
+passes on all 11 IOS devices (vty 0 4 uses the default list `local`). Checked by hand against
+the configs: none of the lab configs has uRPF, `cdp enable`, line passwords, interface
+templates, IPv6 addresses, `bgp listen`, `ip http` server lines or a `control-plane host`
+block; every vty has `access-class MGMT-ONLY in vrf-also` and MGMT-ONLY is defined as a standard
+ACL permitting 192.168.1.0/24, so the stricter IOS-VTY-ACL still passes. No result detail or
+evidence string changed from the new masking. Scan of the lab report for secret values from the
+snapshots: none (one false match on a CVE title word).
+
+Tests: 345 in the suite (was 254). check-settings OK, 81 checks.
+
+Open: CDP default per platform (fix 8) needs a Cisco doc or a show cdp interface from an
+ISR4k/C8k; IOS-SNMP-COMMUNITY RW-only total control needs a per-finding input in findings
+assembly; the type 4 source row is still unverified.
+
+## Round 13 (B1): noise tiering and fleet rollup (2026-11-13)
+
+rollup.py, after waivers: a check with `suppressed_by` folds into its parent when the parent
+fails on the same device (IOS-AAA-ACCOUNTING under IOS-AAA-CENTRAL, IOS-L2-DAI under
+IOS-L2-DHCP-SNOOPING); `tier: advisory` checks (banner, NTP redundancy, unused ports, port
+authentication, trunk VLAN lists, unused VIPs, CDP/LLDP on external interfaces, log depth) go to
+a "Hygiene notes" section, not the deadline counts; a config check failing in the same band on 3
+or more devices counts once. JSON keeps per-device findings and adds counts_unique,
+findings_unique and hygiene. SCORING.md house rules 11-13 (NIST SP 800-53r5 RA-3).
+
+Lab v2 after B1 and B2: 71 distinct problems (3d 3, 14d 9, 60d 16, lowest 43) from 154
+device-level findings, plus 6 hygiene checks. 354 tests.
+
+Open: `--profile cis|stig` thresholds (exec-timeout, FortiGate lockout duration, password
+length) need hooks in ios_mgmt.py and fgt_hardening.py; IOS-SNMP-COMMUNITY total control
+should apply to RW only (needs per-finding inputs).
+
+## Round 14 (B3): management transport crypto strength (2026-11-13)
+
+New module ios_crypto.py (one import and one call in vendor_ios.py) and one FortiGate check in
+fgt_hardening.py. Sources read this round: DISA IOS XE Router NDM V3R7 CISC-ND-001200 (V-215844)
+and CISC-ND-001210 (V-215845), CISC-ND-001410 (V-215855); NIST SP 800-131A Rev 2 Tables 1, 4, 5,
+8, 9 (from the PDF); RFC 9142 section 4; CERT VU#958563; Cisco IOS XE 17.10 "SSH Algorithms for
+Common Criteria Certification"; FortiOS 8.0.0 CLI reference `config system ssh-config` and the
+7.0.2 new-features page. Seven rows in sources.md, all Verified Y.
+
+| Check | What fails | Tier |
+|---|---|---|
+| IOS-SSH-CRYPTO | CBC, 3DES, RC4/Blowfish/CAST ciphers; hmac-sha1, hmac-md5, umac-64 MACs; any SHA-1 key exchange; ssh-rsa / x509v3-ssh-rsa host key (SHA-1 signatures); DH minimum or RSA modulus under 2048 bits. Saved `show ip ssh` decides; `ip ssh server algorithm ...`, `ip ssh dh min size`, `crypto key generate rsa ... modulus` only without it. No show and no config answer: not-visible. Exposed when internet-facing and an SSH vty has no inbound access-class | standard |
+| IOS-MGMT-CLEARTEXT-XFER | `archive` path, `boot system`, `copy` in EEM applets or kron, or `tftp-server` over TFTP/FTP/RCP/HTTP. `boot network` and `service config` stay with IOS-LEGACY-SERVICES. Suppressed by -CRED on the same device | advisory |
+| IOS-MGMT-CLEARTEXT-CRED | `ip ftp password`, `ip http client password`, or user:password in a transfer URL (masked to `user:<hidden>@`) | standard |
+| FGT-ADMIN-SSH-CRYPTO | an explicit `set ssh-enc-algo`, `ssh-kex-algo`, `ssh-mac-algo` or `ssh-hsk-algo` (system ssh-config, or system global on 7.0.2-7.2) that adds a weak algorithm. 8.0.0 defaults are all strong, so no line passes | standard |
+
+Judgment calls, documented: NIST SP 800-131A Table 9 keeps HMAC-SHA1 acceptable, so the hmac-sha1
+fail rests on DISA CISC-ND-001200 (SHA-2 HMAC), not NIST. RFC 9142 allows group14-sha1 as MAY;
+the check fails it under DISA's FIPS-validated algorithm rule. The client "Authentication Publickey
+Algorithms" line is not graded (device-side SHA-1 signature verification is "legacy use" in
+Table 8). Cisco's 17.10 guide still lists ssh-rsa as a default host key; the 17.16 lab output does
+not, so older trains can fail on the default.
+
+Lab v2, checked by hand: all 11 `show ip ssh` files print the same lists (encryption chacha20,
+AES-GCM, AES-CTR; MAC hmac-sha2-256/512-etm; KEX curve25519, ecdh-sha2-nistp256/384/521,
+group14-sha256, group16-sha512; host key ecdsa and rsa-sha2-512/256), DH minimum 2048, modulus
+2048. IOS-SSH-CRYPTO passes on all 11. No config has archive, boot system, tftp-server, EEM or
+kron copy jobs, or ip ftp / http client passwords (only `ip ssh rsa keypair-name SSH` and
+`ip ssh bulk-mode`): both clear-text checks pass on all 11. fw-01 has no ssh-*-algo line:
+FGT-ADMIN-SSH-CRYPTO passes. Distinct problems unchanged: 71 (3d 3, 14d 9, 60d 16, lowest 43).
+
+Tests: tests/test_ios_crypto.py, 24 tests (weak show output per reason, show over config,
+config-only pass/fail/not-visible, n/a cases, exposure, each transfer form, URL and ftp password
+masking, catalog wiring, FortiGate defaults / ssh-config / 7.0-style global). 378 in the suite.
+check-settings OK, 85 checks.
+
+Open: `ip ssh dh min size` default per release not read in a Cisco doc (lab shows 2048); the
+FortiOS 7.4 move of the algo settings into ssh-config was seen only on a third-party page;
+SNMPv3 auth/priv algorithm strength (CISC-ND-001130/001140) and IPsec/IKE proposal strength are
+not graded here.
+
+## Round 15 (B4): IPv6 edge parity (2026-11-13)
+
+Internet-facing detection for IPv6 needs an outside sign, because dual-stack LANs use global
+addresses too: the interface is also an IPv4 internet link, the IPv6 default route leaves
+through it, an eBGP neighbor sits in its subnet, it requests a delegated prefix, or its name
+reads like an internet link. This replaces round 12's "any global unicast address" rule, which
+would have marked every dual-stack SVI as internet-facing. is_public counts IPv6 only inside
+2000::/3.
+
+IOS-EDGE-NO-ANTISPOOF covers both families (strict `ipv6 verify unicast` or an inbound
+traffic-filter denying fc00::/7 first); IOS-EDGE-IP-SERVICES adds ipv6 redirects, unreachables
+and RA suppression; IOS-LEGACY-SERVICES flags `ipv6 source-route`; BGP grades IPv6 neighbors
+(and no longer fails IPv6 peers in the IPv4 family) and reads IPv6 prefix-lists for RFC 6890
+bogons and prefixes longer than /48; new IOS-L2-V6-FHS (RA Guard, DHCPv6 Guard) with an
+advisory variant. Sources: RFC 6890, 7454, 6105, 4890, two Router STIG rules, Cisco IPv6
+command reference and IOS XE 17.12 first-hop security guide.
+
+Lab v2 is IPv4-only: results unchanged, 22 new n/a. Fixtures: dual-stack edge router and access
+switch. 401 tests, 87 checks.
+
+Not graded: ICMPv6 filtering per RFC 4890 (needs full ACL semantics), the STIG routing-header
+ACL rule (CISC-RT-000393), RA Guard roles, IPv6 SVIs hosted on another device.

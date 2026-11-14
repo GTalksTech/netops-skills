@@ -11,6 +11,9 @@ sys.path.insert(0, str(HERE.parent / "scripts"))
 import ios_l2  # noqa: E402
 import vendor_ios  # noqa: E402
 
+# R6 checks only: the IPv6 first hop security checks (B4) are tested in test_ios_ipv6.py
+R6 = tuple(c for c in ios_l2.CHECKS if c not in ios_l2.V6_CHECKS)
+
 LAB = HERE / "fixtures" / "lab-v2"
 
 # A hardened access switch: every R6 check passes on it.
@@ -63,7 +66,7 @@ def _res(cfg, folder=None, switch=False):
     if switch:
         dev["_is_switch"] = True
     facts, _ = vendor_ios.analyze(cfg, dev)
-    return {r["check"]: r for r in facts["results"] if r["check"] in ios_l2.CHECKS}
+    return {r["check"]: r for r in facts["results"] if r["check"] in R6}
 
 
 def _st(cfg, check, folder=None):
@@ -96,7 +99,7 @@ def test_parsers():
 
 def test_good_switch_passes_everything():
     res = _res(GOOD)
-    assert {c: r["status"] for c, r in res.items()} == {c: "pass" for c in ios_l2.CHECKS}
+    assert {c: r["status"] for c, r in res.items()} == {c: "pass" for c in R6}
     assert not any(r["exposed"] for r in res.values())
 
 
@@ -104,7 +107,7 @@ def test_router_without_switchports_is_na():
     cfg = "version 17.16\nhostname r1\ninterface GigabitEthernet1\n ip address 10.0.0.1 255.255.255.0\n" \
           "interface GigabitEthernet2\n shutdown\nrouter ospf 1\nline vty 0 4\n transport input ssh\n"
     res = _res(cfg)
-    assert {c for c, r in res.items() if r["status"] == "n/a"} == set(ios_l2.CHECKS)
+    assert {c for c, r in res.items() if r["status"] == "n/a"} == set(R6)
 
 
 def test_bpduguard():

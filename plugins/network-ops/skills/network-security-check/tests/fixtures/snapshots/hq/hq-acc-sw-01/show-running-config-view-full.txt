@@ -43,6 +43,8 @@ ip ssh version 2
 logging host 10.10.20.50
 logging host 10.10.20.51
 no vstack
+ip access-list standard MGMT-ONLY
+ 10 permit 10.10.20.0 0.0.0.255
 snmp-server group NMS v3 priv access MGMT-ONLY
 ntp authentication-key 1 hmac-sha2-256 7 0822455D0A16
 ntp authenticate

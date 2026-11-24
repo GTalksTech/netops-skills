@@ -1,5 +1,5 @@
 # Cisco IOS / IOS-XE (routers and switches)
-status: tested            # tested on lab v2 (IOL 17.16), 2026-10-23
+status: lab-tested        # lab v2 (IOL 17.16 in CML), 2026-10-23
 netmiko_device_type: cisco_ios
 invalid_markers: ["% Invalid input", "% Incomplete command", "% Ambiguous command", "% Authorization failed"]
 uptime:

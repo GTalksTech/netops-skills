@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions and show-and-tell
+    url: https://github.com/GTalksTech/netops-skills/discussions
+    about: Stuck, curious, or built something cool? Start a discussion.
+  - name: 📺 G Talks Tech on YouTube
+    url: https://www.youtube.com/@GTalksTechOfficial
+    about: Videos on these skills, plus community posts.
+  - name: 🔒 Security problem
+    url: https://github.com/GTalksTech/netops-skills/security/advisories/new
+    about: Report it privately, not as a public issue.

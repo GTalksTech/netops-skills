@@ -1,0 +1,86 @@
+name: 🧪 Test report
+description: You ran a skill on your gear. Tell us how it went, even if it just worked.
+title: "[Test report] <skill> on <platform>"
+labels: ["test report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! You don't need to write any code. Paste what happened and we'll turn it into a better platform profile, with you credited.
+
+        AI can write this for you. The output has to come from a real run, in a lab or on a real network.
+
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Skill
+      options:
+        - network-snapshot
+        - network-health-check
+        - network-push
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - cisco_ios (IOS / IOS-XE)
+        - cisco_nxos (NX-OS)
+        - cisco_asa (ASA)
+        - fortinet (FortiGate)
+        - arista_eos (EOS)
+        - juniper_junos (Junos)
+        - aruba_aoscx (AOS-CX)
+        - hp_procurve (ArubaOS-Switch)
+        - paloalto_panos (PAN-OS)
+        - huawei_vrp (VRP)
+        - extreme_exos (EXOS)
+        - dell_os10 (OS10)
+        - nokia_sros (SR OS)
+        - Something else (name it in the next field)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: OS version and where it ran
+      placeholder: Junos 23.4R1 on a real EX4300, or vEOS 4.32 in containerlab
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: How did it go?
+      options:
+        - Worked as-is
+        - Worked after I tweaked something
+        - Partly worked
+        - Broke
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Output or error
+      description: Redact hostnames, IPs, usernames and secrets first. Snapshot files or the health check report are perfect.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: What you tweaked, what looked wrong, what you expected.
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Want to help fix it?
+      options:
+        - label: I'd like to open a pull request for this (totally optional)

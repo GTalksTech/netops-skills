@@ -21,10 +21,14 @@ Add the marketplace once, then install the plugin:
 
 | Skill | What it does |
 |---|---|
-| network-snapshot | Read-only snapshot of every device (configs and key state), saved to git, with Claude explaining what changed since last time. Cisco IOS/IOS-XE and FortiGate tested; eleven more vendor profiles included and marked untested. |
+| network-snapshot | Read-only snapshot of every device (configs and key state), saved to git, with Claude explaining what changed since last time. Cisco IOS/IOS-XE and FortiGate lab-tested; eleven more platforms included and marked untested. [Help test them](CONTRIBUTING.md). |
 | network-health-check | Is the network healthy right now: whole network, one site or one device. Checks hardware, redundancy, routing, links, errors, spanning tree, CPU, logs and time, and reports findings worst first with the evidence. Read-only. |
 
 Setup, vendors and read-only account steps: [plugins/network-ops/README.md](plugins/network-ops/README.md).
+
+## Contributing
+
+Help is welcome, and you don't need to write code. The most useful thing you can do is run a skill on your own lab or network and [send a test report](https://github.com/GTalksTech/netops-skills/issues/new?template=1-test-report.yml). Questions and show-and-tell go in [Discussions](https://github.com/GTalksTech/netops-skills/discussions). Everything else, pull requests included: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Related
 

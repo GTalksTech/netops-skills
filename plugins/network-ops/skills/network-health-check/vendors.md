@@ -6,7 +6,7 @@ the check is Not checked for that device. Profiles marked `untested` in network-
 `platforms/` were written from vendor docs: if output does not look like the check expects, say so
 in Not checked and suggest the profile fix, never guess a value.
 
-## cisco_ios (IOS, IOS-XE, IOL)  · tested
+## cisco_ios (IOS, IOS-XE, IOL)  · lab-tested
 | Check | Files |
 |---|---|
 | 2 Hardware | H `show-environment-all`, `show-power-inline`; S `show-inventory`, `show-module` |
@@ -27,7 +27,7 @@ in Not checked and suggest the profile fix, never guess a value.
 A privilege-limited account (lab v2 `claude-ro`, level 5) gets "% Invalid input" for every
 command not lowered to its level: the same text as a missing command.
 
-## fortinet (FortiGate)  · tested
+## fortinet (FortiGate)  · lab-tested
 | Check | Files |
 |---|---|
 | 2 Hardware | S `get-hardware-status`, `get-system-status` (VM model → virtual) |

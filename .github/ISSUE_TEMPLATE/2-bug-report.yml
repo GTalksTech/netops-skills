@@ -1,0 +1,51 @@
+name: 🐛 Bug report
+description: Something broke or did the wrong thing.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it! Short is fine. AI can help you write it.
+
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Skill
+      options:
+        - network-snapshot
+        - network-health-check
+        - network-push
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and OS version
+      placeholder: Cisco IOS-XE 17.12 on a real Cat9300
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Output or error
+      description: Redact hostnames, IPs, usernames and secrets first.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: plugin
+    attributes:
+      label: network-ops version
+      description: Shown in `/plugin` inside Claude Code.
+      placeholder: 0.2.1

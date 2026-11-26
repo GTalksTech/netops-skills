@@ -59,7 +59,7 @@ it could not check and why. A command the device refuses is never counted as hea
 your workspace's `reviews/` folder, one file per run, and each run is compared with the one
 before. Why each check is in, and its sources: [docs/health-check-research.md](../../docs/health-check-research.md).
 
-Vendor coverage: every profile has health commands. Cisco IOS/IOS-XE and FortiGate are tested.
+Vendor coverage: every profile has health commands. Cisco IOS/IOS-XE and FortiGate are lab-tested.
 FortiGate can't report interface errors, load, NTP sync or logs, because those need `diagnose`
 or `execute`, which a read-only account can't run. The other profiles are untested: they were
 written from vendor documentation, and anything that doesn't parse is listed as not checked.
@@ -106,8 +106,8 @@ one git commit per run. It's a normal git repo, so `git log` is your change hist
 
 | Vendor | Profile | Status |
 |---|---|---|
-| Cisco IOS / IOS-XE | `cisco_ios` | Tested (lab v2, eleven devices) |
-| Fortinet FortiGate | `fortinet` | Tested (lab v2, FortiOS 8.0.1) |
+| Cisco IOS / IOS-XE | `cisco_ios` | Lab-tested (CML lab v2, eleven IOL devices) |
+| Fortinet FortiGate | `fortinet` | Lab-tested (FortiGate-VM 8.0.1) |
 | Cisco NX-OS | `cisco_nxos` | Untested: written from Cisco docs |
 | Cisco ASA | `cisco_asa` | Untested: written from Cisco docs |
 | Arista EOS | `arista_eos` | Untested: written from Arista docs |
@@ -120,9 +120,10 @@ one git commit per run. It's a normal git repo, so `git log` is your change hist
 | HPE ArubaOS-Switch | `hp_procurve` | Untested: written from HPE Aruba docs |
 | Nokia SR OS | `nokia_sros` | Untested: written from Nokia docs |
 
-Untested means the commands come from the vendor's documentation but haven't run against a real
-device yet. If a command gets rejected or a line changes on every run, the profile needs a fix,
-and pull requests are welcome.
+Untested means the commands come from the vendor's documentation but haven't run on a device yet.
+Lab-tested means they ran on a virtual image (CML, containerlab, a vendor VM). Tested means real
+hardware. If you run a skill on any of these, a [test report](../../CONTRIBUTING.md) moves the
+platform up, and "it just worked" counts.
 
 **Add a vendor** by adding one file to `skills/network-snapshot/platforms/`, named after its
 Netmiko device type. No Python changes. Every command in a profile has to start with `show`,
@@ -132,7 +133,7 @@ Netmiko device type. No Python changes. Every command in a profile has to start 
 
 Lab examples. Use your own names and strong passwords, or your TACACS/RADIUS read-only role.
 
-**Cisco IOS / IOS-XE** (tested): a privilege 5 user that can still read the full config.
+**Cisco IOS / IOS-XE** (lab-tested): a privilege 5 user that can still read the full config.
 
 ```
 aaa new-model

@@ -13,7 +13,7 @@ an empty diff, so anything in the diff is a real change.
 
 Files in this skill's folder:
 - `scripts/snapshot.py`: the engine.
-- `platforms/<device_type>.yaml`: one vendor profile each. `status: tested` or `untested`.
+- `platforms/<device_type>.yaml`: one vendor profile each. `status: untested`, `lab-tested` (virtual image) or `tested` (real hardware).
 - `inventory.example.yaml`: an example inventory.
 - `requirements.txt`: Python packages.
 

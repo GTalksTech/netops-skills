@@ -1,0 +1,33 @@
+name: 💡 Skill idea
+description: A network task you wish Claude could do for you.
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome, half-baked ones too. If you want to chat it through first, start a [Discussion](https://github.com/GTalksTech/netops-skills/discussions) instead.
+
+  - type: textarea
+    id: task
+    attributes:
+      label: What do you do by hand today?
+      placeholder: Every Monday I log into 40 switches to check which ports have been down for 30+ days...
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would the skill give you?
+      placeholder: A list of stale ports per switch that I can hand to the field team.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: touches
+    attributes:
+      label: Would it change device config?
+      options:
+        - No, read-only
+        - Yes, it would make changes
+        - Not sure

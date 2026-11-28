@@ -238,3 +238,44 @@ def test_guard_refuses_nxos_style_redirection_and_chaining():
     for bad in ("show run > bootflash:x", "show run >> bootflash:x", "show version ; conf t"):
         with pytest.raises(ValueError):
             snapshot.check_command(bad)
+
+
+# ---- files whose command left the profile are removed, so nothing goes stale in git ----
+def git_names(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True).stdout.split()
+
+
+def test_a_file_whose_command_left_the_profile_is_removed_and_committed_as_deleted(lab, capsys):
+    run(lab, capsys)
+    old = lab.repo / "hq" / "r1" / "show-ip-route.txt"     # from an older profile
+    old.write_text("old routes\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(lab.repo), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(lab.repo), "-c", "user.name=t", "-c", "user.email=t@example.com",
+                    "commit", "-qm", "old file"], check=True)
+    report = run(lab, capsys)
+    assert not old.exists()
+    assert report["retired_files"] == {"r1": ["show-ip-route.txt"]}
+    assert "D show-ip-route.txt" in report["changed"]["r1"]
+    assert "hq/r1/show-ip-route.txt" in git_names(lab.repo, "show", "--name-only", "--format=", "HEAD")
+
+
+def test_files_a_current_command_can_still_make_are_kept(lab, capsys):
+    FakeConn.outputs["show running-config"] = "hostname r1\nip dhcp snooping\n"
+    run(lab, capsys)
+    snoop = lab.repo / "hq" / "r1" / "show-ip-dhcp-snooping.txt"
+    assert snoop.exists()
+    FakeConn.outputs["show running-config"] = "hostname r1\n"      # when: now skips it
+    report = run(lab, capsys)
+    assert snoop.exists() and report["retired_files"] == {}
+
+
+def test_a_vrf_file_goes_when_the_vrf_goes_but_stays_when_vrfs_cannot_be_read(lab, capsys):
+    run(lab, capsys)
+    cust = lab.repo / "hq" / "r1" / "show-ip-protocols-vrf-cust-a.txt"
+    assert cust.exists()
+    FakeConn.outputs["show vrf detail"] = "% Invalid input detected at '^' marker.\n"
+    report = run(lab, capsys)
+    assert cust.exists() and report["retired_files"] == {}     # VRFs unknown this run: keep
+    FakeConn.outputs["show vrf detail"] = "VRF MGMT (VRF Id = 1); default RD <not set>\n"
+    report = run(lab, capsys)
+    assert not cust.exists() and report["retired_files"] == {"r1": ["show-ip-protocols-vrf-cust-a.txt"]}

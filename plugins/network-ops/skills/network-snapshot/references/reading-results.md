@@ -22,6 +22,7 @@
 | `skipped_by_when` | Commands not run because the config does not use that feature | Usually not worth mentioning; say so if the user asks why a feature's output is missing |
 | `privilege` | The account's privilege level per device (Cisco) | With rejected commands: "not supported here, or not permitted at privilege N" |
 | `command_errors` | Commands that timed out or broke; the rest of the device still ran | Name them; suggest a longer `timeout:` in the profile if it is a big table |
+| `retired_files` | Per device: committed files removed because no command in the profile makes them any more (a command dropped or renamed in an upgrade, or a VRF the device no longer has) | Say they were removed and why; they show as deleted in the diff, not as a network change |
 | `run` | Seconds and commands sent per device | Only if asked, or if a device is unusually slow |
 | `state` | Per device: `dir`, `files`, `rejected`, `no_data`, `vrfs`, `invalid_vrfs`, `previous` | Mention `invalid_vrfs` (VRF names refused because they contain characters a command must never carry) every time |
 | `hosts` | `file`, `rows`, `kinds` (host / network-device / virtual), `changes` (`new`, `gone`, or null on the first run) | Count, then the new and gone hosts |
@@ -67,6 +68,8 @@ are not read yet: see `coverage.md`).
   `show-vrf.txt` and `show-ip-bgp-summary.txt` deleted and `show-ip-route-vrf.txt`,
   `show-vrf-detail.txt` and `show-bgp-all-summary.txt` added (every VRF and address family now),
   plus new committed files, and timer columns written as `--` everywhere. Say this is the upgrade,
-  not a network change, and that the next run is back to normal.
+  not a network change, and that the next run is back to normal. The old files are removed by
+  network-ops 0.3.1 and later (`retired_files`); a repo snapshotted with 0.3.0 has them removed on
+  its next run.
 - **`commit` null with no failures**: the network matches the last snapshot exactly. Still report
   host changes if there are any.

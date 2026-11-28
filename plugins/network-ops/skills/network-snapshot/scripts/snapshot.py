@@ -182,7 +182,7 @@ def collect(dev, prof, password, health=False, state=False, full=False):
     result = {"files": {}, "health": {}, "state": {}, "unsupported": [], "unsupported_health": [],
               "unsupported_state": [], "no_data": [], "no_data_state": [], "skipped_by_when": [],
               "command_errors": [], "uptime": None, "reload_reason": None, "privilege": None,
-              "vrfs": [], "invalid_vrfs": [], "outputs": []}
+              "vrfs": [], "invalid_vrfs": [], "vrfs_read": False, "outputs": []}
     started = time.monotonic()
     conn = connect(prof, params)
     cache = {}
@@ -255,6 +255,7 @@ def collect(dev, prof, password, health=False, state=False, full=False):
         if prof.get("vrfs"):
             vrf_out = send(prof["vrfs"]["cmd"], 90) or ""
             names = [] if is_unsupported(vrf_out, prof) else prof["vrfs"]["_rx"].findall(vrf_out)
+            result["vrfs_read"] = bool(vrf_out) and not is_unsupported(vrf_out, prof)
             result["vrfs"], result["invalid_vrfs"] = valid_vrfs(list(dict.fromkeys(names)))
         run_list(prof["commands"], "files", True)
         lists = ([(prof["state_commands"], "state")] if state else []) + \
@@ -266,6 +267,30 @@ def collect(dev, prof, password, health=False, state=False, full=False):
         conn.disconnect()
     result["run"] = {"seconds": round(time.monotonic() - started, 1), "commands_sent": len(cache)}
     return result
+
+
+def retired(folder, prof, vrfs, vrfs_read):
+    """Committed files in a device's folder that no command in its profile makes any more: a
+    command dropped or renamed in an upgrade, or a '{vrf}' file for a VRF the device no longer
+    has. A file a current command could still make is kept even when this run didn't write it
+    (rejected, timed out, skipped by when:, --full only), and every '{vrf}' file is kept when
+    this run could not read the device's VRFs."""
+    plain, templates = set(), []
+    for c in prof["commands"]:
+        if "{vrf}" in c["cmd"]:
+            pat = re.escape(slug(c["cmd"].replace("{vrf}", "VRFSLOT"))).replace("vrfslot", "(.+)")
+            templates.append(re.compile(pat + "$"))
+        else:
+            plain.add(slug(c["cmd"]))
+    live = {slug(c["cmd"].replace("{vrf}", v)) for c in prof["commands"] if "{vrf}" in c["cmd"] for v in vrfs}
+    out = []
+    for f in sorted(folder.glob("*.txt")):
+        if f.name in plain or f.name in live:
+            continue
+        if not vrfs_read and any(t.match(f.name) for t in templates):
+            continue
+        out.append(f)
+    return out
 
 
 def cred_key(dev):
@@ -368,12 +393,17 @@ def run(args):
                 results[d["name"]] = (d, res)
 
     reboots, recent, unsupported, health, cmd_errors = [], [], {}, {}, {}
-    state, no_data, privilege, skipped, timing = {}, {}, {}, {}, {}
+    state, no_data, privilege, skipped, timing, removed = {}, {}, {}, {}, {}, {}
     for name, (d, res) in results.items():
         folder = repo / d.get("site", "unassigned") / name
         folder.mkdir(parents=True, exist_ok=True)
         for fname, text in res["files"].items():
             (folder / fname).write_text(text, encoding="utf-8", newline="\n")
+        old = retired(folder, profiles[d["device_type"]], res["vrfs"], res["vrfs_read"])
+        for f in old:  # its command is gone from the profile: a file left behind would go stale
+            f.unlink()
+        if old:
+            removed[name] = [f.name for f in old]
         if res["unsupported"]:
             unsupported[name] = res["unsupported"]
         if res["command_errors"]:
@@ -445,6 +475,7 @@ def run(args):
         "skipped_by_when": skipped,
         "privilege": {n: p for n, p in privilege.items() if p is not None},
         "command_errors": cmd_errors,
+        "retired_files": removed,
         "run": timing,
     }
     if do_state:

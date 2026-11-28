@@ -19,12 +19,14 @@
 #               python push.py preview DEVICE <<'EOF' ... EOF     (sends nothing)
 #               python push.py save DEVICE [DEVICE ...] --log CHANGE_DIR
 #               python push.py --set-credential admin
-# Dependencies: Python 3.9+, netmiko, keyring, pyyaml (same as network-snapshot).
+# Dependencies: Python 3.9+, netmiko, keyring, pyyaml (same as network-snapshot), and the
+#               plugin's shared credential lookup (lib/credentials).
 # Author:       G Talks Tech
 # GitHub:       github.com/GTalksTech/netops-skills (plugins/network-ops)
 # Notes:        Shares the network-snapshot skill's inventory, vendor profiles and
-#               credential store. `push` is one device per run, so every impactful
-#               push is its own approval. `batch` puts several devices under one
+#               credential lookup (environment variable, the inventory's credentials
+#               command, then the OS credential store). `push` is one device per
+#               run, so every impactful push is its own approval. `batch` puts several devices under one
 #               approval and is refused unless every line is an interface
 #               description. Pushes only on tested profiles (cisco_ios). Refuses
 #               destructive lines (reload, erase, format, delete) and a trunk
@@ -37,10 +39,11 @@ import re
 import sys
 from pathlib import Path
 
-import keyring
 import yaml
 
-SERVICE = "netops-skills"
+import pluginlib  # noqa: F401  (puts plugins/network-ops/lib on sys.path)
+import credentials
+
 HERE = Path(__file__).resolve().parent
 PLATFORMS = HERE.parent.parent / "network-snapshot" / "platforms"
 PUSHABLE = {"cisco_ios"}  # tested for config pushes; other profiles are read-only here
@@ -64,8 +67,23 @@ def load_device(repo, inventory, name, user):
             dev = {**defaults, **d}
             dev["username"] = user  # pushes use the change account, never the read-only one
             dev.setdefault("device_type", "cisco_ios")
+            dev["_creds"] = creds_for(inv_path, inv)
             return dev
     sys.exit(f"{name} is not in {inv_path}")
+
+
+_CREDS = {}
+
+
+def creds_for(inv_path, inv):
+    """One credential lookup per inventory per run, so a batch asks the vault once."""
+    key = str(inv_path.resolve())
+    if key not in _CREDS:
+        try:
+            _CREDS[key] = credentials.Credentials(inv.get("credentials"))
+        except credentials.CredentialError as e:
+            sys.exit(f"{inv_path}: {e}")
+    return _CREDS[key]
 
 
 def netmiko_type(device_type):
@@ -125,10 +143,8 @@ def show(dev, lines, sent=False):
 
 
 def password_for(dev):
-    pw = keyring.get_password(SERVICE, dev["username"])
-    if not pw:
-        sys.exit(f"no password stored for '{dev['username']}': run push.py --set-credential {dev['username']}")
-    return pw
+    """The change account's password. Raises CredentialError (never holding a secret) if none."""
+    return dev["_creds"].get(dev["username"])
 
 
 def connect(dev):
@@ -150,6 +166,10 @@ def do_push(dev, lines, log_dir):
     record(log_dir, f"{dev['name']}.txt", f"# {stamp} pushed as {dev['username']}\n" + "\n".join(lines))
     try:
         conn = connect(dev)
+    except credentials.CredentialError as e:
+        print(f"FAILED {dev['name']}: {e}. Nothing was sent.")
+        record(log_dir, "push-log.md", f"## {stamp} push {dev['name']}: NO PASSWORD ({e})")
+        return 1
     except Exception as e:
         print(f"FAILED to connect to {dev['name']} ({dev['host']}): {e}. Nothing was sent.")
         record(log_dir, "push-log.md", f"## {stamp} push {dev['name']}: NOT CONNECTED ({e})")
@@ -176,6 +196,9 @@ def do_push(dev, lines, log_dir):
 def do_save(dev, log_dir):
     try:
         conn = connect(dev)
+    except credentials.CredentialError as e:
+        print(f"FAILED {dev['name']}: {e}. Not saved.")
+        return 1
     except Exception as e:
         print(f"FAILED to connect to {dev['name']} ({dev['host']}): {e}. Not saved.")
         return 1
@@ -215,8 +238,8 @@ def main():
     args = ap.parse_args()
 
     if args.set_credential:
-        keyring.set_password(SERVICE, args.set_credential, getpass.getpass(f"password for {args.set_credential}: "))
-        print(f"stored: service '{SERVICE}', user '{args.set_credential}'")
+        credentials.store(args.set_credential, getpass.getpass(f"password for {args.set_credential}: "))
+        print(f"stored: service '{credentials.SERVICE}', user '{args.set_credential}'")
         return 0
     if not args.action:
         ap.error("give an action: preview, push, batch or save")

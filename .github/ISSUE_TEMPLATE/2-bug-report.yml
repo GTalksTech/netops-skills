@@ -15,6 +15,7 @@ body:
         - network-snapshot
         - network-health-check
         - network-push
+        - network-diagram
         - Not sure
     validations:
       required: true
@@ -49,3 +50,10 @@ body:
       label: network-ops version
       description: Shown in `/plugin` inside Claude Code.
       placeholder: 0.2.1
+
+  - type: input
+    id: model
+    attributes:
+      label: Model and harness
+      description: The AI model and the agent harness you ran the skill with.
+      placeholder: Claude Opus 5.5 in Claude Code on Windows

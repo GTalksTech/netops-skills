@@ -10,6 +10,8 @@ SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "push.py"
 sys.path.insert(0, str(SCRIPT.parent))
 import push  # noqa: E402
 
+REAL_CONNECT = push.connect  # the env fixture swaps it for a fake
+
 INVENTORY = """defaults:
   username: claude-ro
   device_type: cisco_ios
@@ -49,7 +51,7 @@ def env(tmp_path, monkeypatch):
     FakeConn.sent, FakeConn.raise_error, FakeConn.saves = [], None, 0
     FakeConn.output = "sw1(config)#vlan 40\nsw1(config-vlan)#name CAMERAS\n"
     monkeypatch.setattr(push, "connect", lambda dev: FakeConn(**dev))
-    monkeypatch.setattr(push.keyring, "get_password", lambda s, u: "pw")
+    monkeypatch.setattr(push.credentials.keyring, "get_password", lambda s, u: "pw")
     return tmp_path
 
 
@@ -188,3 +190,37 @@ def test_batch_must_start_with_device(env, monkeypatch):
 def test_batch_takes_no_device_args(env, monkeypatch):
     with pytest.raises(SystemExit):
         run(env, monkeypatch, BATCH, "batch", "sw1")
+
+
+@pytest.fixture
+def real_connect(env, monkeypatch):
+    """push.connect as shipped, with netmiko faked: the change account's password reaches it
+    through the shared credential lookup (lib/credentials)."""
+    import types
+    monkeypatch.setattr(push, "connect", REAL_CONNECT)
+    monkeypatch.setitem(sys.modules, "netmiko", types.SimpleNamespace(ConnectHandler=FakeConn))
+    monkeypatch.setattr(push.credentials.keyring, "get_password", lambda s, u: None)
+    monkeypatch.delenv("NETOPS_SECRET_ADMIN", raising=False)
+    return env
+
+
+def test_change_password_from_an_environment_variable(real_connect, monkeypatch, capsys):
+    monkeypatch.setenv("NETOPS_SECRET_ADMIN", "chg-s3cret")
+    assert run(real_connect, monkeypatch, "vlan 40\n", "push", "sw1") == 0
+    assert (FakeConn.kwargs["username"], FakeConn.kwargs["password"]) == ("admin", "chg-s3cret")
+    out = capsys.readouterr().out
+    log = (real_connect / "change" / "push-log.md").read_text(encoding="utf-8")
+    assert "chg-s3cret" not in out and "chg-s3cret" not in log
+
+
+def test_change_password_already_in_the_os_store(real_connect, monkeypatch):
+    monkeypatch.setattr(push.credentials.keyring, "get_password",
+                        lambda s, u: "stored" if (s, u) == ("netops-skills", "admin") else None)
+    assert run(real_connect, monkeypatch, "vlan 40\n", "push", "sw1") == 0
+    assert FakeConn.kwargs["password"] == "stored"
+
+
+def test_no_change_password_sends_nothing(real_connect, monkeypatch, capsys):
+    assert run(real_connect, monkeypatch, "vlan 40\n", "push", "sw1") == 1
+    assert FakeConn.sent == []
+    assert "NETOPS_SECRET_ADMIN" in capsys.readouterr().out

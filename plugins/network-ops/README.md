@@ -5,9 +5,10 @@ you get every skill, including the ones that ship with future videos.
 
 | Skill | What it does |
 |---|---|
-| network-snapshot | Read-only snapshot of every device, saved to git, with what changed since last time |
+| network-snapshot | Read-only snapshot of every device, saved to git, with what changed since last time, plus ARP, MAC and DHCP tables and a host table of where each address sits |
 | network-push | Puts an approved change on the network: shows every switch command in the approval prompt, pushes one device at a time (descriptions can batch) with a separate change account, stops on errors, logs what it sent |
 | network-health-check | Is the network healthy right now: whole network, one site or one device. Read-only; findings worst first with evidence and fix, then what checked out healthy |
+| network-diagram | Editable draw.io diagram from your snapshots and/or a spreadsheet of links: physical, subnet and VLAN pages, including the firewalls and tunnels CDP/LLDP can't see. Read-only; kept in git next to the snapshots |
 
 ## network-snapshot
 
@@ -20,8 +21,58 @@ throws away the lines that change on their own (clocks, timers, counters), and c
 Run it twice in a row on a quiet network and the second run shows no changes. So when something
 shows up, it really changed.
 
+Each run collects three things:
+
+- **Committed output**, in git: config plus stable structure. On Cisco that now includes every
+  VRF's routes and routing protocols (not just the global table), BGP in every address family,
+  full `show ip interface`, OSPF interface detail, spanning tree per VLAN, LACP and UDLD partners
+  and more. On FortiGate, every interface, VRRP, managed FortiSwitches and FortiAPs.
+- **Device state**, kept out of git: ARP per VRF, MAC tables, DHCP bindings, BGP and OSPF detail,
+  NAT, multicast. This run and the previous one sit in `.snapshot/state/`. `--no-state` skips it;
+  `--full` adds the heavy ones (full OSPF database, crypto SAs).
+- **A host table**, `.snapshot/hosts.csv`: ARP, MAC tables, CDP/LLDP and DHCP joined into one row
+  per address, with the switch port where it was learned and the tables that showed it. A host seen
+  only on uplinks is marked as such; nothing is guessed. Each run lists the hosts new and gone
+  since the last one.
+
+Commands for features a device's config doesn't use are skipped, so routers don't run switch
+commands. On the lab (eleven IOL devices and a FortiGate-VM, eight in parallel) a full run takes
+about 50 seconds. Real hardware with large tables is slower.
+
+What it still can't see: devices you don't give it, hosts that were quiet long enough to age out
+of ARP and MAC tables, what sits behind an unmanaged switch, cabling and anything physical, and on
+FortiGate anything behind `diagnose` or `execute` (LLDP, the device list, DHCP leases, SD-WAN
+state), plus FortiGates with VDOMs on. There is no size limit yet for very large route or MAC
+tables. The full list is in `skills/network-snapshot/references/coverage.md`.
+
+Which commands to run, and how to read ARP, MAC and neighbor tables, drew on what SuzieQ, Cisco
+Genie, NAPALM, ntc-templates and IP Fabric publish about their own collection. No code or
+templates were copied; the research is in [docs/snapshot-state-research.md](../../docs/snapshot-state-research.md).
+
+**Upgrading from 0.2:** the first run after the upgrade shows `show ip route`, `show vrf` and
+`show ip bgp summary` replaced by their all-VRF forms, new files added, and timers written as `--`.
+That's the upgrade, not your network. The run after it is quiet again.
+
 Video: https://youtu.be/njerxFIa974 (How to Use Claude Code as a Network Engineer). Built and tested on the
 G Talks Tech lab v2 (Cisco IOS-XE campus, branch and ISP routers, plus a FortiGate).
+
+## network-diagram
+
+Draws your network from the show output network-snapshot already saved: one draw.io file with a
+page per layer (Physical L1, Subnets L3, VLANs L2), opened in app.diagrams.net with nothing to
+install. Links come from CDP and LLDP, from two interfaces sharing a /30 or /31 (that's how a
+firewall or a GRE tunnel shows up when it doesn't speak CDP/LLDP: drawn dashed, so you can see what
+discovery missed), and from a spreadsheet you give it (`device, port, port, device`). Run it after
+the daily snapshot and the diagram in git is never older than the last snapshot.
+
+```
+python skills/network-diagram/scripts/diagram.py run --repo ~/network-snapshots
+python skills/network-diagram/scripts/diagram.py run --links links.csv --out ./diagram   # spreadsheet only
+```
+
+Devices are placed by their **role** (`provider`, `edge`, `firewall`, `core`, `distribution`,
+`access`): an optional `role:` in `inventory.yaml`, else guessed from the name and listed for you
+to confirm. The same role tag is shared by every network-ops skill (docs/adr/0002).
 
 ## network-health-check
 
@@ -82,15 +133,59 @@ Then Python 3.9 or newer with the packages in `skills/network-snapshot/requireme
 2. **An inventory.** Copy `skills/network-snapshot/inventory.example.yaml` to
    `~/network-snapshots/inventory.yaml` and list your devices: name, IP or hostname, site, and
    device type. Or just ask Claude to build it from your device list.
-3. **Passwords, into your OS credential store** (Windows Credential Manager, macOS Keychain, or
-   Linux Secret Service). Run this yourself, once per username:
+3. **Passwords.** The simplest home is your OS credential store (Windows Credential Manager,
+   macOS Keychain, or Linux Secret Service). Run this yourself, once per username:
 
    ```
    python skills/network-snapshot/scripts/snapshot.py --set-credential <username>
    ```
 
-   Passwords never go in a file, a command line or the chat. If two device groups share a username
-   but not a password, give each a `credential:` name in the inventory and store each one.
+   Already use a vault or password manager, or running in CI? See [Credentials](#credentials).
+   Passwords never go in the inventory, a command line or the chat. If two device groups share a
+   username but not a password, give each a `credential:` name in the inventory and store each one.
+
+## Credentials
+
+Every network-ops skill gets a password the same way (`lib/credentials`). For each credential name
+(the device's `username`, or its `credential:` name) it tries, in order:
+
+1. **An environment variable**, `NETOPS_SECRET_<NAME>`: the name in capitals, anything other than
+   a letter or digit as `_`. `svc-netops-ro` reads `NETOPS_SECRET_SVC_NETOPS_RO`. For CI secrets,
+   and for wrappers that inject secrets into a child process (`op run`, `bws run`, Vault Agent).
+2. **A command you configure** in the inventory, whose output is the password. Any vault or
+   password manager CLI works; `{name}` becomes the credential name.
+3. **The OS credential store**, service `netops-skills`, where `--set-credential` saves it.
+
+A method that has nothing for a name passes to the next one. If none has it, that device fails
+with a message listing what was tried; the run carries on with the rest. Each name is looked up
+once per run and kept in memory only. No secret is printed, logged or written to a report, and
+the error for a failed command never includes what it printed.
+
+```yaml
+# inventory.yaml
+credentials:
+  command: bw get password {name}    # or a list: ["C:/Tools/vault.exe", "read", "{name}"]
+  timeout: 30                        # seconds, default 30
+```
+
+The command runs with no shell and no keyboard input, so a CLI that would stop to ask for a
+password fails instead of hanging. Write paths with `/`, or use the list form. Anyone who can edit
+the inventory can choose this command, so keep the inventory as private as the snapshots.
+
+**Worked example: Bitwarden.** Save each password as a login item named after its credential
+(for example `svc-netops-ro`). Then, once per terminal session, in your own terminal:
+
+```
+bw login                      # once per machine; or BW_CLIENTID / BW_CLIENTSECRET + bw login --apikey
+bw unlock --raw               # asks for your master password, prints a session key
+```
+
+Set `BW_SESSION` to that key (`export BW_SESSION=...`, or `$env:BW_SESSION = "..."` in
+PowerShell), add the `credentials:` block above, and run the skill from the same terminal.
+`bw get password {name}` reads the item with that name. If more than one item matches, `bw`
+fails rather than guess: rename one, or give that device a `credential:` holding the item id. Other CLIs drop in the same way, for example
+`op read op://Network/{name}/password` (1Password) or
+`vault kv get -mount=secret -field=password netops/{name}` (HashiCorp Vault).
 
 ## Use
 
@@ -126,9 +221,27 @@ platform up, and "it just worked" counts.
 
 **Add a vendor** by adding one file to `skills/network-snapshot/platforms/`, named after its
 Netmiko device type. No Python changes. Every command in a profile has to start with `show`,
-`get` or `display`, or the script refuses to load it.
+`get` or `display`, or the script refuses to load it. The keys (committed, state and health
+commands, per-VRF commands, `when:` conditions, masks) are in
+`skills/network-snapshot/references/profiles.md`.
 
 ## Read-only accounts, by vendor
+
+Give the skills their own account, used by nothing else: a dedicated read-only automation
+identity such as `svc-netops-ro`, never a person's account, a shared admin, or the device's
+break-glass local account.
+
+- **TACACS+, where you have it:** define the account on the TACACS+ server with command
+  authorization that allows only `show`, `display` and `get` style commands, plus command
+  accounting, so every command the skills run is logged centrally.
+- **RADIUS otherwise:** return a read-only role for the account (Cisco privilege level, Juniper
+  class, Arista role, Aruba read-only role). RADIUS can't authorize per command, so the role is the
+  limit.
+- **Local, with no AAA (home lab, small sites):** a local read-only user per device, as below.
+  STIG-bound networks allow one local account (break-glass), so there the account has to come
+  from AAA.
+
+Keep its password in a vault ([Credentials](#credentials)) and rotate it on your usual schedule.
 
 Lab examples. Use your own names and strong passwords, or your TACACS/RADIUS read-only role.
 
@@ -192,6 +305,20 @@ config system admin
 end
 ```
 
+The console must print output without paging. Most FortiGates already do; if yours pages (the
+skill refuses it and says so), set it once from an admin session:
+
+```
+config system console
+    set output standard
+end
+```
+
+The skill never makes this change itself. The SSH library it uses (Netmiko) would quietly do it
+on login and put it back on logout; the skill turns that off and refuses instead, because a
+read-only tool should not write config. FortiGates with VDOMs on are refused for the same reason
+(reading the setting needs `config global`); VDOM support isn't built yet.
+
 **Untested vendors**, built-in read-only roles:
 - Cisco NX-OS: role `network-operator`.
 - Arista EOS: role `network-operator`.
@@ -208,11 +335,17 @@ end
 
 ## Safety
 
-- Snapshot: show commands only. The script checks every profile command before it runs anything.
+- Snapshot: show commands only. The script checks every profile command before it runs anything,
+  and checks again every command it builds from device output (a VRF name must be plain letters,
+  digits and `_.:-` before it goes into a command). It never sends `diagnose`, `execute`, `config`
+  or a pipe that writes a file, and it refuses a FortiGate it can't read without changing config.
+- The host table and device state stay in the snapshot repo's `.snapshot/` folder, which is not
+  committed. They list every address on your network, so keep them as private as the configs.
 - Push: one device per run, with a separate change account (`push.py --set-credential admin`), only on
   tested profiles (`cisco_ios` today). It refuses destructive commands and a trunk `allowed vlan <list>`
   without `add`, and saves config only when you ask (after your post-check).
-- Passwords stay in the OS credential store.
+- Passwords come from an environment variable, your vault's CLI or the OS credential store, and
+  are never printed, logged or written to a report.
 - The snapshot repo holds full device configs. Keep it private, and don't push it anywhere public.
 
 ## License

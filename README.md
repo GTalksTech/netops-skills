@@ -23,6 +23,7 @@ Add the marketplace once, then install the plugin:
 |---|---|
 | network-snapshot | Read-only snapshot of every device (configs and key state), saved to git, with Claude explaining what changed since last time. Cisco IOS/IOS-XE and FortiGate lab-tested; eleven more platforms included and marked untested. [Help test them](CONTRIBUTING.md). |
 | network-health-check | Is the network healthy right now: whole network, one site or one device. Checks hardware, redundancy, routing, links, errors, spanning tree, CPU, logs and time, and reports findings worst first with the evidence. Read-only. |
+| network-diagram | Editable draw.io diagram from your snapshots and/or a spreadsheet of links: physical, subnet and VLAN pages, including the firewalls and tunnels CDP/LLDP can't see. Read-only, kept in git next to the snapshots. |
 
 Setup, vendors and read-only account steps: [plugins/network-ops/README.md](plugins/network-ops/README.md).
 

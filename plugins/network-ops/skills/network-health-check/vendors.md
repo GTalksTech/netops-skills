@@ -12,7 +12,7 @@ in Not checked and suggest the profile fix, never guess a value.
 | 2 Hardware | H `show-environment-all`, `show-power-inline`; S `show-inventory`, `show-module` |
 | 3 Redundancy | S `show-switch-detail`, `show-redundancy` |
 | 4 Reboots | report (`uptime_s`, `reboots`); S `show-version` (Last reload reason; IOL says Unknown reason) |
-| 5 Routing | S `show-ip-ospf-neighbor`, `show-ip-ospf-interface-brief`, `show-ip-bgp-summary`, `show-ip-eigrp-neighbors`, `show-ip-route`; H `show-ip-ospf-neighbor-detail` (up for), `show-ip-bgp-neighbors` (Last reset, established/dropped), `show-ip-eigrp-neighbors-detail`, `show-ip-route-summary`, `show-ip-sla-statistics`; tunnels H `show-crypto-session` |
+| 5 Routing | S `show-ip-ospf-neighbor`, `show-ip-ospf-interface-brief`, `show-bgp-all-summary` (every address family; `show-ip-bgp-summary` in snapshots before network-ops 0.3.0), `show-ip-eigrp-neighbors`, `show-ip-route-vrf` (every VRF; `show-ip-route` before 0.3.0); H `show-ip-ospf-neighbor-detail` (up for), `show-ip-bgp-neighbors` (Last reset, established/dropped), `show-ip-eigrp-neighbors-detail`, `show-ip-route-summary`, `show-ip-sla-statistics`; tunnels H `show-crypto-session` |
 | 6 FHRP + root | S `show-standby-brief`, `show-vrrp-brief`, `show-spanning-tree-root`, running config; H `show-standby` |
 | 7 Down / err-disabled | S `show-ip-interface-brief`, `show-interfaces-status`, `show-interfaces-description`, `show-interfaces-trunk`, `show-cdp-neighbors-detail`, `show-lldp-neighbors-detail`; H `show-interfaces-status-err-disabled` |
 | 8 Port-channels | S `show-etherchannel-summary` |

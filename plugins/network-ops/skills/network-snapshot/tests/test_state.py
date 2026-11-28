@@ -279,3 +279,22 @@ def test_a_vrf_file_goes_when_the_vrf_goes_but_stays_when_vrfs_cannot_be_read(la
     FakeConn.outputs["show vrf detail"] = "VRF MGMT (VRF Id = 1); default RD <not set>\n"
     report = run(lab, capsys)
     assert not cust.exists() and report["retired_files"] == {"r1": ["show-ip-protocols-vrf-cust-a.txt"]}
+
+
+def test_every_run_names_its_snapshot_repo(lab, capsys):
+    lab.args.no_state = True
+    snapshot.run(lab.args)
+    out = capsys.readouterr()
+    assert f"Snapshot repo: {lab.repo} (network: unnamed)" in out.err.splitlines()
+    rep = json.loads(out.out)
+    assert rep["repo"] == str(lab.repo) and rep["network"] is None
+
+
+def test_run_with_no_repo_uses_the_saved_default(lab, capsys):
+    import snapshotrepo
+    snapshotrepo.set_repo(lab.repo, "lab")
+    lab.args.repo, lab.args.no_state = None, True
+    snapshot.run(lab.args)
+    out = capsys.readouterr()
+    assert f"Snapshot repo: {lab.repo} (network: lab)" in out.err
+    assert json.loads(out.out)["network"] == "lab"

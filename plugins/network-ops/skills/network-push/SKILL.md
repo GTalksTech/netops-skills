@@ -30,7 +30,9 @@ EOF
 device's output (`push-log.md`) there, so the change keeps a record of exactly what was sent.
 
 It uses the network-snapshot skill's inventory, vendor profiles and credential store. Run it the
-same way you run `snapshot.py` (same Python). Pushes work only on `cisco_ios` (lab-tested for pushes
+same way you run `snapshot.py` (same Python, same snapshot repo: `--network NAME` or `--repo PATH`
+when the user has more than one; the run prints `Snapshot repo: <path> (network: <name>)` on
+stderr). Pushes work only on `cisco_ios` (lab-tested for pushes
 today); anything else is refused.
 
 ## Rules

@@ -6,8 +6,8 @@ description: Draw an editable draw.io network diagram from the show output netwo
 # Network diagram
 
 You run a bundled script, then explain its report. The script never touches a device: it reads
-the snapshot repo network-snapshot keeps (default `~/network-snapshots`), and any spreadsheet of
-links the user gives. It writes one draw.io file with three pages, a Markdown and a JSON report,
+the snapshot repo network-snapshot keeps (the one the user chose on first use), and any
+spreadsheet of links the user gives. It writes one draw.io file with three pages, a Markdown and a JSON report,
 and a links CSV into `<repo>/diagrams`, and commits them there.
 
 Files in this skill's folder:
@@ -28,13 +28,19 @@ Files in this skill's folder:
 ## Run
 
 ```
-python <skill folder>/scripts/diagram.py run [--repo PATH] [--links links.csv ...] [--site SITE]
-       [--no-subnet] [--out DIR] [--no-export] [--no-commit] [--title TEXT]
+python <skill folder>/scripts/diagram.py run [--network NAME | --repo PATH] [--links links.csv ...]
+       [--site SITE] [--no-subnet] [--out DIR] [--no-export] [--no-commit] [--title TEXT]
 ```
+
+- Snapshot repo: with no `--network` or `--repo`, the one network-snapshot uses (same settings).
+  The run prints `Snapshot repo: <path> (network: <name>)` on stderr and `repo` in the report;
+  tell the user where the diagram went. If it exits with `"error": "no_snapshot_repo"`, none is
+  set up yet: follow network-snapshot's first-time setup (ask the user where to keep it, then
+  `snapshot.py --set-repo PATH`), and run this again.
 
 - `--links`: a CSV of links, repeatable. Columns `device, port, port, device` (header row
   optional); with a header, the columns `description`, `vlan`, `speed` and `site` are read too.
-  With no snapshot repo, a spreadsheet alone is enough (`--out` then picks the folder).
+  With no snapshot repo set up, a spreadsheet alone is enough (`--out` then picks the folder).
 - `--no-subnet`: neighbor and spreadsheet links only. Shows what CDP/LLDP alone miss.
 - PDF and `.drawio.svg` copies are made when draw.io Desktop is installed; otherwise the report
   says so. The `.drawio` file needs nothing installed: app.diagrams.net, File > Open from > Device.
@@ -67,19 +73,21 @@ green. Firewalls and tunnels usually show up only as subnet links: say so, it's 
    inventory, no link found): both are drawn, never dropped.
 5. **Device roles to confirm**: each guessed role with the reason, and the tag command to accept
    it. Ask before running any of them with `--write`:
-   `python <skill folder>/scripts/diagram.py tag --device NAME --role ROLE [--repo PATH] [--write]`
+   `python <skill folder>/scripts/diagram.py tag --device NAME --role ROLE [--network NAME | --repo PATH] [--write]`
    Roles are shared with every network-ops skill: a device is described once (docs/adr/0002).
 6. Exports and git: whether the PDF/SVG copies were made, and whether the run was committed.
 
 ## Unattended runs
 
 Run it right after the scheduled network-snapshot, so the diagram in git is always as current as
-the last snapshot. The user adds it to their own scheduler; show them the line, never install it:
+the last snapshot. A scheduled run never prompts, so it names the same network (or folder) as the
+snapshot job: `--network NAME` or `--repo PATH`, never the default, which can change. The user
+adds it to their own scheduler; show them the line, never install it:
 
 - Linux or macOS cron, every day at 06:15:
-  `15 6 * * * python3 <skill folder>/scripts/diagram.py run --repo ~/network-snapshots`
+  `15 6 * * * python3 <skill folder>/scripts/diagram.py run --network NAME`
 - Windows Task Scheduler: `schtasks /Create /SC DAILY /ST 06:15 /TN network-diagram /TR
-  "py <skill folder>\scripts\diagram.py run --repo %USERPROFILE%\network-snapshots"`
+  "py <skill folder>\scripts\diagram.py run --network NAME"`
 
 A scheduled run never changes the inventory: guessed roles are only listed in the report.
 

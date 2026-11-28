@@ -43,6 +43,7 @@ import yaml
 
 import pluginlib  # noqa: F401  (puts plugins/network-ops/lib on sys.path)
 import credentials
+import snapshotrepo
 
 HERE = Path(__file__).resolve().parent
 PLATFORMS = HERE.parent.parent / "network-snapshot" / "platforms"
@@ -231,8 +232,9 @@ def main():
     ap.add_argument("--set-credential", metavar="NAME", help="store the change account's password in the OS store")
     ap.add_argument("action", nargs="?", choices=["preview", "push", "batch", "save"])
     ap.add_argument("devices", nargs="*", help="push/preview: one DEVICE.  save: DEVICE [DEVICE ...].  batch: none")
-    ap.add_argument("--repo", default="~/network-snapshots", help="snapshot repo holding inventory.yaml")
-    ap.add_argument("--inventory", help="inventory file (default: inventory.yaml in --repo)")
+    ap.add_argument("--repo", help="snapshot repo holding inventory.yaml (default: the one chosen on first use)")
+    ap.add_argument("--network", help="use this network's snapshot repo from the settings file")
+    ap.add_argument("--inventory", help="inventory file (default: inventory.yaml in the snapshot repo)")
     ap.add_argument("--user", default="admin", help="change account (default: admin)")
     ap.add_argument("--log", help="the change folder: each device's commands and push-log.md go here")
     args = ap.parse_args()
@@ -245,6 +247,13 @@ def main():
         ap.error("give an action: preview, push, batch or save")
     if args.action != "preview" and not args.log:
         ap.error("--log CHANGE_DIR is required, so the change keeps a record of what was sent")
+    if not args.inventory:  # the same snapshot repo network-snapshot uses (lib/snapshotrepo)
+        try:
+            loc = snapshotrepo.resolve(repo=args.repo, network=args.network)
+        except snapshotrepo.RepoError as e:
+            snapshotrepo.fail(e)
+        snapshotrepo.announce(loc)
+        args.repo = str(loc["path"])
     load = lambda n: load_device(args.repo, args.inventory, n, args.user)  # noqa: E731
 
     if args.action == "save":

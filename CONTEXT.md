@@ -90,6 +90,10 @@ _Avoid_: Push skill (as a category)
 
 ### Snapshots
 
+**Snapshot repo**:
+The git repo that holds one network's snapshots and its inventory. There is one per network, kept outside project folders, and the engineer chooses where it lives the first time a skill needs it; every skill and scheduled run then uses the same one.
+_Avoid_: Snapshot folder, backup repo, project repo
+
 **Snapshot**:
 One run that reads every targeted device and records what it shows, committed to the snapshot repo as one change.
 _Avoid_: Backup, capture

@@ -68,7 +68,14 @@ the daily snapshot and the diagram in git is never older than the last snapshot.
 ```
 python skills/network-diagram/scripts/diagram.py run          # uses your snapshot repo
 python skills/network-diagram/scripts/diagram.py run --links links.csv --out ./diagram   # spreadsheet only
+python skills/network-diagram/scripts/diagram.py run --open   # then show it
 ```
+
+`--open` shows the finished diagram: in draw.io Desktop if it's installed, else in your browser at
+app.diagrams.net, with the diagram packed into the link after `#` (browsers never send that part
+to the server, so the diagram stays on your machine). A diagram too big for a link isn't opened:
+use File > Open from > Device, or install draw.io Desktop. Nothing opens without `--open`; the
+skill asks first, and scheduled runs never use it.
 
 Devices are placed by their **role** (`provider`, `edge`, `firewall`, `core`, `distribution`,
 `access`): an optional `role:` in `inventory.yaml`, else guessed from the name and listed for you

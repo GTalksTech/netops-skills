@@ -55,7 +55,7 @@ One snapshot repo per network, outside project folders, its location asked on fi
    `network: NAME` and no data, so a project may commit it.
 4. The settings file's `default:` network (or its only network).
 5. Back-compat: no networks saved yet, but `~/network-snapshots/inventory.yaml` exists (the
-   default before 0.4.0). That folder is saved as network `main`, the default, and `loc["note"]`
+   default before 0.3.2). That folder is saved as network `main`, the default, and `loc["note"]`
    says so once; `announce` prints it.
 6. Nothing: `RepoError` with `code` `no_snapshot_repo`. The script never prompts, guesses or
    creates a repo; `snapshotrepo.fail(e)` prints `e.as_dict()` as one JSON line on stderr and

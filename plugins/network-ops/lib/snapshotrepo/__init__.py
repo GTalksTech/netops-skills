@@ -31,7 +31,7 @@ from pathlib import Path
 import yaml
 
 POINTER = ".netops.yaml"
-LEGACY = "~/network-snapshots"     # the default every skill used before 0.4.0
+LEGACY = "~/network-snapshots"     # the default every skill used before 0.3.2
 FIRST_NAME = "main"                # the name a network gets when the user never picks one
 EXIT_CODE = 3                      # exit status when no repo can be found (argparse uses 2)
 HEADER = ("# network-ops settings: where each network's snapshot repo lives.\n"

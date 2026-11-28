@@ -1,10 +1,17 @@
 """network-diagram end to end: the draw.io file (pages, valid links), the reports, the tag command,
 spreadsheet-only runs, the git commit, and the contract with network-snapshot (the commands the
-diagram reads are the ones snapshot saves)."""
+diagram reads are the ones snapshot saves), and --open (with every launcher replaced: no test
+ever starts a real app or browser)."""
+import base64
 import json
 import subprocess
 import sys
+import tempfile
+import urllib.parse
+import urllib.request
+import webbrowser
 import xml.etree.ElementTree as ET
+import zlib
 from pathlib import Path
 
 import pytest
@@ -19,6 +26,7 @@ import topo_fixture  # noqa: E402
 import pluginlib  # noqa: E402,F401
 import snapshotfiles  # noqa: E402
 import topology  # noqa: E402
+import diagram  # noqa: E402
 
 SNAPSHOT_PLATFORMS = HERE.parents[1] / "network-snapshot" / "platforms"
 
@@ -141,3 +149,86 @@ def test_no_snapshot_repo_is_a_clear_error_unless_spreadsheet_only(tmp_path):
     f.write_text("sw-a,Gi1/0/1,Gi1/0/1,sw-b\n", encoding="utf-8")
     rep = run("run", "--links", str(f), "--out", str(tmp_path / "out"), "--no-export", cwd=tmp_path)
     assert rep["repo"] is None and rep["git"] == "not committed (no snapshot repo)"
+
+
+# ---------- --open ----------
+def decode_link(link):
+    """What draw.io does with a #create= link: the reverse of diagram.drawio_link."""
+    assert link.startswith(diagram.APP_URL + "#create=")
+    create = json.loads(urllib.parse.unquote(link.split("#create=", 1)[1]))
+    assert create["type"] == "xml" and create["compressed"] is True
+    return urllib.parse.unquote(zlib.decompress(base64.b64decode(create["data"]), -15).decode("utf-8"))
+
+
+@pytest.fixture
+def launchers(monkeypatch, tmp_path):
+    """Records every launch instead of doing it. No draw.io Desktop unless a test sets `desktop`."""
+    calls = {"popen": [], "browser": [], "desktop": None}
+
+    def browser(url, *a, **kw):
+        calls["browser"].append(url)
+        return True
+    monkeypatch.setattr(diagram, "find_drawio", lambda: calls["desktop"])
+    monkeypatch.setattr(diagram.subprocess, "Popen", lambda cmd, **kw: calls["popen"].append(cmd))
+    monkeypatch.setattr(webbrowser, "open", browser)
+    (tmp_path / "tmp").mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))     # the launcher page lands here
+    return calls
+
+
+def run_here(monkeypatch, capsys, *args):
+    """diagram.py in this process, so the replaced launchers apply."""
+    monkeypatch.setattr(sys, "argv", ["diagram.py", *args])
+    diagram.main()
+    return json.loads(capsys.readouterr().out)
+
+
+def test_link_round_trips_to_the_same_xml(repo):
+    run("run", "--repo", str(repo), "--no-export", "--no-commit", "--title", "Test")
+    xml = (repo / "diagrams" / "network-diagram.drawio").read_text(encoding="utf-8")
+    link = diagram.drawio_link(xml)
+    assert decode_link(link) == xml
+    assert not any(c in link.split("#", 1)[1] for c in '{}":, ')        # the JSON is URL-encoded
+    odd = '<mxfile><diagram name="Größe &amp; 100% +/="/></mxfile>'
+    assert decode_link(diagram.drawio_link(odd)) == odd
+
+
+def test_desktop_is_preferred_over_the_browser(repo, launchers, monkeypatch, capsys):
+    launchers["desktop"] = "C:/fake/draw.io.exe"
+    rep = run_here(monkeypatch, capsys, "run", "--repo", str(repo), "--no-export", "--no-commit", "--open")
+    out = repo / "diagrams"
+    assert launchers["popen"] == [["C:/fake/draw.io.exe", str(out / "network-diagram.drawio")]]
+    assert launchers["browser"] == [] and rep["opened"]["how"] == "desktop"
+    assert json.loads((out / "report.json").read_text(encoding="utf-8"))["opened"]["how"] == "desktop"
+    assert "Opened in draw.io Desktop." in (out / "report.md").read_text(encoding="utf-8")
+
+
+def test_browser_when_no_desktop(repo, launchers, monkeypatch, capsys):
+    rep = run_here(monkeypatch, capsys, "run", "--repo", str(repo), "--no-export", "--no-commit", "--open")
+    assert launchers["popen"] == [] and len(launchers["browser"]) == 1 and rep["opened"]["how"] == "browser"
+    page = Path(urllib.request.url2pathname(urllib.parse.urlparse(launchers["browser"][0]).path))
+    link = json.loads(page.read_text(encoding="utf-8").split("location.replace(", 1)[1].split(");", 1)[0])
+    out = repo / "diagrams"
+    assert decode_link(link) == (out / "network-diagram.drawio").read_text(encoding="utf-8")
+    md = (out / "report.md").read_text(encoding="utf-8")
+    assert "Opened in your browser" in md and "which browsers never send to the server" in md
+
+
+def test_too_long_link_opens_nothing(tmp_path, launchers, monkeypatch):
+    monkeypatch.setattr(diagram, "LINK_LIMIT", 100)
+    f = tmp_path / "d.drawio"
+    f.write_text("<mxfile>" + "x" * 500 + "</mxfile>", encoding="utf-8")
+    opened = diagram.open_diagram(f)
+    assert opened["how"] is None and "too big to pass in a link" in opened["why"]
+    assert "File > Open from > Device" in opened["why"] and "install draw.io Desktop" in opened["why"]
+    assert launchers["browser"] == [] and launchers["popen"] == []
+    assert diagram.opened_lines(opened)[0].startswith("Not opened: ")
+
+
+def test_no_open_flag_opens_nothing(repo, launchers, monkeypatch, capsys):
+    launchers["desktop"] = "C:/fake/draw.io.exe"
+    rep = run_here(monkeypatch, capsys, "run", "--repo", str(repo), "--no-export", "--no-commit")
+    assert launchers["popen"] == [] and launchers["browser"] == []
+    assert rep["opened"] == {"how": None, "why": diagram.NOT_ASKED}
+    md = (repo / "diagrams" / "report.md").read_text(encoding="utf-8")
+    assert "Opened in" not in md and "Not opened" not in md

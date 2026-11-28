@@ -29,7 +29,7 @@ Files in this skill's folder:
 
 ```
 python <skill folder>/scripts/diagram.py run [--network NAME | --repo PATH] [--links links.csv ...]
-       [--site SITE] [--no-subnet] [--out DIR] [--no-export] [--no-commit] [--title TEXT]
+       [--site SITE] [--no-subnet] [--out DIR] [--no-export] [--no-commit] [--title TEXT] [--open]
 ```
 
 - Snapshot repo: with no `--network` or `--repo`, the one network-snapshot uses (same settings).
@@ -44,10 +44,17 @@ python <skill folder>/scripts/diagram.py run [--network NAME | --repo PATH] [--l
 - `--no-subnet`: neighbor and spreadsheet links only. Shows what CDP/LLDP alone miss.
 - PDF and `.drawio.svg` copies are made when draw.io Desktop is installed; otherwise the report
   says so. The `.drawio` file needs nothing installed: app.diagrams.net, File > Open from > Device.
+- `--open`: once every file is written, shows the diagram: in draw.io Desktop when installed,
+  else in the default browser at app.diagrams.net with the diagram packed into the link (after
+  `#`, so it never reaches draw.io's server). A diagram too big for a link isn't opened; the
+  report says to use File > Open from > Device or install draw.io Desktop. Never pass it on your
+  own: after an interactive run, ask "Open it in draw.io?" and run the same command plus `--open`
+  only if the user says yes. A run without `--open` never opens anything.
 
 The script prints a JSON report (also `<out>/report.json`): `links_by_kind`, `subnet_links`,
 `port_channels`, `roles`, `roles_to_confirm`, `roles_missing`, `unlinked_devices`,
-`unknown_neighbors`, `coverage_gaps`, `files`, `exports`, `git`.
+`unknown_neighbors`, `coverage_gaps`, `files`, `exports`, `opened` (`how`: `desktop`, `browser`
+or null, and `why`), `git`.
 
 ## What the pages show
 
@@ -76,6 +83,9 @@ green. Firewalls and tunnels usually show up only as subnet links: say so, it's 
    `python <skill folder>/scripts/diagram.py tag --device NAME --role ROLE [--network NAME | --repo PATH] [--write]`
    Roles are shared with every network-ops skill: a device is described once (docs/adr/0002).
 6. Exports and git: whether the PDF/SVG copies were made, and whether the run was committed.
+7. Opening it: without `--open`, ask "Open it in draw.io?" (interactive runs only). With it,
+   say how it opened (`opened.how`); for `browser`, that the diagram stays in their browser and
+   edits there aren't saved to the file. If `how` is null, give `opened.why`.
 
 ## Unattended runs
 
@@ -89,7 +99,9 @@ adds it to their own scheduler; show them the line, never install it:
 - Windows Task Scheduler: `schtasks /Create /SC DAILY /ST 06:15 /TN network-diagram /TR
   "py <skill folder>\scripts\diagram.py run --network NAME"`
 
-A scheduled run never changes the inventory: guessed roles are only listed in the report.
+A scheduled run never changes the inventory: guessed roles are only listed in the report. It
+never uses `--open` either: nobody is there to look, and it would start an app or browser on the
+machine every day. Leave it out of the scheduled line.
 
 ## Platforms
 

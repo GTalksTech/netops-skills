@@ -6,9 +6,10 @@
 #               (Physical L1, Subnets L3, VLANs L2), a Markdown report with a Mermaid preview,
 #               a JSON report, an editable links CSV, and PDF / SVG copies when draw.io Desktop
 #               is installed. Written into <repo>/diagrams and committed with the snapshots.
+#               With --open, the finished .drawio is shown: draw.io Desktop, else the browser.
 # Usage:        python diagram.py run [--repo PATH | --network NAME] [--links links.csv ...]
 #                                     [--site S] [--no-subnet] [--out DIR] [--no-export]
-#                                     [--no-commit] [--title T]
+#                                     [--no-commit] [--title T] [--open]
 #               python diagram.py run --links links.csv --out DIR      (spreadsheet only)
 #               python diagram.py tag --device D --role R [--repo DIR | --network NAME] [--write]
 # Dependencies: Python 3.9+, pyyaml (already a network-snapshot dependency). draw.io Desktop
@@ -20,15 +21,23 @@
 #               The snapshot repo comes from the shared resolver (lib/snapshotrepo), as in
 #               network-snapshot: "Snapshot repo: ..." on stderr, exit 3 with
 #               {"error": "no_snapshot_repo"} when none is set up (unless --links and --out).
+#               Nothing is opened without --open: the agent offers it after an interactive run,
+#               and scheduled runs never pass it.
 # ============================================================
 import argparse
+import base64
 import csv
 import datetime as dt
+import html
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.parse
+import webbrowser
+import zlib
 from collections import Counter
 from pathlib import Path
 
@@ -127,11 +136,23 @@ def summary(topo, rows, files, exported, pages):
     }
 
 
+def opened_lines(opened):
+    """report.md: how --open showed the diagram, or why it couldn't (nothing when not asked)."""
+    if opened["how"] == "desktop":
+        return ["Opened in draw.io Desktop.", ""]
+    if opened["how"] == "browser":
+        return ["Opened in your browser at app.diagrams.net. Edits there aren't saved to this file.",
+                "The diagram data stays in your browser: it rides in the link after `#`, which browsers never "
+                "send to the server.", ""]
+    return [] if opened["why"] == NOT_ASKED else [f"Not opened: {opened['why']}", ""]
+
+
 def write_report(path, topo, rep):
     k = rep["links_by_kind"]
     out = [f"# Network diagram: {rep['devices']} devices, {rep['links']} links", "",
            f"Generated {rep['generated']}. Open `{Path(rep['files']['drawio']).name}` in draw.io "
            "(app.diagrams.net: File > Open from > Device); its pages are: " + ", ".join(rep["pages"]) + ".", "",
+           *opened_lines(rep["opened"]),
            "| Link kind | Count | How it was found |", "|---|---|---|",
            f"| Neighbor link | {k.get('neighbor', 0)} | The device reported it (CDP or LLDP) |",
            f"| Subnet link | {k.get('subnet', 0)} | Two interfaces share a /30 or /31 subnet; no neighbor protocol saw it |",
@@ -209,6 +230,72 @@ def export(drawio_file, out):
             "why": "" if made else f"draw.io Desktop ({exe}) could not export: {', '.join(errors)}"}
 
 
+# ---------- --open: show the finished diagram ----------
+APP_URL = "https://app.diagrams.net/"
+NOT_ASKED = "not asked (no --open)"
+# Longest link handed to the browser. Firefox caps a URL at 1 MB (network.standard-url.max-length,
+# 1,048,576) and Chromium (Chrome, Edge) at 2 MB, where it passes between processes
+# (https://simonwillison.net/2025/Dec/23/url-limits-investigation/). Kept under the smaller one.
+LINK_LIMIT = 1_000_000
+
+
+def _encode_uri_component(text):
+    """JavaScript's encodeURIComponent, which draw.io reverses with decodeURIComponent."""
+    return urllib.parse.quote(text, safe="-_.!~*'()")
+
+
+def drawio_link(xml):
+    """A link that opens this diagram in app.diagrams.net, with nothing uploaded.
+
+    Format checked 2026-11-28 against https://www.drawio.com/docs/reference/diagram-generation/
+    ("Opening AI-generated diagrams in draw.io") and draw.io's own source (Graph.compress, and
+    App.js reading "#create="): "#create=" + encodeURIComponent of the JSON
+    {"type": "xml", "compressed": true, "data": D}, where D is the XML URL-encoded
+    (encodeURIComponent), then raw DEFLATE (no zlib header), then base64. The older "#R" link
+    carries the same data, but the docs no longer show how to build it."""
+    deflate = zlib.compressobj(9, zlib.DEFLATED, -15)
+    raw = deflate.compress(_encode_uri_component(xml).encode("utf-8")) + deflate.flush()
+    create = {"type": "xml", "compressed": True, "data": base64.b64encode(raw).decode("ascii")}
+    return APP_URL + "#create=" + _encode_uri_component(json.dumps(create, separators=(",", ":")))
+
+
+def _launcher(link, folder=None):
+    """A small local page that forwards the browser to the link. Handing the link itself to the OS
+    cuts it short: Windows opens a URL through ShellExecute, which truncates it past 2,083
+    characters (INTERNET_MAX_URL_LENGTH), and Linux caps one command-line argument at 128 KiB.
+    Even a small network's link is longer than 2,083, so the browser opens this file instead."""
+    fd, name = tempfile.mkstemp(prefix=f"{BASENAME}-open-", suffix=".html", dir=folder)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write('<!doctype html><meta charset="utf-8"><title>Opening the network diagram</title>\n'
+                f"<script>location.replace({json.dumps(link)});</script>\n"
+                f'<p><a href="{html.escape(link)}">Open the network diagram in draw.io</a></p>\n')
+    return Path(name)
+
+
+def open_diagram(drawio_file, tmp=None):
+    """Show the finished diagram: draw.io Desktop when installed (not waited for), else the default
+    browser at app.diagrams.net with the diagram in the link. Returns the report's `opened`."""
+    not_desktop = "draw.io Desktop isn't installed"
+    exe = find_drawio()
+    if exe:
+        try:
+            subprocess.Popen([exe, str(drawio_file)], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
+            return {"how": "desktop", "why": f"opened in draw.io Desktop ({exe})"}
+        except OSError as e:
+            not_desktop = f"draw.io Desktop ({exe}) did not start ({e})"
+    link = drawio_link(Path(drawio_file).read_text(encoding="utf-8"))
+    if len(link) > LINK_LIMIT:
+        return {"how": None, "why": f"{not_desktop}, and the diagram is too big to pass in a link "
+                f"({len(link):,} characters, limit {LINK_LIMIT:,}). Open the file at app.diagrams.net through "
+                "File > Open from > Device, or install draw.io Desktop."}
+    if not webbrowser.open(_launcher(link, tmp).as_uri()):
+        return {"how": None, "why": f"{not_desktop}, and no browser could be started. Open the file at "
+                "app.diagrams.net through File > Open from > Device."}
+    return {"how": "browser", "why": f"{not_desktop}: opened app.diagrams.net in the default browser. The "
+            "diagram rides in the link after #, which browsers never send to the server."}
+
+
 def commit(repo, out):
     if not (repo / ".git").exists() or repo not in out.parents:
         return "not committed (output is not inside a git snapshot repo)"
@@ -233,9 +320,13 @@ def run(args):
     exported = {"done": False, "why": "exports skipped (--no-export)"} if args.no_export else export(Path(files["drawio"]), out)
     write_links_csv(Path(files["links_csv"]), topo)
     rep = {**(snapshotrepo.report_fields(loc) if loc else {"repo": None, "network": None}),
-           **summary(topo, rows, files, exported, pages)}
+           **summary(topo, rows, files, exported, pages), "opened": {"how": None, "why": NOT_ASKED}}
     write_report(Path(files["report"]), topo, rep)
     Path(files["json"]).write_text(json.dumps(rep, indent=1), encoding="utf-8")
+    if args.open:       # every file is written: show the diagram, then record how in both reports
+        rep["opened"] = open_diagram(Path(files["drawio"]))
+        write_report(Path(files["report"]), topo, rep)
+        Path(files["json"]).write_text(json.dumps(rep, indent=1), encoding="utf-8")
     rep["git"] = "not committed (--no-commit)" if args.no_commit else \
         commit(repo, out) if repo else "not committed (no snapshot repo)"
     print(json.dumps(rep, indent=1))
@@ -266,6 +357,8 @@ def main():
     ap.add_argument("--no-export", action="store_true", help="run: skip the PDF / SVG copies")
     ap.add_argument("--no-commit", action="store_true", help="run: don't commit the diagram to the snapshot repo")
     ap.add_argument("--title", default="Network", help="run: diagram title")
+    ap.add_argument("--open", action="store_true", help="run: open the finished diagram (draw.io Desktop, else "
+                                                        "the browser). Only when the user asked; never scheduled")
     ap.add_argument("--device", help="tag: device name")
     ap.add_argument("--role", help="tag: " + " | ".join(devicetags.ROLES))
     ap.add_argument("--write", action="store_true", help="tag: write the change (only after the user approved it)")

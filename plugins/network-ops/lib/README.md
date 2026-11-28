@@ -16,6 +16,7 @@ One Python package per job, each a folder directly under `lib/`:
 | `devicetags/` | The device tags every skill reads from the inventory (role, criticality, exposure; ADR 0002): role guessing, `kind` derived from role, and the approved-only tag writer | network-diagram, devicefacts |
 | `topology/` | Devices and links from saved show output: CDP/LLDP neighbor links, subnet and tunnel links, port-channels, VLANs, trunks, spreadsheet links | network-diagram |
 | `devicefacts/tables.py` | Rows from host and link tables: ARP, MAC table, trunks, CDP/LLDP, DHCP snooping and server bindings, FortiGate ARP and interface addresses; `norm_mac`, `short_if` | hosttable |
+| `snapshotrepo/` | Which snapshot repo a run uses (flags, `NETOPS_REPO`, a `.netops.yaml` pointer, the saved default), and `--set-repo`'s writer of the user settings file (ADR 0003) | network-snapshot (and health check through it), network-diagram, network-push |
 | `hosttable/` | The host table: those rows joined into one row per address (ip, mac, vrf, vlan, device, port, kind, sources, note), CSV in and out, new and gone since the last run | network-snapshot |
 
 Rules for a new package:
@@ -35,6 +36,52 @@ library does it with the same three-line module, `scripts/pluginlib.py`:
 import pluginlib  # noqa: F401  (puts plugins/network-ops/lib on sys.path)
 import devicefacts
 ```
+
+## snapshotrepo
+
+```python
+loc = snapshotrepo.resolve(repo=args.repo, network=args.network)   # RepoError if none
+snapshotrepo.announce(loc)              # "Snapshot repo: <path> (network: <name>)" on stderr
+report.update(snapshotrepo.report_fields(loc))                     # repo, network (, repo_note)
+snapshotrepo.set_repo(path, network=None, replace=False)           # what --set-repo does
+```
+
+One snapshot repo per network, outside project folders, its location asked on first use
+(docs/adr/0003). `resolve` tries, in order, and the first that answers wins:
+
+1. `--repo PATH` or `--network NAME`.
+2. `NETOPS_REPO` (a path).
+3. `.netops.yaml`, the nearest one at or above the current folder. It holds only
+   `network: NAME` and no data, so a project may commit it.
+4. The settings file's `default:` network (or its only network).
+5. Back-compat: no networks saved yet, but `~/network-snapshots/inventory.yaml` exists (the
+   default before 0.3.2). That folder is saved as network `main`, the default, and `loc["note"]`
+   says so once; `announce` prints it.
+6. Nothing: `RepoError` with `code` `no_snapshot_repo`. The script never prompts, guesses or
+   creates a repo; `snapshotrepo.fail(e)` prints `e.as_dict()` as one JSON line on stderr and
+   exits 3, and the skill's SKILL.md tells the agent to ask the user and run `--set-repo`.
+
+Other codes: `unknown_network` (a name no network has), `bad_settings`, and from `set_repo`,
+`network_exists` (the name already points to another folder: needs `replace=True`, the old folder
+is left alone) and `path_in_use` (another network already uses that folder). `set_repo` creates
+the folder, never touches another network's entry, and makes the first network the default.
+
+The banner and the JSON report go to different streams on purpose: stdout stays one JSON
+document that tests and callers parse.
+
+**Settings file.** `networks: {NAME: PATH}` and `default: NAME`, at:
+
+- `NETOPS_CONFIG`, when set (tests always set it, through `plugins/conftest.py`);
+- else `%APPDATA%\netops\config.yaml` on Windows;
+- else `$XDG_CONFIG_HOME/netops/config.yaml`, default `~/.config/netops/config.yaml`.
+
+Why not the plugin data folder: the Claude Code plugins reference
+(code.claude.com/docs/en/plugins-reference, "Environment variables", checked 2026-11-28) defines
+`${CLAUDE_PLUGIN_DATA}` (`~/.claude/plugins/data/<id>/`), but exports it only to hooks, MCP and
+LSP servers, not to commands Claude runs through the Bash tool, and cron or Task Scheduler never
+see it. It is also deleted when the plugin is uninstalled. The snapshot repo's location has to
+outlive the plugin and be found the same way from Claude and from a scheduled run, so it lives
+in the OS's per-user config folder.
 
 ## devicefacts
 

@@ -13,8 +13,9 @@ earning its place, delete it.
 
 - Lab v2: an HQ campus (edge router, FortiGate fw-01, core, two distribution
   switches, four access switches), a branch over GRE, and a simulated ISP.
-- The device list is `~/network-snapshots/inventory.yaml`. Never connect to a
-  device that is not on it.
+- The device list is `inventory.yaml` in the snapshot repo you chose on first use
+  (every skill run prints `Snapshot repo: <path>`). Never connect to a device
+  that is not on it.
 - Credentials come from the OS credential store (service `netops-skills`).
   Never write them into a file, a commit or the chat.
 - Know the current state before answering: take a network snapshot first, then

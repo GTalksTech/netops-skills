@@ -26,8 +26,15 @@ read what it saved, run every check in `checks.md` (in this folder) using the fi
 ## Run
 
 ```
-python <network-snapshot skill>/scripts/snapshot.py --health [--repo PATH] [--site SITE | --device NAME]
+python <network-snapshot skill>/scripts/snapshot.py --health [--network NAME | --repo PATH] [--site SITE | --device NAME]
 ```
+
+The snapshot repo is the one network-snapshot uses: with no `--network` or `--repo`, the one the
+user chose on first use. The run prints `Snapshot repo: <path> (network: <name>)` on stderr and
+`repo` in the report; name it in the report header. If it exits with
+`"error": "no_snapshot_repo"`, follow network-snapshot's first-time setup (ask where to keep
+it, `--set-repo PATH`), then run again. A scheduled health check never prompts: it passes
+`--network NAME` or `--repo PATH` explicitly, so a changed default can't move it.
 
 No target means every device. Use the same Python that runs snapshots. The run also takes a
 normal snapshot and commits it; that is expected. The JSON report (also in
@@ -74,7 +81,7 @@ When the run's `commit` is null nothing changed: cite the current HEAD
 ```
 # Health check: <scope>, <YYYY-MM-DD HH:MM>
 
-Snapshot commit <hash, or "<HEAD hash> (no change)" when commit is null> · <N> devices checked · <verdict: Healthy | N findings, worst: <one line>>
+Snapshot repo <repo> (network <network>) · commit <hash, or "<HEAD hash> (no change)" when commit is null> · <N> devices checked · <verdict: Healthy | N findings, worst: <one line>>
 Compared with the previous run at <time> (<minutes> min) | First run: counters are totals only
 
 ## Findings

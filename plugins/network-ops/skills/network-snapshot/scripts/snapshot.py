@@ -9,8 +9,9 @@
 #               state (ARP, MAC tables, bindings; per VRF) outside git with the previous
 #               run beside it, and joins it into a host table (.snapshot/hosts.csv).
 #               Writes a JSON report: failures first, reboots, changed files, hosts.
-# Usage:        python snapshot.py --inventory inventory.yaml [--site S | --device D]
-#                                  [--no-state] [--full] [--health]
+# Usage:        python snapshot.py [--repo PATH | --network NAME] [--site S | --device D]
+#                                  [--no-state] [--full] [--health] [--inventory FILE]
+#               python snapshot.py --set-repo PATH [--network NAME] [--replace]
 #               python snapshot.py --set-credential <username>
 #               python snapshot.py --check-profiles
 # Dependencies: Python 3.9+, netmiko, keyring, pyyaml, git on PATH.
@@ -23,6 +24,9 @@
 #               Passwords come from the shared credential lookup (lib/credentials):
 #               an environment variable, the inventory's credentials command, then the
 #               OS credential store. Never from files or arguments; never printed.
+#               The snapshot repo comes from the shared resolver (lib/snapshotrepo): no
+#               repo set up exits 3 with {"error": "no_snapshot_repo"} on stderr; every
+#               run prints "Snapshot repo: <path> (network: <name>)" on stderr.
 # ============================================================
 import argparse
 import datetime as dt
@@ -41,6 +45,7 @@ import yaml
 import pluginlib  # noqa: F401  (puts plugins/network-ops/lib on sys.path)
 import credentials
 import hosttable
+import snapshotrepo
 from snapshotfiles import slug  # the file each command's output is saved to
 
 READ_VERBS = ("show", "get", "display")
@@ -333,7 +338,9 @@ def git(repo, *args, check=True):
 
 
 def run(args):
-    repo = Path(args.repo).expanduser()
+    loc = snapshotrepo.resolve(repo=args.repo, network=getattr(args, "network", None))
+    snapshotrepo.announce(loc)
+    repo = loc["path"]
     inv_path = Path(args.inventory) if args.inventory else repo / "inventory.yaml"
     if not inv_path.exists():
         sys.exit(f"no inventory at {inv_path}: copy inventory.example.yaml there and edit it")
@@ -465,7 +472,7 @@ def run(args):
         if len(parts) >= 3:
             by_device.setdefault(parts[1], []).append(f"{status} {parts[2]}")
     report = {
-        "taken": stamp, "target": target, "repo": str(repo), "commit": commit,
+        "taken": stamp, "target": target, **snapshotrepo.report_fields(loc), "commit": commit,
         "first_snapshot": commit is not None and git(repo, "rev-list", "--count", "HEAD").strip() == "1",
         "devices_ok": sorted(results), "failures": failures, "reboots": reboots,
         "up_less_than_24h": recent,
@@ -490,7 +497,13 @@ def run(args):
 def main():
     ap = argparse.ArgumentParser(description="Read-only multi-vendor network snapshot to git.")
     ap.add_argument("--inventory", help="inventory file (default: inventory.yaml inside the snapshot repo)")
-    ap.add_argument("--repo", default="~/network-snapshots", help="git repo that holds the snapshots")
+    ap.add_argument("--repo", help="the snapshot repo (git) for this run; default: the one chosen on first use")
+    ap.add_argument("--network", help="use this network's snapshot repo from the settings file; "
+                                      "with --set-repo, the network to save it under")
+    ap.add_argument("--set-repo", metavar="PATH",
+                    help="save PATH as the snapshot repo (of --network NAME, else the default network) and exit")
+    ap.add_argument("--replace", action="store_true",
+                    help="with --set-repo: allow moving a network that already points to another folder")
     ap.add_argument("--site")
     ap.add_argument("--device")
     ap.add_argument("--workers", type=int, default=8)
@@ -510,6 +523,18 @@ def main():
         credentials.store(args.set_credential, pw)
         print(f"stored: service '{credentials.SERVICE}', user '{args.set_credential}'")
         return
+    if args.set_repo:
+        try:
+            out = snapshotrepo.set_repo(args.set_repo, args.network, args.replace)
+        except snapshotrepo.RepoError as e:
+            snapshotrepo.fail(e)
+        made = " (folder created)" if out["created"] else ""
+        print(f"Snapshot repo for network '{out['network']}': {out['path']}{made}")
+        if out["replaced"]:
+            print(f"Replaced: network '{out['network']}' was {out['replaced']} (that folder is left as it is)")
+        print(f"Saved in {out['settings']}. Default network: {out['default']}. "
+              "Runs that pass no --repo or --network use the default.")
+        return
     if args.check_profiles:
         for p in sorted(PLATFORMS.glob("*.yaml")):
             try:
@@ -519,7 +544,10 @@ def main():
             except Exception as e:
                 print(f"REFUSED {p.stem}: {e}")
         return
-    run(args)
+    try:
+        run(args)
+    except snapshotrepo.RepoError as e:
+        snapshotrepo.fail(e)
 
 
 if __name__ == "__main__":

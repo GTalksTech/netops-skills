@@ -119,3 +119,25 @@ def test_snapshot_saves_every_command_the_diagram_reads():
         assert any(snapshotfiles.slug(c) in saved for c in cmds), f"network-snapshot no longer saves {key}"
     forti = yaml.safe_load((SNAPSHOT_PLATFORMS / "fortinet.yaml").read_text(encoding="utf-8"))
     assert snapshotfiles.slug(topology.CMD["fortios"]) in {snapshotfiles.slug(c["cmd"]) for c in forti["commands"]}
+
+
+def test_run_names_its_snapshot_repo_and_tag_finds_the_saved_one(repo, tmp_path):
+    r = subprocess.run([sys.executable, str(SCRIPTS / "diagram.py"), "run", "--repo", str(repo), "--no-export",
+                        "--no-commit"], capture_output=True, text=True)
+    assert f"Snapshot repo: {repo} (network: unnamed)" in r.stderr and json.loads(r.stdout)["repo"] == str(repo)
+    import snapshotrepo
+    snapshotrepo.set_repo(repo, "lab")
+    r = subprocess.run([sys.executable, str(SCRIPTS / "diagram.py"), "tag", "--device", "lonely-sw-01",
+                        "--role", "access"], capture_output=True, text=True, cwd=tmp_path)
+    assert r.returncode == 0 and f"Snapshot repo: {repo} (network: lab)" in r.stderr
+    assert json.loads(r.stdout)["network"] == "lab"
+
+
+def test_no_snapshot_repo_is_a_clear_error_unless_spreadsheet_only(tmp_path):
+    r = subprocess.run([sys.executable, str(SCRIPTS / "diagram.py"), "run", "--no-export"],
+                       capture_output=True, text=True, cwd=tmp_path)
+    assert r.returncode == 3 and json.loads(r.stderr.strip().splitlines()[-1])["error"] == "no_snapshot_repo"
+    f = tmp_path / "links.csv"
+    f.write_text("sw-a,Gi1/0/1,Gi1/0/1,sw-b\n", encoding="utf-8")
+    rep = run("run", "--links", str(f), "--out", str(tmp_path / "out"), "--no-export", cwd=tmp_path)
+    assert rep["repo"] is None and rep["git"] == "not committed (no snapshot repo)"

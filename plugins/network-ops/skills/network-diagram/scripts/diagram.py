@@ -6,17 +6,20 @@
 #               (Physical L1, Subnets L3, VLANs L2), a Markdown report with a Mermaid preview,
 #               a JSON report, an editable links CSV, and PDF / SVG copies when draw.io Desktop
 #               is installed. Written into <repo>/diagrams and committed with the snapshots.
-# Usage:        python diagram.py run [--repo ~/network-snapshots] [--links links.csv ...]
+# Usage:        python diagram.py run [--repo PATH | --network NAME] [--links links.csv ...]
 #                                     [--site S] [--no-subnet] [--out DIR] [--no-export]
 #                                     [--no-commit] [--title T]
 #               python diagram.py run --links links.csv --out DIR      (spreadsheet only)
-#               python diagram.py tag --device D --role R [--repo DIR] [--write]
+#               python diagram.py tag --device D --role R [--repo DIR | --network NAME] [--write]
 # Dependencies: Python 3.9+, pyyaml (already a network-snapshot dependency). draw.io Desktop
 #               is optional (PDF and SVG copies).
 # Author:       G Talks Tech
 # GitHub:       github.com/GTalksTech/netops-skills (plugins/network-ops)
 # Notes:        Never logs in to a device: reads files on disk only. The tag command writes the
 #               inventory only with --write, after the user approved that exact change.
+#               The snapshot repo comes from the shared resolver (lib/snapshotrepo), as in
+#               network-snapshot: "Snapshot repo: ..." on stderr, exit 3 with
+#               {"error": "no_snapshot_repo"} when none is set up (unless --links and --out).
 # ============================================================
 import argparse
 import csv
@@ -33,6 +36,7 @@ import yaml
 
 import pluginlib  # noqa: F401
 import devicetags
+import snapshotrepo
 import topology
 from topology import short_intf
 
@@ -48,10 +52,23 @@ def load_inventory(repo):
     return yaml.safe_load(f.read_text(encoding="utf-8")) or {}
 
 
-def build(args):
-    repo = Path(args.repo).expanduser()
+def locate(args):
+    """The snapshot repo, or None for a spreadsheet-only run (--links and --out, no repo set up)."""
+    try:
+        loc = snapshotrepo.resolve(repo=args.repo, network=args.network)
+    except snapshotrepo.RepoError as e:
+        if e.code == "no_snapshot_repo" and getattr(args, "links", None) and getattr(args, "out", None):
+            print("Snapshot repo: none (spreadsheet only)", file=sys.stderr)
+            return None
+        raise
+    snapshotrepo.announce(loc)
+    return loc
+
+
+def build(args, loc):
+    repo = loc["path"] if loc else None
     topo = topology.new()
-    if repo.exists():
+    if repo and repo.exists():
         topo = topology.read_snapshot(repo, load_inventory(repo), args.site)
     elif not args.links:
         sys.exit(f"diagram.py: no snapshot repo at {repo} and no --links: run network-snapshot first, "
@@ -206,7 +223,8 @@ def commit(repo, out):
 
 
 def run(args):
-    repo, topo, rows = build(args)
+    loc = locate(args)
+    repo, topo, rows = build(args, loc)
     out = Path(args.out).expanduser() if args.out else repo / "diagrams"
     out.mkdir(parents=True, exist_ok=True)
     files = {"drawio": str(out / f"{BASENAME}.drawio"), "report": str(out / "report.md"),
@@ -214,29 +232,33 @@ def run(args):
     pages = drawio.write(Path(files["drawio"]), topo, args.title)
     exported = {"done": False, "why": "exports skipped (--no-export)"} if args.no_export else export(Path(files["drawio"]), out)
     write_links_csv(Path(files["links_csv"]), topo)
-    rep = summary(topo, rows, files, exported, pages)
+    rep = {**(snapshotrepo.report_fields(loc) if loc else {"repo": None, "network": None}),
+           **summary(topo, rows, files, exported, pages)}
     write_report(Path(files["report"]), topo, rep)
     Path(files["json"]).write_text(json.dumps(rep, indent=1), encoding="utf-8")
-    rep["git"] = "not committed (--no-commit)" if args.no_commit else commit(repo, out)
+    rep["git"] = "not committed (--no-commit)" if args.no_commit else \
+        commit(repo, out) if repo else "not committed (no snapshot repo)"
     print(json.dumps(rep, indent=1))
 
 
 def tag(args, ap):
     if not args.device or not args.role:
         ap.error("tag needs --device NAME and --role ROLE")
-    inv = Path(args.repo).expanduser() / "inventory.yaml"
+    loc = locate(args)
+    inv = loc["path"] / "inventory.yaml"
     try:
         out = devicetags.apply(inv, args.device, {"role": args.role}, args.write,
                                allowed={"role": devicetags.ROLES})
     except (devicetags.TagError, OSError, yaml.YAMLError) as e:
         ap.exit(2, f"diagram.py tag: {e}\n")
-    print(json.dumps(out, indent=1))
+    print(json.dumps({**snapshotrepo.report_fields(loc), **out}, indent=1))
 
 
 def main():
     ap = argparse.ArgumentParser(description="Network diagram (draw.io) from saved show output and/or a CSV of links.")
     ap.add_argument("action", choices=["run", "tag"])
-    ap.add_argument("--repo", default="~/network-snapshots", help="network-snapshot repo (default ~/network-snapshots)")
+    ap.add_argument("--repo", help="network-snapshot repo (default: the one chosen on first use)")
+    ap.add_argument("--network", help="use this network's snapshot repo from the settings file")
     ap.add_argument("--links", action="append", default=[], help="run: CSV of links (device, port, port, device), repeatable")
     ap.add_argument("--site", help="run: draw one site only")
     ap.add_argument("--no-subnet", action="store_true", help="run: neighbor and spreadsheet links only")
@@ -248,7 +270,10 @@ def main():
     ap.add_argument("--role", help="tag: " + " | ".join(devicetags.ROLES))
     ap.add_argument("--write", action="store_true", help="tag: write the change (only after the user approved it)")
     args = ap.parse_args()
-    return run(args) if args.action == "run" else tag(args, ap)
+    try:
+        return run(args) if args.action == "run" else tag(args, ap)
+    except snapshotrepo.RepoError as e:
+        snapshotrepo.fail(e)
 
 
 if __name__ == "__main__":

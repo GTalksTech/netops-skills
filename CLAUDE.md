@@ -7,6 +7,12 @@ setup files or expected work seem missing, check `git branch --show-current` and
 feature branches before suggesting setup or a merge. (Learned 2026-11-26: a session started in a
 stale worktree based on main and asked to re-run setup.)
 
+## Versions
+
+Bump only the last number (0.3.1 to 0.3.2) for a fix or a small feature. A middle-number bump
+(0.3 to 0.4) is Garrett's call, never Claude's. (Learned 2026-11-28: a small first-run setting
+was shipped as 0.4.0.)
+
 ## GitHub account
 
 All GitHub work in this repo (push, gh issues/PRs/comments, commit author) uses the GTalksTech

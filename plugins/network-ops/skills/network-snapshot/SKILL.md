@@ -39,31 +39,45 @@ Files in this skill's folder:
   The script owns it.
 - Never present a host table row as more certain than its `sources` and `note` say.
 
-## First-time setup (only if the run says the inventory or a password is missing)
+## First-time setup (only if the run says the snapshot repo, inventory or a password is missing)
 
 1. Python: find an interpreter that imports `netmiko`, `keyring` and `yaml`
    (`python3`, `python` or `py`). If none does, install from `requirements.txt` after the user
    agrees.
-2. Snapshot repo: default `~/network-snapshots` (the user may pick another path; pass it with
-   `--repo` on every run). Copy `inventory.example.yaml` to `<repo>/inventory.yaml` and fill it
+2. Snapshot repo: when a run exits with `"error": "no_snapshot_repo"` on stderr, none is set up
+   yet. The script never picks one; you ask. Say in one or two sentences that snapshots live in
+   their own git repo, separate from any project, because the network outlives any project and
+   its configs are sensitive. Ask where to keep it, suggesting `~/network-snapshots` (a folder
+   next to their lab or network notes is fine too, but not inside a project repo). Then run
+   `python <skill folder>/scripts/snapshot.py --set-repo PATH`
+   and continue. Tell them they can change it later with `--set-repo PATH --replace`. For a
+   second network, add `--network NAME`; runs then pick it with `--network NAME`, or a
+   `.netops.yaml` holding `network: NAME` in a project folder. `unknown_network`,
+   `network_exists` and `path_in_use` errors say what to do; relay them, never edit the settings
+   file to get around them.
+3. Inventory: copy `inventory.example.yaml` to `<repo>/inventory.yaml` and fill it
    from the user's device list: name, host, site, device_type (a profile file name), username,
    and `credential` only when devices share a username but not a password.
-3. Passwords: ask the user to run this in their own terminal, once per username or credential
+4. Passwords: ask the user to run this in their own terminal, once per username or credential
    name (in Claude Code they can prefix it with `!`):
    `python <skill folder>/scripts/snapshot.py --set-credential <name>`
    If they keep passwords in a vault or password manager instead, point them to the plugin
    README's Credentials section (a `credentials:` block in the inventory); never run the vault
    CLI yourself.
-4. Tell the user each vendor needs a read-only account; the plugin README has the per-vendor steps.
+5. Tell the user each vendor needs a read-only account; the plugin README has the per-vendor steps.
    A FortiGate also needs its console set to standard output (the run says so if not).
 
 ## Run
 
 ```
-python <skill folder>/scripts/snapshot.py [--repo PATH] [--site SITE | --device NAME] [--no-state] [--full]
+python <skill folder>/scripts/snapshot.py [--network NAME | --repo PATH] [--site SITE | --device NAME] [--no-state] [--full]
 ```
 
-No target means every device. `--no-state` skips device state and the host table (the faster,
+With no `--network` or `--repo`, the run uses the snapshot repo chosen on first use (or the
+network a `.netops.yaml` in the project names). It prints `Snapshot repo: <path> (network:
+<name>)` on stderr and `repo` and `network` in the report: tell the user where the files went.
+If it also prints that it adopted `~/network-snapshots` (an older install), pass that line on
+once. No target means every device. `--no-state` skips device state and the host table (the faster,
 config-only run). `--full` adds heavy commands (full OSPF database, crypto SAs, the FortiGate route
 database); use it only when the user asks for depth. The script prints a JSON report, also saved
 to `<repo>/.snapshot/last-report.json`.
@@ -82,6 +96,20 @@ to `<repo>/.snapshot/last-report.json`.
 
 Field-by-field detail, the first-snapshot and first-run-after-upgrade cases, and how to answer
 "where is host X": [references/reading-results.md](references/reading-results.md).
+
+## Unattended runs
+
+A scheduled run never prompts, so it always names its snapshot repo: `--network NAME` (as saved
+with `--set-repo`) or `--repo PATH`. Then a changed default can't move it. The user adds it to
+their own scheduler; show them the line, never install it:
+
+- Linux or macOS cron, every day at 06:00:
+  `0 6 * * * python3 <skill folder>/scripts/snapshot.py --network NAME`
+- Windows Task Scheduler: `schtasks /Create /SC DAILY /ST 06:00 /TN network-snapshot /TR
+  "py <skill folder>\scripts\snapshot.py --network NAME"`
+
+The password must come from somewhere a scheduled task can read (the OS store of the same
+user, or `NETOPS_SECRET_<NAME>`).
 
 ## Before and after a change
 

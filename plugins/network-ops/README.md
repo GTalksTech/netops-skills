@@ -66,7 +66,7 @@ discovery missed), and from a spreadsheet you give it (`device, port, port, devi
 the daily snapshot and the diagram in git is never older than the last snapshot.
 
 ```
-python skills/network-diagram/scripts/diagram.py run --repo ~/network-snapshots
+python skills/network-diagram/scripts/diagram.py run          # uses your snapshot repo
 python skills/network-diagram/scripts/diagram.py run --links links.csv --out ./diagram   # spreadsheet only
 ```
 
@@ -130,10 +130,27 @@ Then Python 3.9 or newer with the packages in `skills/network-snapshot/requireme
 
 1. **A read-only account on every device.** See the table below. The skill never configures
    anything, but a read-only account means it can't, even by mistake.
-2. **An inventory.** Copy `skills/network-snapshot/inventory.example.yaml` to
-   `~/network-snapshots/inventory.yaml` and list your devices: name, IP or hostname, site, and
+2. **A snapshot repo.** One git repo per network holds its snapshots, kept outside your project
+   folders: the network outlives any project, and its configs are too sensitive for a project
+   repo that may be public. The first time you run a skill, Claude asks where to keep it
+   (`~/network-snapshots` is a good choice) and saves your answer. Or set it yourself:
+
+   ```
+   python skills/network-snapshot/scripts/snapshot.py --set-repo ~/network-snapshots
+   ```
+
+   Every skill and every scheduled run uses it from then on, and each run prints
+   `Snapshot repo: <path> (network: <name>)` so you always know where the files went. Move it
+   later with `--set-repo PATH --replace`. More than one network: add `--network NAME` when you
+   set each one, then pick one per run with `--network NAME`, or put a `.netops.yaml` holding
+   `network: NAME` in a project folder (it holds no data, so it's safe to commit). The settings
+   live in `%APPDATA%\netops\config.yaml` on Windows and `~/.config/netops/config.yaml`
+   elsewhere (`NETOPS_CONFIG` overrides). Upgrading from 0.3 with snapshots in
+   `~/network-snapshots`: the first run finds them, saves that folder and says so.
+3. **An inventory.** Copy `skills/network-snapshot/inventory.example.yaml` to
+   `inventory.yaml` in your snapshot repo and list your devices: name, IP or hostname, site, and
    device type. Or just ask Claude to build it from your device list.
-3. **Passwords.** The simplest home is your OS credential store (Windows Credential Manager,
+4. **Passwords.** The simplest home is your OS credential store (Windows Credential Manager,
    macOS Keychain, or Linux Secret Service). Run this yourself, once per username:
 
    ```
@@ -193,8 +210,11 @@ Ask Claude: "take a network snapshot", "snapshot the branch1 site", "what change
 since yesterday?" Or run a snapshot before a change window and another after it, and ask Claude
 what changed between the two.
 
-Snapshots live in `~/network-snapshots`, one folder per site and device, one file per command,
-one git commit per run. It's a normal git repo, so `git log` is your change history.
+Snapshots live in the snapshot repo you chose on first use (the `Snapshot repo:` line of every
+run names it), one folder per site and device, one file per command, one git commit per run.
+It's a normal git repo, so `git log` is your change history. A scheduled run should name its
+network or folder (`--network NAME` or `--repo PATH`), so changing your default later can't move
+it.
 
 ## Vendors
 

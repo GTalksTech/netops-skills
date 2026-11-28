@@ -224,3 +224,8 @@ def test_no_change_password_sends_nothing(real_connect, monkeypatch, capsys):
     assert run(real_connect, monkeypatch, "vlan 40\n", "push", "sw1") == 1
     assert FakeConn.sent == []
     assert "NETOPS_SECRET_ADMIN" in capsys.readouterr().out
+
+
+def test_push_names_its_snapshot_repo(env, monkeypatch, capsys):
+    assert run(env, monkeypatch, "vlan 40\n", "preview", "sw1", log=False) == 0
+    assert f"Snapshot repo: {env} (network: unnamed)" in capsys.readouterr().err

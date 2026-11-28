@@ -35,7 +35,7 @@ class FakeConn:
 
 def setup(tmp_path, monkeypatch):
     sys.modules["netmiko"] = types.SimpleNamespace(ConnectHandler=FakeConn)
-    monkeypatch.setattr(snapshot.keyring, "get_password", lambda s, u: "pw")
+    monkeypatch.setattr(snapshot.credentials.keyring, "get_password", lambda s, u: "pw")
     (tmp_path / "inventory.yaml").write_text(
         "devices:\n  - {name: r1, host: 10.0.0.1, site: hq, device_type: cisco_ios, username: ro}\n")
     return types.SimpleNamespace(repo=str(tmp_path), inventory=None, site=None, device=None,

@@ -19,7 +19,7 @@ EOF
 ```
 
 - `push DEVICE --log DIR`: one device, the change account (default `admin`, password from the
-  OS credential store). Stops on the first device error.
+  shared credential lookup, see Setup). Stops on the first device error.
 - `batch --log DIR`: several devices under ONE approval, in order, stopping at the first
   failure. Each device starts with an `@DEVICE` line. The script refuses the whole batch unless
   every line is an interface description.
@@ -53,3 +53,5 @@ today); anything else is refused.
 
 The change account's password goes into the OS credential store once:
 `python <this skill>/scripts/push.py --set-credential admin`
+It can come from `NETOPS_SECRET_ADMIN` or the inventory's vault command instead (plugin README,
+Credentials). Never ask for, print or write it.

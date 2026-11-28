@@ -3,6 +3,11 @@
 # in platforms/ (file name without .yaml). "credential" (optional) names the stored password when
 # devices share a username but not a password. Passwords are NOT stored here: run
 #   python scripts/snapshot.py --set-credential <username>
+# or set NETOPS_SECRET_<NAME>, or have a vault CLI print them (plugin README, Credentials):
+# credentials:
+#   command: bw get password {name}
+# Optional tag read by every skill (network-diagram suggests it, writes it only with your approval):
+#   role: provider | edge | firewall | core | distribution | access   (what the device does)
 defaults:
   username: claude-ro          # a read-only account (see README for each vendor)
   device_type: cisco_ios

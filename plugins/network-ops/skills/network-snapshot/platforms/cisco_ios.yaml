@@ -1,7 +1,22 @@
 # Cisco IOS / IOS-XE (routers and switches)
-status: lab-tested        # lab v2 (IOL 17.16 in CML), 2026-10-23
+#
+# Keys (the full list is in the skill's references/profiles.md):
+#   commands:        committed output: config and stable structure, saved to git and diffed.
+#                    The FIRST command must be the config: 'when:' rules match against it.
+#   state_commands:  device state: run by default, saved under .snapshot/state, never committed.
+#                    'tier: full' runs only with --full.
+#   health_commands: run only with --health; never committed or diffed.
+#   when:            a regex (multiline) matched against this run's config; the command is
+#                    skipped, and listed as skipped, when it does not match.
+#   {vrf}:           the command runs once per VRF named in the 'vrfs' command's output.
+#                    Names must match [A-Za-z0-9_.:-]{1,32}; others are reported, never sent.
+#   timeout:         read timeout in seconds (default 90).
+status: lab-tested        # lab v2 (IOL 17.16 in CML), 2026-10-23; state set 2026-11-28
 netmiko_device_type: cisco_ios
 invalid_markers: ["% Invalid input", "% Incomplete command", "% Ambiguous command", "% Authorization failed"]
+no_data_markers: ["% IPv6 routing table ", "% VRF ", "% BGP not active", "No MPLS apps enabled"]
+privilege: {cmd: show privilege, regex: 'privilege level is (\d+)'}   # reported, not saved
+vrfs: {cmd: show vrf detail, regex: '^VRF (\S+) \(VRF Id'}
 uptime:
   cmd: show version
   regex: 'uptime is (.+)'
@@ -18,29 +33,115 @@ commands:
   - cmd: show switch detail            # stack members (stackable switches)
   - cmd: show module                   # chassis line cards
   - cmd: show redundancy               # dual supervisor / route processor
+  - cmd: show stackwise-virtual        # Catalyst 9000 StackWise Virtual pairs
+    when: '^stackwise-virtual'
   - cmd: show ip interface brief
+  - cmd: show ip interface             # secondary IPs, helpers, ACLs, VRF per interface
+  - cmd: show ipv6 interface
+    when: '^\s*ipv6 (address|enable)'
   - cmd: show interfaces description
   - cmd: show interfaces status
   - cmd: show interfaces switchport
   - cmd: show interfaces trunk
   - cmd: show vlan brief
+  - cmd: show vlan private-vlan
+    when: 'private-vlan'
   - cmd: show vtp status
   - cmd: show etherchannel summary
+  - cmd: show lacp neighbor            # LACP partner system and port: link evidence
+    when: 'channel-group \d+ mode (active|passive)'
+  - cmd: show udld neighbors           # UDLD neighbor device and port: link evidence
+    when: '^\s*udld '
+  - cmd: show spanning-tree            # root, port roles, states and costs per VLAN
   - cmd: show spanning-tree summary
   - cmd: show spanning-tree root
   - cmd: show standby brief
   - cmd: show vrrp brief
+  - cmd: show glbp brief
+    when: '^\s*glbp '
   - cmd: show cdp neighbors detail
   - cmd: show lldp neighbors detail
-  - cmd: show vrf
+  - cmd: show vrf detail               # VRFs, RD, route targets, interfaces
   - cmd: show ip protocols
-  - cmd: show ip route
+  - cmd: show ip protocols vrf {vrf}
+  - cmd: show ip route vrf *           # every VRF's routes, the global table first
+    timeout: 300
+  - cmd: show ip route vrf * summary   # route counts per VRF and protocol
+  - cmd: show ipv6 route vrf *
+    when: '^ipv6 unicast-routing'
+    timeout: 300
+  - cmd: show ip ospf interface
+    when: '^router ospf '
   - cmd: show ip ospf interface brief
   - cmd: show ip ospf neighbor
   - cmd: show ip eigrp neighbors
-  - cmd: show ip bgp summary
+  - cmd: show bgp all summary          # every address family, VPNv4 and EVPN included
+  - cmd: show ip dhcp snooping
+    when: '^ip dhcp snooping'
+  - cmd: show nve vni                  # VXLAN VNI to VLAN / VRF
+    when: '^interface nve'
   - cmd: show ip access-lists
   - cmd: show ip ssh
+state_commands:                        # run by default (--no-state skips); never committed or diffed
+  - cmd: show ip arp
+    timeout: 300
+  - cmd: show ip arp vrf {vrf}         # 'show ip arp vrf *' does not exist, so once per VRF
+    timeout: 300
+  - cmd: show ipv6 neighbors
+    when: '^ipv6 unicast-routing'
+  - cmd: show ipv6 neighbors vrf {vrf}
+    when: '^ipv6 unicast-routing'
+  - cmd: show mac address-table        # switches; routers reject it
+    timeout: 300
+  - cmd: show ip dhcp binding          # this device as DHCP server
+    when: '^ip dhcp pool '
+  - cmd: show ip dhcp snooping binding
+    when: '^ip dhcp snooping'
+  - cmd: show device-tracking database # Catalyst 9000 SISF host bindings
+    when: '^device-tracking'
+  - cmd: show access-session           # 802.1X / MAB sessions
+    when: '(access-session|dot1x pae|mab)'
+  - cmd: show interfaces               # MAC, MTU, speed, duplex (also a health command)
+  - cmd: show power inline             # PoE draw per port: phones and APs (hardware)
+    when: '^\s*power inline'
+  - cmd: show bgp all neighbors
+    when: '^router bgp '
+    timeout: 300
+  - cmd: show ip ospf neighbor detail
+    when: '^router ospf '
+  - cmd: show ip ospf database
+    when: '^router ospf '
+  - cmd: show crypto session
+    when: '^crypto '
+  - cmd: show ip nhrp
+    when: 'ip nhrp'
+  - cmd: show ip nat translations
+    when: 'ip nat (inside|outside|enable)'
+    timeout: 300
+  - cmd: show ip mroute
+    when: '^ip multicast-routing'
+  - cmd: show ip pim neighbor
+    when: 'ip pim '
+  - cmd: show nve peers
+    when: '^interface nve'
+  - cmd: show ip ospf database router  # full intra-area topology
+    tier: full
+    when: '^router ospf '
+  - cmd: show mpls ldp neighbor
+    tier: full
+    when: '^\s*mpls ip'
+  - cmd: show crypto ikev2 sa
+    tier: full
+    when: '^crypto ikev2'
+  - cmd: show crypto isakmp sa
+    tier: full
+    when: '^crypto isakmp'
+  - cmd: show crypto ipsec sa
+    tier: full
+    when: '^crypto (map|ipsec)'
+  - cmd: show dmvpn
+    tier: full
+    when: 'ip nhrp'
 health_commands:                       # run only with --health; never committed or diffed
   - cmd: show processes cpu sorted 5min
   - cmd: show processes cpu history
@@ -76,6 +177,7 @@ strip:                    # whole lines that change on their own
   - '^! NVRAM config last updated'
   - 'uptime is'
   - '^\s*Holdtime\s*:'
+  - '^Time remaining:'                                    # LLDP hold timer
   - '^BGP table version is'
   - 'network entries using \d+ bytes'
   - 'path entries using \d+ bytes'
@@ -89,16 +191,27 @@ strip:                    # whole lines that change on their own
   - 'multipath network entries and'
   - 'networks peaked at'
   - '^Using \d+ out of \d+ bytes'
+  - '^\s*Last flood scan (length|time) is'                # show ip ospf interface
+  - '^\s*Last retransmission scan (length|time) is'
+  - '^\s*Index \d+/\d+/\d+, flood queue length'
+  - '^\s*Next 0x[0-9A-Fa-f]+\('
 mask:                     # parts of lines that change on their own
   - pattern: '\((\d+) match(es)?\)'                  # ACL hit counters
     replace: '(hits)'
-  - pattern: '\b\d{1,2}:\d{2}:\d{2}\b'                    # timers: dead time, route age, up/down
-    replace: '--:--:--'
-  - pattern: '\b\d+[ywd]\d+[dhw]\b'                        # long ages: 1d02h, 2w3d
-    replace: '--'
+  # timers and ages (dead time, route age, up/down): 00:41:07, 1d02h, 2w3d all become '--', and
+  # the padding after them shrinks to one space, so an age that changes width (23:59:59 to 1d00h)
+  # does not shift the rest of the line
+  - pattern: '(?:\b\d{1,2}:\d{2}:\d{2}\b|\b\d+[ywd]\d+[dhw]\b)( ?) *'
+    replace: '--\1'
   # BGP summary neighbor line: keep neighbor, version, AS and state/prefixes; drop message counters
   - pattern: '^(\d+\.\d+\.\d+\.\d+\s+\d\s+\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+'
     replace: '\1  (counters)'
+  # the same for an IPv6 neighbor, whose numbers wrap onto the next line
+  - pattern: '^(\s+\d\s+\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+'
+    replace: '\1  (counters)'
+  # show lacp neighbor: the partner's age in seconds
+  - pattern: '^(\S+\s+\S+\s+\d+\s+[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4}\s+)\d+s +'
+    replace: '\1-- '
 sort_blocks:              # sort neighbor entries so a reboot doesn't reorder the file
   show cdp neighbors detail: '^Device ID:'
   show lldp neighbors detail: '^Local Intf:'

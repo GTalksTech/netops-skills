@@ -1,7 +1,7 @@
 {
   "name": "network-ops",
-  "version": "0.2.1",
-  "description": "AI skills for network engineers from G Talks Tech: multi-vendor network snapshots saved to git and health checks, both read-only, plus a controlled push that puts approved changes on your devices with every command shown before you approve it.",
+  "version": "0.3.0",
+  "description": "AI skills for network engineers from G Talks Tech: multi-vendor network snapshots saved to git and health checks, both read-only, a draw.io network diagram from your snapshots, plus a controlled push that puts approved changes on your devices with every command shown before you approve it.",
   "author": {
     "name": "Garrett Masters (G Talks Tech)",
     "url": "https://gtalkstech.com"
@@ -15,6 +15,9 @@
     "snapshot",
     "push",
     "health-check",
-    "netmiko"
+    "netmiko",
+    "diagram",
+    "drawio",
+    "topology"
   ]
 }
